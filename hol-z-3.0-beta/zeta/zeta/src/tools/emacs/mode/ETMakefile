@@ -1,0 +1,26 @@
+
+AUTOSUBNODES	= $(SUBNODES)
+
+ELISPFILES	= zeta-base zeta-mode zeta-server
+
+this:
+	@echo "Nothing to be done for zeta-mode"
+
+bcompile: .etstate.elisp
+
+.etstate.elisp: $(ELISPFILES:%=%.el)
+	rm -f *.elc
+	$(EMACS) -batch -l zeta-compile.el
+	touch .etstate.elisp
+
+inst:	bcompile
+	$(ET_INSTALL) lib/emacs $(ELISPFILES:%=%.el)
+	$(ET_INSTALL) lib/emacs $(ELISPFILES:%=%.elc)
+
+inst0:
+	mkdirhier $(ET)/lib/emacs >/dev/null || true
+	for el in $(ELISPFILES); do \
+	  [ -f $(ET)/lib/emacs/$$el.el ] || \
+	     ln -s `pwd`/$$el.el $(ET)/lib/emacs; \
+          [ ! -f $$el.elc ] || cp $$el.elc $(ET)/lib/emacs; \
+        done

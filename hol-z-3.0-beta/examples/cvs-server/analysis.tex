@@ -1,0 +1,573 @@
+\rcsInfo $Id: analysis.tex,v 1.34 2003/12/29 09:30:25 hiss Exp $
+
+\chapter{Formal Analysis}
+
+In this chapter, we formally investigate functional and security properties of
+both abstraction layers of the CVS-Server. By their nature, these are
+\emph{behavioral properties}, i.e.\ it is necessary to consider the set of possible
+\emph{sequences} of operations the system may engage in --- the \emph{traces}
+--- and state requirements on the possible states the system reaches after these
+traces. Hence, the specification of the safety properties in the system
+architecture and the implementation architecture motivate two Z sections that
+contain classical \emph{behavioral} specifications.
+
+As functional properties, we describe requirements of what the system should do:
+Give a client access to the objects in the repository it has permission to. In
+contrast, security properties in our setting state that the client \emph{must
+  not} access data that he has no permission to, whatever combination of
+cvs-commands he applies.
+
+Methodically, we need an interface between the data-oriented part of the
+specification in previous chapters and the behavioral part as presented in the
+following chapter. The trick is done by converting the operation schemas of both
+system layers into relations over the underlying state. Traces are represented
+as transitive closures over the union of these relations; in principle, all
+sorts of modal operators can be used to specify properties over them.
+
+
+\section[System Architecture]{Properties of the System Architecture}
+
+\subsection{Security Properties}\label{sec:secprop1}
+
+\zsection[AbsOperations]{SysArchSec}\vspace{1ex}\noindent
+
+We assume that a user ``knows'' a set of pairs of IDs and passwords, and that
+the user ``invents'' only files from a given set of pairs from names to data in
+the \cvscmd{add}-operation.
+%
+% ---- Aufbauendes Prinzip
+%
+%%\begin{axdef}
+%%  MH : \power (Abs\_Name \cross Abs\_Data) 
+%%  \fun \power (Abs\_Name \cross Abs\_Data)\\
+%%  \where
+%%    \forall S : \power (Abs\_Name \cross Abs\_Data); 
+%%    name : Abs\_Name ; data : Abs\_Data @\\ 
+%%    \t1 (name, data) \in MH(S) \iff \\
+%%    \t2 ((name, data) \in S \\
+%%    \t2 \lor (\exists mdata : Abs\_Data @ \\
+%%    \t3 (name, merge(data, mdata)) \in MH(S)\\
+%%    \t3 \lor (name, merge(mdata, data)) \in MH(S)))\\
+%%\end{axdef}
+%
+% ---- Abbauendes Prinzip
+%
+\begin{axdef}
+  MH : \power (Abs\_Name \cross Abs\_Data) 
+  \fun \power (Abs\_Name \cross Abs\_Data)\\
+  \where
+    \forall S : \power (Abs\_Name \cross Abs\_Data); 
+    x : (Abs\_Name \cross Abs\_Data)@\\ 
+    \t1 x \in MH(S) \iff \\
+    \t2 (x \in S \\
+    \t2 \lor (\exists a : Abs\_Name; y : Abs\_Data; mdata : Abs\_Data @ \\
+    \t3 (a,y)\in MH(S) \land \\
+    \t4 (x = (a, merge(y, mdata))\\
+
+    \t4 \lor x = (a, merge(mdata, y)))))\\
+\end{axdef}
+%
+% ----------------------------
+%
+\begin{axdef}
+  Aknows: \power (Cvs\_Uid \cross Cvs\_Passwd) \\
+  Ainvents\_Base, Ainvents: \power (Abs\_Name \cross Abs\_Data)\\
+    \where
+    \forall x : Abs\_Name @ \forall xd, yd : Abs\_Data @ \\
+    \t1 (x \mapsto xd \in Ainvents\_Base \land x \mapsto yd \in Ainvents\_Base)\\
+    \iff  x \mapsto merge(xd, yd) \in Ainvents\_Base\\
+    Ainvents = MH(Ainvents\_Base)\\
+  \end{axdef}
+
+The merge hull function allows us to adjust the set $Ainvents$ to both the
+actions of users on files in the working copy and the synchronization of the
+working copy with the repository. 
+
+In the following, we assume that the IDs and passwords that the client uses to
+log in are restricted to IDs and passwords the user ``knows'' and that the name
+and data that a client adds or modifies are restricted to names and data that
+the user ``invents''.
+\begin{zed}
+%
+% Login
+%
+  abs\_loginR == abs\_login \land \\
+  \t1 [ \< uid? : Cvs\_Uid;passwd? : Cvs\_Passwd | \\
+  \t2 (uid?, passwd?) \in Aknows] \> \\
+\end{zed}
+%
+% Add
+%
+\begin{zed}
+  abs\_addR == abs\_add \land \\
+  \t1 [ newfiles? : ABS\_DATATAB | \\
+  \t2 newfiles? \subseteq Ainvents] \\
+\end{zed}
+%
+% Modify
+%
+\begin{zed}
+  modifyR == modify \land \\
+  \t1 [ \< filename? : Abs\_Name; newData? : Abs\_Data | \\ 
+  \t2 filename? \mapsto newData? \in Ainvents] \> \\
+\end{zed}
+
+For the commit operation we restrict the security model on users without
+administrative permission. Possibly the security statements can be weakened so
+that they can be proven without this restriction. We require trust in users
+getting administrative rights. Therefore we prefer to give more precise security
+statements while accepting the restriction of $abs\_ci$.
+\begin{zed}
+%
+% Commit
+%
+  abs\_ciR == abs\_ci \land \\
+  \t1 [ \< rep : ABS\_DATATAB; abs\_passwd : PASSWD\_TAB | \\
+  \t2 \forall role : \dom abs\_passwd @ \\
+  \t3 authtab~rep~(role, abs\_passwd~role)\\
+  \t3 \neq cvs\_admin] \> \\
+%
+%
+\end{zed}
+The schemas are embedded in a relation, and the ``sequence of operations'' is
+captured by a transitive closure over the union of the operation relations.
+\begin{zed}
+  AService == abs\_loginR \lor abs\_addR \lor abs\_ciR \lor abs\_up \lor abs\_cd \lor modifyR\\
+  AbsState == ClientState \land RepositoryState \\
+  AtransR == \{ AService @ ( \theta AbsState, \theta AbsState ') \} \star
+\end{zed}
+We define InitAbsState as a restricted variant of the AbsState schema. For
+example, we require that the working copy is initially empty.
+%
+%
+  \begin{zed}
+    InitAbsState == AbsState \land \\
+    \t1 [ wc: ABS\_DATATAB; rep : ABS\_DATATAB; \\
+    \t2 wc\_uidtab: ABS\_UIDTAB; abs\_passwd : PASSWD\_TAB| \\
+    \t2 wc = \emptyset \land \\
+    \t2 wc\_uidtab = \emptyset \land \\
+    \t2 abs\_passwd \neq \emptyset \land \\
+    \t2 (\forall x : abs\_passwd @ x \in Aknows)\land \\
+    \t2 (\forall x : Aknows @ authtab~rep~x \neq cvs\_admin)]\\
+  \end{zed}  
+  With the schema $Areachable$ we relate the hull of commands to the desired
+  initial states.
+  \begin{zed}
+    Areachable == InitAbsState \dres AtransR \\
+  \end{zed}
+  Now we can postulate the following list of security
+  properties of our architecture:
+\begin{enumerate}
+\item Any sequence of CVS operations starting from an empty working copy does
+  not lead to a working copy with data from the repository that the user has no
+  permission to access in the repository (except if he was able to ``invent''
+  it).
+
+%
+%
+%
+%%prerel AReadProp
+\begin{doc}{3}
+  \begin{axdef}
+    AReadProp \_ : \power (ABS\_DATATAB \cross ABS\_DATATAB \cross ABS\_PERMTAB) \\
+    \where \forall wc : ABS\_DATATAB; rep : ABS\_DATATAB; rep\_permtab :
+    ABS\_PERMTAB @ \\
+    \t1 AReadProp(wc, rep, rep\_permtab) \iff \\
+    \t2 (\forall n : \dom wc @ \\
+    \t3(n,wc(n)) \in Ainvents \lor \\
+    \t3 ((\exists m: Aknows @ \\
+    \t4 (rep\_permtab(n),authtab(rep)(m))\in cvs\_perm\_order)))\\
+%    \t3 ((wc(n) = rep(n)) \implies (\exists m: Aknows @ \\
+  \end{axdef}
+\end{doc}
+%
+%
+%
+%  
+\begin{zed}
+    AReadSec == \forall AbsState @ \forall  AbsState ' @ \\
+    \t1 [\Delta AbsState |(\theta AbsState,\theta AbsState ')\in Areachable \\
+    \t2 \implies AReadProp(wc', rep', rep\_permtab')]\\
+  \end{zed}
+%
+%
+%
+\item No sequence of CVS operations leads to a repository with ``invented''
+  data, except the user ``knows'' the ID and password that corresponds to the
+  data.
+%
+%
+%%prerel AWriteProp
+\begin{doc}{3}
+  \begin{axdef}
+    AWriteProp \_ : \power (ABS\_DATATAB \cross ABS\_DATATAB \cross ABS\_PERMTAB) \\
+    \where \forall rep : ABS\_DATATAB; rep' : ABS\_DATATAB; rep\_permtab' :
+    ABS\_PERMTAB @ \\
+    \t1 AWriteProp(rep, rep', rep\_permtab') \iff \\
+    \t2 (\forall f : \dom rep' @\\
+    \t2 (rep(f)\neq rep'(f)\\
+    \t2 \implies (\exists m: Aknows @ \\
+    \t2 (rep\_permtab'(f),authtab(rep')(m)) \in cvs\_perm\_order)))\\
+  \end{axdef}
+\end{doc}
+  \begin{zed}
+%
+%
+    AWriteSec == \forall AbsState @ \forall  AbsState ' @ \\
+    \t1 [\Delta AbsState |(\theta AbsState,\theta AbsState ')\in Areachable \\
+    \t2 \implies AWriteProp(rep, rep', rep\_permtab')]\\ 
+  \end{zed}
+%
+  If we can grant that the dominant permission $cvs\_admin$ cannot be obtained
+  by any tuple of $Cvs\_Uid \cross Cvs\_Passwd$ from $(authtab~rep)$ (which is
+  equal to the parsed authentication file $abs\_cvsauth$), then we can show that
+  AWriteSec holds.
+%
+ 
+  The base cases for this proof can be shown trivially using the following
+  lemma:
+
+%
+  \[
+  \bigwedge u~v.\;
+%
+%
+  \left.
+    \begin{array}{l}
+      u : ABS\_DATATAB\\
+      v : ABS\_PERMTAB\\
+    \end{array}
+  \right\}
+%
+%
+  \Longrightarrow
+  AWriteProp(u, u, v)
+  \]
+%
+
+  The induction step of our proof is characterized by a case distinction on the
+  commands. The operation $abs\_ci$ is the only Operation which changes the
+  repository state.
+%
+
+    For all other commands, the goal can be trivially solved with the induction
+    hypothesis. The fact $\Xi RepositoryState$ implies invariance of $rep$ and
+    $rep\_permtab$. So the goal can be unified with the induction hypothesis
+    after substituting $rep$ and $rep\_permtab$. 
+%
+    
+    The proof for the command commit uses a case distinction on the top level.
+
+    \begin{center}
+      \setlength\unitlength{1cm}
+      \begin{picture}(7,5)
+        \thicklines
+%
+% Obere Verzweigung
+%
+        \put(2.6,4.7){\line(4,-5){1}}
+        \put(2.6,4.7){\line(-4,-5){1}}
+%
+% (1a)
+%
+        \put(0.5, 3){case (1a)}
+        \put(0, 2.5){$f \notin \dom y.rep$}
+%
+% (1b)
+%
+        \put(3.2, 3){case (1b)}
+        \put(3.0, 2.5){$f \in \dom y.rep$}
+%
+% untere Verzweigung
+%
+        \put(4.0,2.2){\line(4,-5){1}}
+        \put(4.0,2.2){\line(-4,-5){1}}
+%
+% (2)
+%
+        \put(1.9, 0.5){case (2)}
+        \put(1.0, 0){$y.rep~f \neq z.rep~f$}
+%
+% (3)
+%
+        \put(4.7, 0.5){case (3)}
+        \put(4.4, 0){$y.rep~f = z.rep~f$}
+%
+%
+      \end{picture}
+    \end{center}
+%
+    The first two cases require a differentiated analysis of the behaviour of
+    the command $abs\_ci$. The third case can be shown using the induction
+    hypothesis as a main argument. Cases one and two use the lemma $LoginAknows$
+    which allows us to show that an id and its corresponding password are
+    members of the set $Aknows$.
+%
+% Lemma LoginAknows
+%
+    \[
+    \bigwedge x.\;
+    \left.  
+      \parbox{0.25\textwidth}{$
+        \begin{array}{l}   
+          InitAbsState \\
+          AtransR \\
+          x \in \dom abs\_passwd' \\
+        \end{array}$}
+    \right\}
+%
+%
+%
+    \Longrightarrow
+    (x, abs\_passwd~x) \in Aknows
+    \]
+% 
+
+    If the administrator changed the file $abs\_cvsauth$, it would be
+    possible that he meanwhile reduces his permission status. It can happen that
+    a valid permission exists before changing a file, but vanishes afterwards.
+    This makes a proof of our goal $AWriteSec$ allowing administrative
+    permissions in $abs\_ci$ impossible. Alternatives to our decision which
+    involve the administrator are e.g.\ weakening the statement to: ``there
+    exists a state where the user has the permission to change the file'', or we
+    could restrict the administrator to only extend the set of existing
+    role-permission assignments.
+
+%
+%
+  
+\item Moreover, there is the obvious safety-property that the user can access
+  all data he has the permission to.  With access meaning reading (i.e.\ cvs
+  update) the repository and writing (i.e.\ cvs commit) the repository, and with
+  ignoring merges, we can formulate this property as follows:
+  \begin{schema}{AlwaysUpdateProp}
+    wfiles: \power Abs\_Name \\
+    wc': ABS\_DATATAB \\
+    rep: ABS\_DATATAB \\
+    rep\_permtab: ABS\_PERMTAB \\
+    abs\_uid: Cvs\_Uid \\
+    abs\_pwd: Cvs\_Passwd \\
+    \where
+    \forall f: wfiles | f \in \dom rep \land f \in \dom wc' \land \\
+    \t1 (rep\_permtab(f), authtab(rep)(abs\_uid, abs\_pwd)) \in cvs\_perm\_order
+    @ \\ 
+    \t2 wc'(f) = rep(f) \\
+  \end{schema}
+  \begin{zed}
+    AlwaysUpdate == \forall ClientState; ClientState '; RepositoryState; \\
+    \t1 RepositoryState ' @ abs\_up \implies AlwaysUpdateProp \\
+  \end{zed}
+  The commit operation is analogous.
+\end{enumerate}
+ 
+A proof of safety properties can be based on an induction over the transitive
+closure; in the base-case, a case distinction has to be made: either the user
+``knows'' the authentication for the $cvs\_admin$ (then he can access everything
+anyway) or not (then the authentication table remains constant and the user will
+always have the same access rights. 
+
+Due to the refinement, these safety properties carry over to the implementation
+level. To be more precise, for all compatible states (i.e.\ the $Cvs\_Client$ is
+not $root$ has normal access to his home account and his working copy in it),
+any combination of cvs commands on the implementation level will not violate the
+security properties.  However, this proof breaks down when the cvs commands can be
+interleaved with \unix-commands. For this purpose, an own induction over refined
+states has to be done, which is subject of the next section.
+
+
+%\subsection{Functional Properties}
+
+%\begin{itemize}
+%\item checkout in allowed areas: $Init ; (cd | cvs\_login)* | cvs\_co$
+%\item checkin in allowed areas: $Init ; (cd | cvs\_login)* | cvs\_ci$
+%\item read/write of cvs\_auth if cvs\_admin
+%\end{itemize}
+
+
+\section[Implementation Architecture]{Properties of the Implementation
+  Architecture}\label{sec:secprop2}
+
+With respect to ``knows'' and ``invents'', we make the same assumptions as in
+section~\ref{sec:secprop1}. Moreover, we have to assume specialties due to the
+implementation architecture level: for instance, the user must have write access
+to his own working copy, the working directory must point into the working copy,
+etc.
+
+
+\subsection{Security Properties}
+
+\zsection[CVSServer]{ImplArchSec}\vspace{1ex}\noindent
+
+We approach the formalization of the security properties in the same way as for
+the abstract case.
+\begin{axdef}
+  Cknows: \power (Cvs\_Uid \cross Cvs\_Passwd) \\
+  Cinvents: FILESYS\_TAB \\
+\end{axdef}
+\begin{zed}
+  CService == cvs\_cd \lor cvs\_mkdir \lor cvs\_mkfile \lor cvs\_access \lor
+  cvs\_write \lor cvs\_rm \\
+  \t1 \lor cvs\_rmdir \lor cvs\_mv \lor cvs\_chown \lor cvs\_chmod \lor
+  cvs\_setumask \\
+  \t1 \lor cvs\_login \lor cvs\_co \lor cvs\_update \lor cvs\_ci \lor cvs\_add
+  \\ 
+  ConcState == ProcessState \land Cvs\_FileSystem \\
+  CtransR == \{ CService @ ( \theta ConcState, \theta ConcState ') \} \star \\
+\end{zed}
+Then we postulate the following list of security properties of our
+implementation architecture:
+\begin{enumerate}
+\item No sequence of CVS operations \emph{and} \unix-operations starting from an
+  empty working copy leads to a working copy with data from the repository that
+  the user has no permission to access in the repository (except if he was able
+  to ``invent'' it).
+  \begin{zed}
+    InitConcState1== ConcState \land [ wcs\_attributes: CVS\_ATTR\_TAB | \\
+    \t1 wcs\_attributes = \emptyset ] \\ 
+    Creachable1 == CtransR \limg InitConcState1 \rimg \\
+  \end{zed}
+  \begin{schema}{CProp1}
+%    uid: Uid \\
+    wcs\_attributes: CVS\_ATTR\_TAB \\
+    files: FILESYS\_TAB \\
+    attributes: FILEATTR\_TAB \\
+    \where
+    \forall n: \dom wcs\_attributes @ (n, files(n)) \in Cinvents \lor \\
+    \t1 ((files(n) = files((wcs\_attributes~n).rep)) \land (\exists m: Cknows @ \\
+    \t2 has\_r\_access(cvsperm2uid(get\_auth\_tab(files)(m)), \\
+    \t3 cvs\_rep \cat (wcs\_attributes~n).rep, attributes))) \\
+  \end{schema}
+  \begin{zed}
+    CSec01 == \forall Creachable1 @  ConcState \land CProp1 \\
+  \end{zed}
+  
+\item Any sequence of CVS-operations \emph{and} \unix-operations does not lead
+  to a repository with ``invented'' data, except the user ``knows'' the id and
+  password that corresponds to it.
+
+  \begin{zed}
+    Creachable2 == CtransR \limg ConcState \rimg \\
+  \end{zed}
+  \begin{schema}{CProp2}
+%    uid: Uid \\
+    wcs\_attributes: CVS\_ATTR\_TAB \\
+    files: FILESYS\_TAB \\
+    attributes: FILEATTR\_TAB \\
+    \where
+    \forall n: \dom files | cvs\_rep \prefix n @ (n, files(n)) \in Cinvents
+    \implies \\
+    \t1 (\exists m: Cknows @
+    has\_w\_access(cvsperm2uid(get\_auth\_tab(files)(m)), \\ 
+    \t2 cvs\_rep \cat (wcs\_attributes~n).rep, attributes)) \\
+  \end{schema}
+  \begin{zed}
+    CSec2 == \forall Creachable2 @  ConcState \land CProp2 \\
+  \end{zed}
+  
+\item No user can directly access or manipulate (chmod) the repository, except
+  he is the system administrator ``root'' (this is essentially achieved by
+  mapping CVS user IDs to \unix user IDs and group IDs that are disjoint from
+  all user IDs of ``real'' users).
+  
+  \emph{Here, we have the choice to formulate this property as a general state
+    invariant over the system state or over all possible traces of
+    \unix-operations.}
+
+  Formulating the property as a general state invariant:
+  \begin{schema}{CProp3}
+    uid: Uid \\
+    cvs\_rep: Path \\
+    attributes: FILEATTR\_TAB \\
+    \where
+    uid \notin \{ cvsperm2uid(cvs\_admin), root \} \\
+    \lnot has\_w\_access(uid, cvs\_rep, attributes) \\
+  \end{schema}
+  \begin{zed}
+    CSec3 == \forall ConcState @ ConcState \land CProp3 \\
+  \end{zed}
+  
+\item The CVS administrator can withdraw the permissions for a user (after a
+  suitable \cvscmd{update} of the authentication table); i.e.\ after a withdraw,
+  the user does not get data into his working copy except by ``inventing'' it
+  (e.g.\ the user cannot get data from the repository into his working copy).
+  \label{item:withdraw}
+  
+  We define a relation $CWithdrawId$ that defines the withdrawal of a user id
+  and a relation $ChangeWC$ which defines the possible actions of a user to
+  alter his working copy.
+  \begin{axdef}
+    CWithdrawId: ConcState \rel ConcState \\
+    ChangeWC: ConcState \rel ConcState \\
+    \where
+%    \forall a,b: ConcState @ (a,b) \in CWithdrawId \iff \\ 
+%    \t1 b.files = a.files \oplus \{ cvs\_rep \cat \langle CVSROOT, cvsauth
+%    \rangle \mapsto \\ 
+%    \t2 Inl(data\_of(Cknows \ndres get\_auth\_tab(a.files))) \} \\ 
+    \forall a,b: ConcState @ (a,b) \in CWithdrawId \iff \\ 
+    \t1 b.files = a.files \oplus \{ cvs\_rep \cat \langle CVSROOT, cvsauth
+    \rangle \mapsto \\ 
+    \t2 Inl(data\_of(a.cvs\_passwd \ndres get\_auth\_tab(a.files))) \} \\ 
+
+% the working copy in the post state contains data, that is not invented and
+% wasn't in the working copy before any operation
+    \forall a,b: ConcState @ (a,b) \in ChangeWC \iff (\forall n: \dom
+    b.wcs\_attributes @ \\
+    \t1 (n, b.files(n)) \notin Cinvents \\
+    \t2 \land (n \notin \dom a.wcs\_attributes \lor a.files(n) \neq
+    b.files(n))) \\
+  \end{axdef}
+  \begin{zed}
+    CSec4 == [ a,b: ConcState | (a,b) \in CtransR \land (a,b) \in
+    CWithdrawId ] \\
+    \t1 \implies [b,c: ConcState | (b,c) \in CtransR \land (b,c) \notin
+    ChangeWC ] \\
+  \end{zed}
+\end{enumerate}
+
+Proofs have the same structure as in section~\ref{sec:secprop1}, but are far
+more complex since concepts such as paths, the distinction between files and
+directories, and their permissions (in particular when being created) are
+involved.
+
+
+%\begin{itemize}
+%\item read, write, access attacks via UNIX commands on the repository (Approach
+%  - use Invariants of Cvs\_FileSystem, show that access impossible on any state
+%  fulfilling the invariant)
+%\item checkout attacks in unallowed areas: Init ; (cd | cvs\_login)* | cvs\_co
+%\item checkin attacks in unallowed areas: Init ; (cd | cvs\_login)* | cvs\_ci
+%\item read/write attacks against cvs\_auth
+%\end{itemize} 
+
+%\subsection{Functional Properties}
+
+
+\section[Perspective]{Setting both Security Models into Perspective}
+\label{sec:analysis}
+
+\zsection[SysArchSec,ImplArchSec]{CombinedSec}\vspace{1ex}\noindent
+
+This section serves to discuss the relation between the system level security
+and the implementation level security.
+
+Some security properties cannot be expressed on both abstraction levels.  For
+example, property~\ref{item:withdraw} of the implementation model cannot be
+expressed on the abstract level.
+
+On the implementation level, we could require the following property: No user
+can access the working copy of other users --- except if the others set their
+umask too liberally or the user is the sysadmin ``root''.  This property cannot
+be expressed in our single user model!
+
+
+
+\vspace{4ex} The following Z-section is only a virtual section that depends on
+all other sections, and is therefore used to load the complete specification: \\
+\zsection[Refinement,CombinedSec,SysArchConsistency,ImplArchConsistency]{all}
+
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

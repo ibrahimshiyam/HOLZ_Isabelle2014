@@ -1,0 +1,4 @@
+plugin HOLZAdaptor
+load root.tex
+holz -u LTX:Analysis#root
+quit

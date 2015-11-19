@@ -1,0 +1,86 @@
+package zeta.session;
+
+/**
+ * An interface to be implemented by plugins which connect to a text
+ * editor.
+ *
+ * @version $Id: TextEditor.pizza,v 1.1 2000/05/15 07:43:52 wg Exp $
+ */
+
+import java.io.File;
+import java.io.IOException;
+
+
+public interface TextEditor {
+
+  /**
+   * Return a button name for this editor. If the returned name
+   * is prefixed with @, the remaining name is interpreted as
+   * a file to be found in $ZETABASE/lib/images
+   */
+  public String getButtonName();
+
+  /**
+   * Commit the recently scheduled commands. It is expected
+   * that issued commands are silently accumulated by the editor adaptor
+   * (without throwing any errors) and are then executed in sequence
+   * when commit is called.
+   */
+  public void commit() throws IOException;
+  
+  /**
+   * Add the given visit intention. This may create a mark in the
+   * remote editor.
+   */
+  public void add(Locator.VisitCapability.TextVisit cap);
+
+
+  /** 
+   * Visit the given locator. It is guaranteed that
+   * the locator has been added before.
+   */
+  public void visit(Locator.VisitCapability.TextVisit cap);
+
+  /** 
+   * Reset the added and committed visiting intentions.
+   */
+  public void reset();
+
+  /**
+   * Open the given file for editing.
+   */
+  public void open(File file);
+
+  /**
+   * Release any file-system locks on this file. Prepares
+   * the modification of the file from the outside. A reopen
+   * is called when the writing has finished. Unlock on a file
+   * which has never been opened should have no effect.
+   */
+  public void unlock(File file);
+
+  /**
+   * Reopen this file for editing. Reopening a file which has not
+   * yet been openeded should behave as initial open.
+   */
+  public void reopen(File file);
+
+  /**
+   * Close editing the given file.
+   */
+  public void close(File file, boolean dontSave);
+
+
+  /**
+   * Save the given file.
+   */
+  public void save(File file, boolean silently);
+
+  /**
+   * Save all related files.
+   */
+  public void saveRelated();
+
+
+}
+

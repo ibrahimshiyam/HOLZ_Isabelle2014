@@ -1,0 +1,757 @@
+package zeta.content.nmz;
+
+/** The new version of the mZ abstract syntax.
+  *
+  * @version $Id: MZ.pizza,v 1.8 2000/07/26 16:00:37 wg Exp $
+  */
+
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.format.*;
+import zeta.agl.*;
+
+import zeta.util.Name;
+import zeta.util.Term;
+import zeta.session.Locator;
+
+import zeta.util.FatalError;
+import zeta.format.Format;
+
+public class MZ {
+
+  /** Superclass of any MZ term. */
+  public abstract static class MZTerm extends Term {
+  }
+
+  public static class Expr extends MZTerm {
+
+    /** Locator. */
+    public Locator locator = null;
+
+    /** Denotation. */
+    public case Denotation(String value);
+
+    /** Primitive function call. */
+    public case Call(Name name, Seq<Expr> args);
+
+    /** Reference to a variable. */
+    public case Variable(Name name);
+
+    /** Constructor application. */
+    public case Term(Name name, Seq<Expr> args);
+
+    /** Function application. */
+    public case Apply(Expr func, Expr arg);
+
+    /** Singleton set. */
+    public case Singleton(Expr arg);
+
+    /** Homomorphisms. */
+    public case Hom(Name name, Expr arg);
+
+    /** The empty set. */
+    public case Empty();
+
+    /** The universal set. */
+    public case Universal();
+
+    /** Set intersection. */
+    public case Intersection(Expr left, Expr right);
+
+    /** Set union. */
+    public case Union(Expr left, Expr right);
+
+    /** Set complement. */
+    public case Complement(Expr arg);
+
+    /** Conditional. */
+    public case Conditional(Expr cond, Expr left, Expr right);
+
+    /** Set translation. */
+    public case Translate(Expr arg, Expr source, Expr target);
+
+    /** Let. */
+    public case Let(Name name, Expr def, Expr scope);
+
+    /** Schema. */
+    public case Schema(
+		  Expr binder, 
+		  Set<Name> freeVars,
+		  Seq<Property> props
+		);
+
+
+    /** Set locator field of expression. Returns this expression. */
+    public final Expr set(Locator locator){
+      this.locator = locator;
+      return this;
+    }
+
+    /** Set locator field of expression from other expression. */
+    public final Expr setFrom(Expr other){
+      this.locator = other.locator;
+      return this;
+    }
+
+    /** Return the free variables in expression. */
+    public Set<Name> freeVars(){
+      return vars(new HashSet(), new HashSet());
+    }
+
+    /** Return the free variables in expression excluding the given vars. */
+    public Set<Name> freeVars(Set<Name> exclude){
+      return vars(exclude, new HashSet());
+    }
+
+    final Set<Name> vars(Set<Name> hidden, Set<Name> vs){
+      switch (this){
+      case Call(Name name, Seq<Expr> args):
+	return varsSeq(hidden, vs, args);
+      case Variable(Name name):
+	if (!hidden.contains(name)){
+	  return vs.include(name);
+	} else
+	  return vs;
+      case Term(Name name, Seq<Expr> args):
+	return varsSeq(hidden, vs, args);
+      case Singleton(Expr arg):
+	return arg.vars(hidden, vs);
+      case Hom(_, Expr arg):
+	return arg.vars(hidden, vs);
+      case Complement(Expr oper):
+	return oper.vars(hidden, vs);
+      case Intersection(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      case Apply(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      case Union(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      case Conditional(Expr cond, Expr thenPath, Expr elsePath):
+	return cond.vars(hidden, thenPath.vars(hidden, 
+					       elsePath.vars(hidden, vs)));
+      case Translate(Expr set, Expr source, Expr target):
+	return set.vars(hidden, vs);
+      case Let(Name name, Expr def, Expr scope):
+	return scope.vars(hidden.include(name),
+			  def.vars(hidden, vs));
+      case Schema(Expr binder, Set<Name> fvars, Seq<Property> properties):
+	return Property.varsSeq(
+		 hidden.includeAll(binder.freeVars())
+		       .includeAll(fvars),
+		 vs,
+		 properties);
+      default:
+	return vs;
+      }
+    }
+
+    static Set<Name> varsSeq(Set<Name> hidden, Set<Name> vs, Seq<Expr> es){
+      es.apply(
+	fun (Expr e)->void {
+	  vs = e.vars(hidden,vs);
+	}
+      );
+      return vs;
+    }
+
+    /** Perform a substitution in expression. */
+    public final Expr substitute(Map<Name, Expr> sb){
+      Expr expr = subs(sb, new HashSet(), calcFree(sb));
+      return expr == null ? this : expr;
+    }
+
+    static Set<Name> calcFree(Map<Name,Expr> sb){
+      Set<Name> free = new HashSet();
+      sb.apply(
+	fun (Pair<Name,Expr> p)->void {
+	  free = free.includeAll(p.snd.freeVars());
+	}
+      );
+      return free.excludeAll(sb.domain());
+    }
+
+    final Expr subs(Map<Name, Expr> sb, Set<Name> hidden, Set<Name> free){
+      switch (this){
+      case Call(Name name, Seq<Expr> args):
+	args = subsSeq(sb, hidden, free, args);
+	return args == null ? null : new Call(name, args).setFrom(this);
+      case Variable(Name name):
+	if (!hidden.contains(name)){
+	  try {
+	    MZ.Expr s = sb.get(name);
+	    switch (s){
+	    case Variable(Name name1):
+	      if (name.equals(name1)) return null;
+	    }
+	    MZ.Expr s1 = s.subs(sb,hidden,free); // FIXME: efficiency
+	    return s1 == null ? s : s1;
+	  } 
+	  catch (NoSuchElementException e){
+	    return null;
+	  }
+	} else
+	  return null;
+      case Term(Name name, Seq<Expr> args):
+	args = subsSeq(sb, hidden, free, args);
+	return args == null ? null : new Term(name, args).setFrom(this);
+      case Singleton(Expr arg):
+	arg = arg.subs(sb, hidden, free);
+	return arg == null ? null : new Singleton(arg).setFrom(this);
+      case Hom(Name name, Expr arg):
+	arg = arg.subs(sb, hidden, free);
+	return arg == null ? null : new Hom(name, arg).setFrom(this);
+      case Complement(Expr oper):
+	oper = oper.subs(sb, hidden, free);
+	return oper == null ? null : new Complement(oper).setFrom(this);
+      case Intersection(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Intersection(nleft != null ? nleft : left,
+				  nright != null ? nright : right)
+				 .setFrom(this);
+	} else
+	  return null;
+      case Union(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Union(nleft != null ? nleft : left,
+			   nright != null ? nright : right)
+			  .setFrom(this);
+	} else
+	  return null;
+      case Apply(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Apply(nleft != null ? nleft : left,
+			   nright != null ? nright : right)
+			  .setFrom(this);
+	} else
+	  return null;
+      case Conditional(Expr cond, Expr thenPath, Expr elsePath):
+	Expr ncond = cond.subs(sb, hidden, free);
+	Expr nthen = thenPath.subs(sb, hidden, free);
+	Expr nelse = elsePath.subs(sb, hidden, free);
+	if (ncond != null || nelse != null || nthen != null){
+	  return new Conditional(ncond != null ? ncond : cond,
+				 nthen != null ? nthen : thenPath,
+				 nelse != null ? nelse : elsePath)
+				.setFrom(this);
+	} else
+	  return null;
+      case Schema(Expr binder, Set<Name> fvars, Seq<Property> properties):
+	Set<Name> svars = fvars.includeAll(binder.freeVars());
+	Map<Name,Expr> ren = new HashMap();
+	svars.apply(
+	  fun (Name n)->void {
+	    if (free.contains(n)){
+	      // FIXME: better solution here
+	      // potential name clash problem: must perform beta-conversion
+	      Name nn = new Name("%R" + (++renameCounter));
+	      ren = ren.define(n, Expr.Variable(nn).set(locator));
+	    }
+	  }
+	);
+	if (!ren.isEmpty()){
+	  binder = binder.substitute(ren);
+	  fvars = fvars.map(
+		    fun (Name n)->Name {
+		      if (ren.defines(n)){
+			return ((Expr.Variable)ren.get(n)).name;
+		      } else
+		        return n;
+		    }
+		  );
+	  properties = 
+	    properties.map(
+	      fun (Property p)->Property{
+		return p.substitute(ren);
+	      }
+	    );
+	}
+	properties = Property.subsSeq(sb,
+				      hidden.includeAll(binder.freeVars())
+					    .includeAll(fvars),
+				      free,
+				      properties);
+	if (properties != null)
+	  return new Schema(binder, fvars, properties).setFrom(this);
+	else
+	  return null;
+      default:
+	return null;
+      }
+    }
+    static int renameCounter = 0;
+
+    static Seq<Expr> subsSeq(Map<Name, Expr> sb, Set<Name> hidden,
+			     Set<Name> free,
+			     Seq<Expr> exprs){
+      Seq<Expr> res = new BufferSeq();
+      boolean change = false;
+      exprs = exprs.map(
+		fun (Expr e)->Expr {
+		  Expr ne = e.subs(sb, hidden, free);
+		  if (ne != null){
+		    change = true;
+		    return ne;
+		  } else
+		    return e;
+		}
+	      );
+      if (change)
+	return ArraySeq.from(exprs);
+      else
+	return null;
+    }
+      
+      
+
+    /** Format expression. */
+    public Format toFormat(FormatInfo info){
+      Pair<Format,int> p = fmt(this);
+      return p.fst;
+    }
+
+    private static int minPrio = 0;
+    private static int ifPrio = 20;
+    private static int impliesPrio = 26;
+    private static int orPrio = 30;
+    private static int andPrio = 40;
+    private static int applyPrio = 50;
+    private static int prePrio = 60;
+    private static int maxPrio = 100;
+
+
+    private static Pair<Format,int> fmt(Expr expr){
+      switch (expr){
+      case Denotation(String value):
+	return new Pair(Format.literal(value), maxPrio);
+      case Call(Name name, Seq<Expr> args):
+	return new Pair(Format.block(
+			  Format.literal("$" + name.toString()),
+			  Format.list(Format.literal("("),
+				      Format.literal(","),
+				      Format.literal(")"),
+				      fmtSub(minPrio),
+				      args)),
+			maxPrio);
+      case Variable(Name name):
+	String s = name.toString();
+	return new Pair(Format.literal(s), maxPrio);
+      case Term(Name name, Seq<Expr> args):
+	String repr = name.toString();
+	Seq<Format> fmts = new BufferSeq();
+	int i = repr.indexOf("_");
+	while (i >= 0){
+	  fmts = fmts.append(Format.literal(repr.substring(0,i)));
+	  repr = repr.substring(i+1);
+	  i = repr.indexOf("_");
+	}
+	if (fmts.size() == args.size() && args.size() > 0){
+	  Seq<Format> res = new BufferSeq();
+	  fmts.apply(
+	    fun (Format f)->void{
+	      res = res.append(Format.append(f,
+					     fmtSub(minPrio)(args.head())));
+	      args = args.tail();
+	    }
+	  );
+	  return new Pair(Format.block(res.append(Format.literal(repr))), 
+			  maxPrio);
+	} else {
+	  return new Pair(Format.block(
+			    Format.literal("#" + name.toString()),
+			    Format.list(Format.literal("("),
+					Format.literal(","),
+					Format.literal(")"),
+					fmtSub(minPrio),
+					args)),
+			  maxPrio);
+	}
+
+      case Apply(Expr func, Expr arg):
+	return new Pair(Format.block(
+			  fmtSub(applyPrio)(func),
+			  Format.space(1),
+			  Format.indent(
+			    fmtSub(applyPrio+1)(arg)
+			  )
+			),
+			applyPrio);
+
+      case Singleton(Expr arg):
+	return new Pair(Format.append(Format.literal("{"),
+				      fmtSub(minPrio)(arg),
+				      Format.literal("}")),
+			maxPrio);
+
+      case Hom(Name name, Expr arg):
+	return new Pair(Format.append(Format.literal("/"+name),
+				      Format.space(1),
+				      fmtSub(maxPrio)(arg)),
+			maxPrio);
+	
+      case Empty():
+	return new Pair(Format.literal("EMPTY"), maxPrio);
+
+      case Universal():
+	return new Pair(Format.literal("UNIV"), maxPrio);
+
+
+      case Complement(Expr oper):
+	return new Pair(Format.block(Format.append(Format.literal("~"),
+						   Format.space),
+				     Format.indent(fmtSub(prePrio+1)(oper))),
+			prePrio);
+      case Intersection(Expr left, Expr right):
+	return new Pair(Format.block(Format.append(fmtSub(andPrio)(left),
+						   Format.space,
+						   Format.literal("*"),
+						   Format.space),
+				     (fmtSub(andPrio+1)(right))),
+			andPrio);
+      case Union(Expr left, Expr right):
+	return new Pair(Format.block(Format.append(fmtSub(orPrio)(left),
+						   Format.space,
+						   Format.literal("+"),
+						   Format.space),
+				     (fmtSub(orPrio+1)(right))),
+			orPrio);
+      case Conditional(Expr cond, Expr thenPath, Expr elsePath):
+	return 
+	  new Pair(Format.line(
+		     Format.append(Format.literal("IF "),
+				   cond.toFormat(new FormatInfo())),
+		     Format.space,
+		     Format.line(Format.append(Format.literal("THEN "),
+					       fmtSub(minPrio)(thenPath)),
+				 Format.space,
+				 Format.append(Format.literal("ELSE "),
+					       fmtSub(minPrio)(elsePath)))
+		   ),
+		   ifPrio);
+      case Translate(Expr set, Expr source, Expr target):
+	return new Pair(Format.line(fmtSub(prePrio+1)(set),
+				    Format.indent(
+				      Format.block(
+					Format.literal("["),
+					fmtSub(minPrio)(source),
+					Format.append(
+					  Format.literal(" -> "),
+					  fmtSub(minPrio)(target),
+					  Format.literal("]")
+					)
+				      )
+				    )
+				   ),
+			prePrio);
+      case Let(Name name, Expr def, Expr scope):
+	return new Pair(
+		     Format.block(
+		       Format.append(
+			 Format.literal("LET "),
+			 name.toFormat(new FormatInfo()),
+			 Format.literal(" == "),
+			 fmtSub(minPrio)(def)
+		       ),
+		       Format.indent(
+			 Format.append(Format.literal(" IN "),
+				       fmtSub(minPrio)(scope))
+		       )
+		     ),
+		     ifPrio
+		   );
+		       
+      case Schema(Expr binder, Set<Name> freeVars, Seq<Property> properties):
+	Format vfmt;
+	if (!freeVars.isEmpty()){
+	  vfmt = Format.list(
+		   Format.literal("\\"),
+		   Format.literal(","),
+		   Format.empty,
+		   fun (Name name)->Format {
+		     return name.toFormat(new FormatInfo());
+		   },
+		   freeVars
+		 );
+	} else {
+	  vfmt = Format.empty;
+	}
+	return new Pair(Format.block(
+			  Format.append(
+			    Format.literal("{"),
+			    fmtSub(minPrio)(binder),
+			    vfmt,
+			    Format.literal(" | ")
+			  ),
+			  Format.indent(
+			    Format.list(
+			      Format.empty,
+			      Format.literal("; "),
+			      Format.literal("}"),
+			      fun (Property prop)->Format {
+				return prop.toFormat(new FormatInfo());
+			      },
+			      properties
+			    )
+			  )
+			),
+			maxPrio);
+      }
+    }
+
+    private static (Expr)->Format fmtSub(int demandedPrio){
+      return fun (Expr expr)->Format {
+	       return Format.parenth(fmt(expr), demandedPrio).fst;
+	     };
+    }
+
+  }
+
+  public static class Property extends MZTerm {
+
+    public Locator locator;
+
+    /** Truth. */
+    public case IsTrue(Expr expr);
+
+    /** Equality. */
+    public case Equal(Expr left, Expr right);
+
+    /** Membership. */
+    public case Member(Expr left, Expr right);
+
+    /** Subset. */
+    public case Subset(Expr left, Expr right);
+
+    /** Primitive Predicate. */
+    public case Call(Name name, Seq<Expr> args);
+
+    /** Set locator field of property. Returns this property. */
+    public final Property set(Locator locator){
+      this.locator = locator;
+      return this;
+    }
+
+    /** Set locator field of property from other property. */
+    public final Property setFrom(Property other){
+      this.locator = other.locator;
+      return this;
+    }
+
+    /** Return the free variables in property. */
+    public Set<Name> freeVars(){
+      return vars(new HashSet(), new HashSet());
+    }
+
+    /** Return the free variables in property excluding the given vars. */
+    public Set<Name> freeVars(Set<Name> exclude){
+      return vars(exclude, new HashSet());
+    }
+
+    Set<Name> vars(Set<Name> hidden, Set<Name> vs){
+      switch (this){
+      case Call(Name name, Seq<Expr> args):
+	return Expr.varsSeq(hidden, vs, args);
+      case IsTrue(Expr expr):
+	return expr.vars(hidden, vs);
+      case Equal(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      case Member(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      case Subset(Expr left, Expr right):
+	return right.vars(hidden, left.vars(hidden, vs));
+      }
+    }
+
+    static Set<Name> varsSeq(Set<Name> hidden, Set<Name> vs, Seq<Property> ps){
+      ps.apply(
+	fun (Property p)->void {
+	  vs = p.vars(hidden,vs);
+	}
+      );
+      return vs;
+    }
+
+
+    /** Perform a substitution in property. */
+    public final Property substitute(Map<Name, Expr> sb){
+      Property prop = subs(sb, new HashSet(), Expr.calcFree(sb));
+      return prop == null ? this : prop;
+    }
+
+    final Property subs(Map<Name, Expr> sb, Set<Name> hidden, Set<Name> free){
+      switch (this){
+      case Call(Name name, Seq<Expr> args):
+	args = Expr.subsSeq(sb, hidden, free, args);
+	return args == null ? null : new Call(name,args).setFrom(this);
+      case IsTrue(Expr expr):
+	Expr nexpr = expr.subs(sb, hidden, free);
+	if (nexpr != null){
+	  return new IsTrue(nexpr).setFrom(this);
+	} else
+	  return null;
+      case Equal(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Equal(nleft != null ? nleft : left,
+			      nright != null ? nright : right)
+			     .setFrom(this);
+	} else
+	  return null;
+      case Member(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Member(nleft != null ? nleft : left,
+			    nright != null ? nright : right)
+			   .setFrom(this);
+	} else
+	  return null;
+      case Subset(Expr left, Expr right):
+	Expr nleft = left.subs(sb, hidden, free);
+	Expr nright = right.subs(sb, hidden, free);
+	if (nleft != null || nright != null){
+	  return new Subset(nleft != null ? nleft : left,
+			    nright != null ? nright : right)
+			   .setFrom(this);
+	} else
+	  return null;
+      }
+    }
+
+    static Seq<Property> subsSeq(Map<Name, Expr> sb, Set<Name> hidden,
+				 Set<Name> free,
+				 Seq<Property> props){
+      boolean change = false;
+      props = props.map(
+	fun (Property p)->Property {
+	  Property np = p.subs(sb, hidden, free);
+	  if (np != null){
+	    change = true;
+	    return np;
+	  } else
+	    return p;
+	}
+      );
+      if (change)
+	return ArraySeq.from(props);
+      else
+	return null;
+    }
+      
+      
+    /** Format property. */
+    public Format toFormat1(FormatInfo info){
+      switch (this) {
+      case Equal(Expr left, Expr right):
+	return Format.block(
+		 Format.append(left.toFormat(new FormatInfo()),
+			       Format.literal(" = ")),
+		 Format.indent(right.toFormat(new FormatInfo()))
+	       );
+      case IsTrue(Expr expr):
+	return Format.append(Format.literal("? "),
+			     expr.toFormat(new FormatInfo()));
+      case Member(Expr left, Expr right):
+	return Format.block(
+		 Format.append(left.toFormat(new FormatInfo()),
+			       Format.literal(" : ")),
+		 Format.indent(right.toFormat(new FormatInfo()))
+	       );
+      case Subset(Expr left, Expr right):
+	return Format.block(
+		 Format.append(left.toFormat(new FormatInfo()),
+			       Format.literal(" <= ")),
+		 Format.indent(right.toFormat(new FormatInfo()))
+	       );
+      case Call(Name name, Seq<Expr> args):
+	return Format.block(
+		 Format.literal("$" + name.toString()),
+		 Format.list(Format.literal("("),
+			     Format.literal(","),
+			     Format.literal(")"),
+			     Format.build,
+			     args)
+	       );
+      }
+    }
+
+    public Format toFormat(FormatInfo info){
+      return Format.block(
+	       locator.toFormat(info),
+	       Format.literal(": "),
+	       toFormat1(info)
+	     );
+    }
+
+  }
+
+  public static class UnitDef extends MZTerm {
+
+    /** Locator of a unit definition. */
+    public Locator locator = null;
+
+    /** Constructor of a unit definition. */
+    public case UnitDef(Name name, 
+			Seq<Name> parents,
+			Seq<Name> globals,
+			Seq<Name> locals,
+			Seq<Property> props);
+
+    /** Set locator of a unit definition. */
+    public UnitDef set(Locator locator){
+      this.locator = locator;
+      return this;
+    }
+
+    public Format toFormat(FormatInfo info){
+      return Format.beneath(new Format[]{
+	       Format.literal("UNIT " + name.getRepr()),
+	       Format.block(
+		 Format.literal("PARENTS "),
+		 Format.indent(
+		   Format.list(Format.empty, Format.literal(" "),
+			       Format.empty,
+			       Format.build,
+			       parents)
+		 )
+	       ),
+	       Format.block(
+		 Format.literal("GLOBALS "),
+		 Format.indent(
+		   Format.list(Format.empty, Format.literal(" "),
+			       Format.empty,
+			       Format.build,
+			       globals)
+		 )
+	       ),
+	       Format.block(
+		 Format.literal("LOCALS "),
+		 Format.indent(
+		   Format.list(Format.empty, Format.literal(" "),
+			       Format.empty,
+			       Format.build,
+			       locals)
+		 )
+	       ),
+	       Format.block(
+		 Format.literal("PROPERTIES "),
+		 Format.indent(
+		   Format.list(Format.empty, Format.literal("; "),
+			       Format.empty,
+			       Format.build,
+			       props)
+		 )
+	       )
+	     });
+    }
+  }
+
+}

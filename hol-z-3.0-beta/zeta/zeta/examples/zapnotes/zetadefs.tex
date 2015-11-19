@@ -1,0 +1,60 @@
+
+% define MSZ for latex2html
+\def\MSZ{µSZ}
+
+\usepackage[ctl,msz,dz,index,oxsz]{zeta}
+\usepackage{a4wide,array,color,supertabular,example,epsfig,html}
+\usepackage{zetadefs}
+
+
+\zedbeforeskip=0pt
+\zedafterskip=0pt
+\zedindent=0pt
+
+
+%\def\sectionsize{\large}            \def\subsectionsize{\normalsize}
+
+\newcommand{\opclass}[1]{{\footnotesize\emph{#1}}}
+
+%\newcommand{\docsym}[1]{\dummy{$#1$}&\begin{color}{red}\tt\string #1\end{color}}
+\newcommand{\docsym}[1]{$#1$&{\tt\string #1}}
+%\begin{htmlonly}
+    %\renewcommand{\docsym}[1]{$#1$&{\color{red}\tt\string#1}}
+%\end{htmlonly}
+
+%\newcommand{\docsym}[1]{$#1$&\begin{color}{red}\verb|#1|\end{color}}
+
+\def\MCOL#1{\hline\multicolumn{6}{c}{\bf #1} \\\hline}
+
+
+
+%\overfullrule=2pt
+
+
+\newenvironment{remark}{\begin{small}\begin{quote}\emph{Remark}: }{\end{quote}\end{small}}
+
+
+\def\Espress{ESPRESS}
+\def\Zeta{\textsc{ZeTa}}
+\def\ZAP{\textsc{ZaP}}
+
+\pagestyle{headings}
+
+\parindent0pt
+\parskip3pt
+
+\newcommand{\zetalink}[2]{%
+  \htmladdnormallinkfoot{\emph{#1}}{#2}}
+\newcommand{\scshot}[1]{%
+  \begin{center}\epsfig{file=#1.eps,scale=0.7}\end{center}}
+
+\newcommand{\inputexampledoc}[1]{
+  {
+  \def\docembedded{yes}
+  \let\origsubsection=\subsection
+  \let\origsubsubsection=\subsubsection
+  \def\section{\origsubsection}
+  \def\subsection{\origsubsubsection}
+  \input{#1}
+  }
+}     

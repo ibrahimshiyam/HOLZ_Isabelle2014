@@ -1,0 +1,281 @@
+# The table of abstract lexems of Z / DZ / mSZ 
+# and their mapping to concrete languages.
+# 
+# This table is used to generate according Java and JavaCC 
+# files (by the program genlexis). 
+#
+# An entry in the table consists of lines of the syntax
+#
+#  pizza-case ; "Comment"; L1Token ; L2Token  ; .... ; LNToken .
+#
+# where \" may be used to escape " inside of "..." parts. Newline is not 
+# significant; lines are terminated by ".". LNToken is a JavaCC
+# regular expression.
+#
+# $Id: LEXTABLE,v 1.1.1.1 1998/09/01 10:51:22 wg Exp $
+
+
+# declare concrete language names
+#   in general a line such as "LaTeX ASCII HTML ..."
+LaTeX.
+
+# The Lexis table
+Abbrev		 	; "Abbreviation equality."
+			; "=="
+			.
+Aggreg		 	; "[mSZ] Aggregation keyword (configurations)."
+			; "\\Aggreg"
+			.
+And		 	; "Logical conjunction."
+			; "\\land"
+			.
+Arg		 	; "Argument placeholder."
+			; "\\_"
+			.
+Assoc		 	; "[mSZ] Association keyword (configurations)."
+			; "\\Assoc"
+			.
+Bind		 	; "Schema value binding."
+			; "\\bind"
+			.
+Choice		 	; "[DZ] Choice operator."
+			; "\\dchoice"
+			.
+Chop		 	; "[DZ] Chop operator."
+			; "\\dchop"
+			.
+Colon		 	; "Colon."
+			; ":"
+			.
+Comma		 	; "Comma."
+			; ","
+			.
+Compose		 	; "Sequential composition."
+			; "\\semi"
+			.
+Compute		 	; "[DZ] Computation."
+			; "\\dcompute"
+			.
+Connector	 	; "[mSZ] Connector declaration (statecharts)."
+			; "\\Connector"
+			.
+Cross		 	; "Cartesian product."
+			; "\\cross"
+			.
+Data			; "[mSZ] Data role."
+			; "\\Data"
+			.
+Defs		 	; "Schema definition equality."
+			; "\\defs"
+			.
+Defsyn		 	; "Syntax (free type) definition equality."
+			; "::="
+			.
+Delta		 	; "Delta (schema operator)."
+			; "\\Delta"
+			.
+Derived			; "[mSZ] Derived attribute."
+			; "\\Derived"
+			.
+Dot		 	; "Selection dot."
+			; "."
+			.
+Else		 	; "Else"
+			; "\\ELSE"
+			.
+Everywhere	 	; "[DZ] Temporal everywhere."
+			; "\\deverywhere"
+			.
+Exists		 	; "Existential quantor."
+			; "\\exists"
+			.
+Exists1		 	; "Unique existential quantor."
+			; "\\exists_1"
+			.
+Flow		 	; "[mSZ] Flow Declaration (?)."
+			; "\\Flow"
+			.
+Forall		 	; "Universal quantor."
+			; "\\forall"
+			.
+Goto		 	; "[mSZ] Goto state."
+			; "\\Goto"
+			.
+Hat		 	; "Exponential hat."
+			; "^"
+			.
+Hide		 	; "Schema hiding."
+			; "\\hide"
+			.
+If		 	; "If."
+			; "\\IF"
+			.
+Iff		 	; "If and only if."
+			; "\\iff"
+			.
+Implies		 	; "Implies."
+			; "\\implies"
+			.
+Init			; "[mSZ] Init role."
+			; "\\Init"
+			.
+Internflow	 	; "[mSZ] Internal Flow declaration (?)".
+			; "\\InternFlow"
+			.
+Input			; "[mSZ] Input attribute."
+			; "\\Input"
+			.
+Lambda		 	; "Lambda."
+			; "\\lambda"
+			.
+Langle		 	; "Left angle bracket."
+			; "\\langle"
+			.
+Lbag		 	; "Left back bracket."
+			; "\\lbag"
+			.
+Lbind			; "Left binding bracket."
+			; "\\lbind"
+			.
+Lbrack		 	; "Left square bracket."
+			; "["
+			.
+Ldata		 	; "Left chevron bracket (free type)."
+			; "\\ldata"
+			.
+Leadsto		 	; "[DZ] Temporal leadsto."
+			; "\\dleadsto"
+			.
+Let		 	; "Let abbreviation."
+			; "\\LET"
+			.
+Linesep		 	; "Line separator."
+			; "\\\\"
+			.
+Lparenth	 	; "Left parenth."
+			; "("
+			.
+Lset		 	; "Left set bracket."
+			; "\\{"
+			.
+Lstate		 	; "[DZ] Left state predicate."
+			; "\\dlstate"
+			.
+Ltrans		 	; "[DZ] Left transition predicate."
+			; "\\dltrans"
+			.
+Mid		 	; "Mid."
+			; "|" | "\\mid"
+			.
+Mu		 	; "Mu."
+			; "\\mu"
+			.
+Not		 	; "Logical not"
+			; "\\lnot"
+			.
+Number(String value)	; "Number."
+			; <LATEXNUMBER>
+			.
+Or		 	; "Logical or."
+			; "\\lor"
+			.
+Pipe		 	; "Schema piping."
+			; "\\pipe"
+			.
+Pre		 	; "Schema precondition."
+			; "\\pre"
+			.
+Preempt		 	; "[DZ] Preemption."
+			; "\\dpreempt"
+			.
+Port			; "[mSZ] Port role."
+			; "\\Port"
+			.
+Property		; "[mSZ] Property role."
+			; "\\Property"
+			.
+Prefix		 	; "[DZ] Prefix predicate."
+			; "\\dprefix"
+			.
+Project		 	; "Schema projection."
+			; "\\project"
+			.
+Rangle		 	; "Right angle bracket."
+			; "\\rangle"
+			.
+Rbag		 	; "Right bag bracket."
+			; "\\rbag"
+			.
+Rbind			; "Right binding bracket."
+			; "\\rbind"
+			.
+Rbrack		 	; "Right square bracket."
+			; "]"
+			.
+Rdata		 	; "Right data bracket (free type)."
+			; "\\rdata"
+			.
+Repeat		 	; "[DZ] Repetition predicate"
+			; "\\drepeat"
+			.
+Rparenth	 	; "Right parenth bracket."
+			; ")"
+			.
+Rset		 	; "Right set bracket."
+			; "\\}"
+			.
+Rstate		 	; "[DZ] Right state predicate."
+			; "\\drstate"
+			.
+Rtrans		 	; "[DZ] Right transition predicate."
+			; "\\drtrans"
+			.
+Semi		 	; "Semicolon."
+			; ";"
+			.
+Slash		 	; "Slash (renaming)."
+			; "/"
+			.
+Somewhere	 	; "[DZ] Somewhere predicate."
+			; "\\dsomewhere"
+			.
+Spot		 	; "Spot."
+			; "@" | "\\spot"
+			.
+State		 	; "[mSZ] State declaration."
+			; "\\State"
+			.
+StrokeIn	 	; "Input stroke."
+			; "?"
+			.
+StrokeIndex(String value) ; "Index stroke."
+			; "_" ["0"-"9"] | "_{" ["0"-"9"]+ "}"
+			.
+StrokeOut	 	; "Output stroke."
+			; "!"
+			.
+StrokePrime	 	; "Prime stroke."
+			; "'"
+			.
+Then		 	; "Then."
+			; "\\THEN"
+			.
+Theta		 	; "Theta."
+			; "\\Theta"
+			.
+To		 	; "[mSZ] Flow direction (?)."
+			; "\\To"
+			.
+Trans		 	; "[DZ] Transition."
+			; "\\dtr"
+			.
+When		 	; "[mSZ] When condition."
+			; "\\When"
+			.
+Word(String value)	; "Word (basic identifier)."
+			; <LATEXWORD> 
+			.
+Xi		 	; "Xi."
+			; "\\Xi"
+			.
+

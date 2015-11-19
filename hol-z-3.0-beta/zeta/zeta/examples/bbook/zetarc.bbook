@@ -1,0 +1,8 @@
+# This file contains commands executed by ZETA on startup.
+# ZETA executes (if found) the following configuration files
+#    $ZETABASE/lib/zetarc
+#    $HOME/.zetarc
+#    ./zetarc
+
+# load the LaTeX sources of the birthday-book example:
+load bbook.tex

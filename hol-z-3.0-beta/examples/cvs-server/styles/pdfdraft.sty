@@ -1,0 +1,46 @@
+\NeedsTeXFormat{LaTeX2e}\relax
+\ProvidesClass{pdfdraft}[2001/07/01 v0.01 Achim D. Brucker]
+%\usepackage{graphicx}
+\usepackage{letterspace}
+\usepackage{everyshi}
+\makeatletter
+\newsavebox{\dr@box}
+\savebox{\dr@box}{%
+  \fontsize{80mm}{80mm}\usefont{T1}{phv}{bx}{n}%
+  \rotatebox{65}{\textcolor[gray]{0.9}{%
+    \letterspace to 1.2\naturalwidth{Draft}%
+  }}%
+}
+
+
+\EveryShipout{%
+  % Achtung: \protect hat hier die Bedeutung \noexpand.
+  % Werden Befehle benoetigt, die intern \protect verwenden
+  % (z.B. \fontsize, \setlength (calc.sty), ...),
+  % sollte man temporaer \protect umsetzen:
+  %   \let\protect\@typeset@protect
+  \setbox\@cclv=\vbox{%
+    \vbox to\z@{%
+      \dimen@\paperheight
+      \advance\dimen@ -1in\relax % -\pdfvoffset ab 0.14g
+      \kern\dimen@
+      \dimen@ .5\paperwidth
+      \edef\dr@x{\strip@pt\dimen@}%
+      \unitlength\p@
+      \dimen@ .5\paperheight
+      \edef\dr@y{\strip@pt\dimen@}%
+      \hbox{%
+        \kern-1in % -\pdfhoffset ab 0.14g
+        \begin{picture}(0,0)%
+          \put(\dr@x,\dr@y){\makebox(0,0){\usebox\dr@box}}%
+        \end{picture}%
+        \hss
+      }%
+      \vss
+    }%
+    \box\@cclv
+  }%
+}
+\makeatother
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

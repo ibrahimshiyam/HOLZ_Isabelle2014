@@ -1,0 +1,12 @@
+#
+# $Id: ETMakefile,v 1.3 1998/12/01 16:54:54 wg Exp $
+# Robert Buessow, TU Berlin
+
+SUBNODES=
+
+this:
+	@echo nothing to do
+
+inst:
+	$(ET_INSTALL) bin etmake
+	$(ET_INSTALL) etc/etmake $(wildcard *.makefile)

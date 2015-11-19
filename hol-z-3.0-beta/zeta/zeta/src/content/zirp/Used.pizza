@@ -1,0 +1,45 @@
+package zeta.content.zirp;
+
+/** Used names annotation slot.
+  *
+  * This slot is provided at all <code>absy.Item</code>
+  * terms which contain Z fragments. It lists all the global
+  * names (schemas or constants) which are applied in the
+  * Z fragment. Names locally bounded are not listed.
+  *
+  * @version $Id: Used.pizza,v 1.1.1.1 1998/09/01 10:51:18 wg Exp $
+  */
+
+import zeta.util.*;
+
+public class Used {
+
+  /** The slot object. */
+  public static final Slot slot = Slot.register(Used.class.getName(),
+						Name[].class);
+
+  /** Set value of used annotation slot.
+    * @param an    the annotation
+    * @param names the array of names.
+    */
+  public static void put(Annotation an , Name[] names){
+    slot.put(an, names);
+  }
+
+  /** Get value of used annotation slot.
+    * @param an    the annotation
+    * @return the array of names, or null, if no one is provided.
+    */
+  public static Name[] get(Annotation an){
+    return (Name[])slot.get(an);
+  }
+
+  /** Test whether used annotation slot is provided. 
+    * @param an   the annotation
+    * @return true if the used annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+}

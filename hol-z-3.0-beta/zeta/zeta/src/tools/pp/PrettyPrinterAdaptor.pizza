@@ -1,0 +1,198 @@
+package zeta.tools.pp;
+
+/** The Pretty Printer
+  *
+  * @version $Id: PrettyPrinterAdaptor.pizza,v 1.8 2000/05/16 08:10:47 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import java.util.Date;
+import java.io.*;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.zirp.*;
+import zeta.content.text.*;
+
+import zeta.tools.util.*;
+import zeta.tools.latex.LatexConfig;
+
+public class PrettyPrinterAdaptor extends DefaultAdaptor {
+
+  
+  // CONSTANTS
+
+  /*
+   * The startup message of this adaptor.
+   */
+  private static final String startupMessage = 
+    "installed pretty printer v1.0";
+
+  /**
+   * Whether we should issue timing messages.
+   */
+  private static final boolean timing = 
+    System.getProperty("zeta.debug.timing") != null;
+
+  /**
+   * The name of this adaptor.
+   */
+  private static final Name toolName = new Name("PP");
+
+  /**
+   * A locator associated with this adaptor.
+   */
+  private Locator toolLocator = new ToolLocator("<pretty-printer>");
+  public static class ToolLocator extends Locator {
+    public case ToolLocator(String msg);
+    public Format toFormat(FormatInfo info){
+      return Format.literal(msg);
+    }
+    public Name getTool(){
+      return toolName;
+    }
+  }
+
+
+  // ADAPTOR INITIALIZATION
+
+  /**
+   * Return the name of this adaptor.
+   */
+  public Name getName(){
+    return toolName;
+  }
+
+  /** 
+   * Initialize a newly created instance of this adaptor.
+   */
+  public void initialize(Session session, StorageHandle handle){
+    super.initialize(session, handle);
+    this.session = session;
+    sendProgress(startupMessage);
+    session.registerContentType(TextContentTypes.prettyText);
+    session.registerForm(prettyForm);
+  }
+
+
+  // ADAPTOR METHODS
+  
+  /** 
+   * Return the content types which this adaptor can generally
+   * compute.
+   */
+  public ContentType[] computedTypes() {
+    return new ContentType[]{ TextContentTypes.prettyText };
+  }
+
+  /** Always throws. */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName {
+    throw new Failures.UnresolvableName(name);
+  }
+
+  /**
+   * Run the adaptor to compute the specified content.  
+   */
+  public void tryCompute(Target target)
+  throws Failures.ComputationFailed, Failures.CannotCompute {
+
+    Set<Target> deps = new HashSet();
+
+    // query def and env of this unit
+    UnitAbsy absy = 
+      (UnitAbsy)target.unit.query(ZirpContentTypes.uncheckedAbsy);
+    UnitEnv env = 
+      (UnitEnv)target.unit.query(ZirpContentTypes.uncheckedEnv);
+    deps = 
+      deps.include(new Target(target.unit, ZirpContentTypes.uncheckedAbsy))
+          .include(new Target(target.unit, ZirpContentTypes.uncheckedEnv));
+
+    // rewrite
+    Date definedAt = new Date();
+    Format text = new PrettyPrinter(new LatexConfig(),env).pretty(absy);
+    target.unit.define(target.type,
+                       text,
+                       false,
+                       definedAt,
+                       deps.toArray(Target.class),
+                       this);
+  }
+
+  /** */
+  public boolean isUptodate(Target spec, Date definedAt){
+    return true;
+  }
+
+  /** */
+  public boolean notifyOutdate(Target spec, Date definedAt,
+			       StorageHandle handle){
+    return false;
+  }
+
+  /** */
+  public void checkExternalData(){
+  }
+
+  /** */
+  public void flush(){
+  }
+
+  // COMMANDS
+
+  private final OptionForm.State fileOption = new OptionForm.State(false);
+  private final FileForm.State prettyFile = 
+    new FileForm.State(new File("zeta.pp"));
+  private final TopLevelForm prettyForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Function().setModal(true),
+      new SeqForm(
+	    new LiteralForm("pp").describe("Print Z Syntax"),
+	    new UnitForm().style(Form.Style.INVISIBLE),
+	    new OptionForm(fileOption,
+                           new FileForm(FileForm.Mode.PLAIN, prettyFile))
+                          .describe("Output to File") 
+	  ),
+      "Pretty-Print Z-Syntax",
+      fun (Session session, Locator locator) throws Failures.FormFailed 
+							    -> void {
+	Object res =
+	  SessionUtil.query(session,
+			    locator,
+			    new Target(UnitForm.defaultState.unit,
+				       TextContentTypes.prettyText));
+	if (res == null){
+          // errors occured (which have already been reported)
+          throw new Failures.FormFailed("TypeCheck");
+        }
+	session.send(toolName, new ProgressMessage(
+				     Format.literal("formatting")));
+	Format fmt = (Format)res;
+	if (fileOption.selected){
+	  try {
+	    PrintWriter writer = 
+	      new PrintWriter(new FileWriter(prettyFile.file));
+	    fmt.printFormat(writer, 75);
+	    writer.close();
+	  }
+	  catch (IOException e){
+	    session.send(toolName,
+			 new Diag(locator,
+				  Diag.Category.Error, 
+				  Format.literal("could not open file `"+
+					prettyFile.file.getName()+"'")));
+	    throw new Failures.FormFailed("PrettyPrint");
+	  }
+	} else {
+	  session.send(toolName, new ResultMessage(fmt));
+	}
+      }
+    );
+
+}

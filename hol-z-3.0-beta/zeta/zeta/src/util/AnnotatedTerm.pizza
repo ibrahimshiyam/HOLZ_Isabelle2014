@@ -1,0 +1,20 @@
+package zeta.util;
+
+/** The abstract class AnnotatedTerm is the superclass of any term of
+ * which carries an annotation. An annotated
+ * term agregates an instance of class Annotation.
+ *
+ * @see zeta.util.Term
+ * @see zeta.util.Annotation 
+ * @see zeta.util.Slot 
+ *
+ * @version $Id: AnnotatedTerm.pizza,v 1.2 2000/03/13 06:57:11 wg Exp $
+ *
+ */
+
+public abstract class AnnotatedTerm extends Term {
+
+  /** The annotation field. */
+  public Annotation an = new Annotation();
+
+}

@@ -1,0 +1,23 @@
+
+this:	zeta.sty
+
+inst:	zeta.sty
+	$(ET_INSTALL) lib/latex zeta.sty
+	
+
+%.sty: %.nw
+	notangle $*.nw > $*.sty
+
+esz.tex: esz.nw
+	noweave -index -autodefs tex esz.nw | gfmt > esz.tex
+
+esz.html: esz.nw
+	noweave -filter l2h -html -index -autodefs tex esz.nw > esz.html
+
+esz.dvi: esz.tex
+	latex esz.tex
+	latex esz.tex
+
+%.dvi: %.tex esz.sty
+	latex $*
+

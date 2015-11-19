@@ -1,0 +1,4 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= ReducerUtil.pizza Reducer.pizza ReducerAdaptor.pizza
+JAVA_FILES 	= 
+NODEKIND	= java

@@ -1,0 +1,7 @@
+SUBNODES	= etmake genlexis
+NODEKIND	= javagroup
+
+# kind of useless since etmake needs etenv.sh ...
+inst:
+	$(ET_INSTALL) etc etenv.sh 
+	# $(ET_INSTALL) bin distrib

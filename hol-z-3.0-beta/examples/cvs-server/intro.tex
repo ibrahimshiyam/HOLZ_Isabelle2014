@@ -1,0 +1,142 @@
+\rcsInfo $Id: intro.tex,v 1.11 2003/12/04 15:03:06 brucker Exp $
+
+\chapter{Introduction}\label{chapter:introduction}
+These days, the \emph{Concurrent Versions System}\index{Concurrent
+  Versions System|see{CVS}}\index{CVS} (CVS) is a widely used tool for
+version management in many industrial software development projects
+and plays a key role in open source projects usually performed by
+highly distributed
+teams~\cite{cederqvist.ea:cvs:2000,fogel:cvs:1999,cvshome:2001}.  CVS
+provides a central data base (the \emph{repository}\index{repository})
+and means to synchronize local partial copies (the \emph{working
+  copies}\index{working copy}) and their local modifications with the
+repository\index{repository}. CVS can be accessed via a network; this
+requires a security architecture establishing authentication, access
+control and non-repudiation.  A further complication of the CVS
+security architecture stems from the fact that the administration of
+authentication and access control is done via CVS itself; i.e.\ the
+relevant data is accessed and modified via standard CVS operations
+and, thus, access to objects may change dynamically.
+ 
+The current standard CVS-server distribution (based on the
+\texttt{pserver}-protocol)\index{pserver@\texttt{pserver}} is known to
+be quite insecure: since passwords are not encrypted during
+communication, usual password-sniffing attacks can be applied;
+moreover, a bug in some CVS-operations can allow an arbitrary user to
+modify the password authentication table.  Further, any CVS user (with
+write access) can execute any program on a server with the userid he
+is authenticated to. This means he can send himself a command shell.
+Via buffer-overflow attacks, there is the inherent danger that the
+CVS-server can be crashed leaving a command shell under root
+permissions.  Additionally, the repository in itself is not protected
+against direct user manipulations via file system operations.
+
+Moreover, the current CVS-server distribution inherits the usual \unix{}
+permission\index{Unix!permission} concept --- this may be too low-level and
+inadequate to cope with the demands of many user-groups and their work
+organization. In particular, we found it useful to provide a special
+configuration of the CVS-server that enforces a hierarchical \emph{role based
+  access control}\index{role based access model} model as described
+in~\cite{sandhu.ea:role-based:1996}. This model associates to users one or more
+\emph{roles} (e.g.\ project supervisor, test engineer, programmer, project
+member, etc) that are organized in a partial order. Further, \emph{permissions}
+are associated to objects in the repository; a user may authenticate for a
+particular role in order to get appropriate permissions for object access.
+
+In order to install the current CVS-server in security conscious way,
+the traditional architecture requires the server to run on a
+secured machine that has exclusive access to an own file-system
+hosting the repository. This \emph{closed architecture} has a number
+of administrative and technical costs (additional hardware,
+efficiency).
+
+In order to overcome some of these problems, we propose a number of improvements
+of the standard CVS-server, either on the level of its implementation (via
+patches), its configurations (i.e.\ the file system, including the initial state
+of the repository; this extends to group-tables, file permissions, scripts
+started when check in or check out data into the repository) or its architecture
+(i.e.\ the particular setup of a cvs-server and its configuration in a network).
+Our first main goal of our work is to provide a particular configuration of
+CVS-server that enforces a role-based access control security policy. Our second
+main goal is to develop an \emph{open} CVS-server architecture, where the
+repository is part of the usual shared file-system of an intranet and the server
+a regular process on some machine in it. While an open architecture has
+undoubtedly a number of advantages, the correctness and trustworthiness of the
+security mechanisms becomes a major concern.  In order to meet these concerns,
+we will present in this paper formal models and an analysis of the open
+CVS-server security architecture.
+
+
+Our contribution in this paper is fivefold:
+\begin{enumerate}
+\item We provide a formal model of the CVS-server \emph{system
+    architecture}\index{system architecture}\index{architecture!system}, that
+  provides a \emph{hierarchical} role based access control model for a fixed
+  preconceived hierarchy of CVS-roles. Our CVS-server security architecture
+  model contains \cvscmd{checkout} and \cvscmd{checkin} operations of CVS with respect to the
+  access control policy resulting from the CVS-role hierarchy.
+\item We provide a formal model of the \emph{implementation
+    architecture}\index{implementation
+    architecture}\index{architecture!implementation} based on the UNIX/POSIX
+  file-systems and its security mechanisms.  Methodologically, the
+  implementation architecture is a refinement of the system architecture.
+\item We provide semi-formal and formal (machine-assisted) proofs for the
+  consistency of the specification and for the refinement.  Moreover, we provide
+  proofs for the security properties both on the system and the implementation
+  level of the architecture.  The proofs take into account that on the
+  implementation level UNIX-operations like \unixcmd{cd}, \unixcmd{chmod},
+  \unixcmd{chown} can be used within attacks.
+\item We provide insight into the limits of refinement based,
+  well-known abstraction techniques for the security analysis of
+  real-world applications.  In particular, realistic security analysis
+  involves the formal analysis of \emph{attacks against the
+    implementation}; thus, models have to provide sufficient detail of
+  the security mechanisms of the implementation architecture.
+\item We provide a particular \emph{configuration} of our CVS-server
+  architecture, that implements our open, intranet compliant architecture. Our
+  implementation is based on standard CVS extended by \emph{cvsauth}\index{cvsauth} that
+  incorporates SSL/TSL-support~\cite{itef:rfc2246:1999}\index{secure socket
+    layer|see{SSL}}\index{SSL} for secure communication of remote CVS access.
+\end{enumerate}
+
+The overall benefit of our implemented architecture consists in
+security against most of the known attacks as listed above: Password
+sniffing is prevented by encryption, gaining root access by
+cvs-command attacks is prohibited, the danger of gaining root access
+by buffer-overflow attacks is limited to the authentication phase,
+which is the only remaining phase where the server runs under root.
+Additionally, administration of our CVS-server architecture is
+independent from system administration (except during initialization).
+And, last but not least, our open CVS-server can run on an arbitrary
+machine (say, the file server) with standard access to the
+file-system, which has become possible due to our formal modeling and
+analysis.
+   
+As formal specification language, we use the Z-Notation~\cite{iso:z:2000} 
+for specifying our model. For theorem-proving, we compile our
+\LaTeX-based specification via a own translator to 
+HOL-Z~\cite{kolyang.ea:hol:96,brucker.ea:hol-z:2002} based on
+Isabelle98~\cite{paulson:isabelle:1994,nipkow.ea:isabelle:2002}.  Since Z is typed set-theory
+and as such semantically equivalent to higher-order logic (HOL; modulo
+minor differences w.r.t.\ polymorphism; see~\cite{santen:HOL:1998} for
+details.), we treat Z as a mere syntactic front-end to HOL\@. As such,
+Z offers a compact syntax geared towards data-modeling, which is
+normed~\cite{iso:z:2000} and for which many excellent text-books for
+software-engineers are available. For Z, an excellent \LaTeX-based
+literate specification environment is available (\cite{zeta}; with own
+type-checker etc.).
+
+We proceeds as follows: After a discussion of our notion of
+architecture and architectural refinement, we come to the core
+chapters of this paper: the system architecture model (or: abstract
+layer of the refinement), the \unix{} model as infrastructure for the
+implementation architecture, and the implementation architecture
+itself. Further, we describe the refinement relation between these
+two, the security properties formalizable at the different layers and
+their analysis.
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

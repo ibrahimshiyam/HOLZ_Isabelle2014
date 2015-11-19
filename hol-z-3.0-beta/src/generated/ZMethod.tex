@@ -1,0 +1,547 @@
+%
+\begin{isabellebody}%
+\def\isabellecontext{ZMethod}%
+%
+\isamarkupheader{Method Package for Z Representation and Z Refinement%
+}
+\isamarkuptrue%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{theory}\isamarkupfalse%
+\ \ ZMethod\isanewline
+\isakeyword{imports}\ ZPure\isanewline
+\isakeyword{uses}\ \ \ \ {\isachardoublequoteopen}kernel{\isacharunderscore}ext{\isacharslash}ProofObligationMgr{\isachardot}sml{\isachardoublequoteclose}\ \isanewline
+\isakeyword{begin}%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isamarkupsection{Configuring the Generic PO Manager%
+}
+\isamarkuptrue%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isatagML
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\ \isanewline
+\isanewline
+structure\ FMethod\ {\isacharparenleft}{\isacharasterisk}{\isacharcolon}\ FMETHOD{\isacharasterisk}{\isacharparenright}\ {\isacharequal}\isanewline
+\ \ struct\ \isanewline
+\ \ \ \ \ open\ POKind\ \ \ \ \isanewline
+\isanewline
+\ \ \ \ \ val\ PO{\isacharunderscore}classifier\ {\isacharequal}\ Symtab{\isachardot}make{\isacharbrackleft}{\isacharparenleft}{\isachardoublequote}tcc{\isachardoublequote}{\isacharcomma}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ repr{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}axdefConservative{\isachardoublequote}{\isacharcomma}\ \ \ \ \ lethal{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}ccState{\isachardoublequote}{\isacharcomma}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ wff{\isacharparenright}{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}ccOp{\isachardoublequote}{\isacharcomma}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ wff{\isacharparenright}{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}fwRefinementFunctional{\isachardoublequote}{\isacharcomma}meth{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}fwRefinementInit{\isachardoublequote}{\isacharcomma}\ \ \ \ \ \ meth{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}fwRefinementOp{\isachardoublequote}{\isacharcomma}\ \ \ \ \ \ \ \ meth{\isacharparenright}{\isacharbrackright}\isanewline
+\isanewline
+\ \ \ \ \ datatype\ content\ {\isacharequal}\ Mk\ of\ {\isacharbraceleft}abs\ {\isacharcolon}\ {\isacharparenleft}string{\isacharasterisk}string{\isacharasterisk}string{\isacharparenright}\ option{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ functional{\isacharunderscore}refinement\ {\isacharcolon}\ bool{\isacharbraceright}\ \isanewline
+\isanewline
+\ \ \ \ \ val\ \ init\ \ \ \ {\isacharequal}\ Mk{\isacharbraceleft}abs\ {\isacharequal}\ NONE{\isacharcomma}functional{\isacharunderscore}refinement{\isacharequal}false{\isacharbraceright}\isanewline
+\ \ \ \ \ val\ \ merge\ \ \ {\isacharequal}\ fn\ {\isacharparenleft}x{\isacharcomma}y{\isacharparenright}\ {\isacharequal}{\isachargreater}\ init\isanewline
+\ \ \ \ \ fun\ \ boolToString\ x\ \ \ \ {\isacharequal}\ if\ x\ then\ {\isachardoublequote}true{\isachardoublequote}\ else\ {\isachardoublequote}false{\isachardoublequote}\isanewline
+\ \ \ \ \ fun\ \ print\ {\isacharparenleft}Mk{\isacharbraceleft}abs{\isacharcomma}functional{\isacharunderscore}refinement{\isacharbraceright}{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}writeln\ {\isacharparenleft}{\isachardoublequote}Method\ Package\ State{\isacharcolon}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ writeln\ {\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ writeln\ {\isacharparenleft}{\isachardoublequote}abstraction\ relation{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ abs\ of\ NONE\ {\isacharequal}{\isachargreater}\ {\isachardoublequote}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequote}\ {\isacharbar}\ SOME\ {\isacharparenleft}x{\isacharcomma}y{\isacharcomma}z{\isacharparenright}\ {\isacharequal}{\isachargreater}\ x{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ writeln\ {\isacharparenleft}{\isachardoublequote}functional\ refinemt\ {\isacharcolon}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}boolToString\ functional{\isacharunderscore}refinement{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ end\isanewline
+\isanewline
+structure\ ZPO{\isacharunderscore}Mgr\ {\isacharequal}\ PO{\isacharunderscore}Manager\ {\isacharparenleft}FMethod{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+{\isacharverbatimclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\begin{isamarkuptext}%
+Initialize Environment%
+\end{isamarkuptext}%
+\isamarkuptrue%
+%
+\isadelimML
+\ \ \ %
+\endisadelimML
+%
+\isatagML
+\isacommand{setup}\isamarkupfalse%
+\ {\isachardoublequoteopen}ZPO{\isacharunderscore}Mgr{\isachardot}PO{\isacharunderscore}state{\isacharunderscore}setup\ {\isachardoublequoteclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isamarkupsection{The Z Method Package%
+}
+\isamarkuptrue%
+%
+\begin{isamarkuptext}%
+On top of the generic PO Manager, which has now been
+  imported and instantiated, we define a number of Method-
+  specific PO generation methods. In our case, we implement
+  support for classical forward data refinement (with an
+  optimizing option for functional abstraction relations)
+  following the lines described in the Spivey-Book also
+  described in the Woodcock/Davis Book "Using Z".
+
+  There is a general configuration operation \verb+set_abs+
+  that sets the underlying abstration relation and
+  concepts such as abstract or concrete state.
+
+  PO generators are in particular:
+
+  \begin{enumerate}
+  \item \verb+gen_state_cc+ for checking that state schemas 
+        (representing system invariants) are in fact satisfyable.
+  \item \verb+gen_op_cc+ for checking that operation schemas 
+        are "implementable" or "non-blocking", i.e. there exists a function
+        that maps inputs and state to outputs and successor state.
+        (Note that this function is \textbf{not} necessarily
+        computable). 
+  \item \verb+gen_thm_tcc+ extracts from an arbitrary definition
+        or axiom the side-conditions for type-constraint-consistency.
+        (a representational side-condition of HOL-Z).
+  \item \verb+declare_abs+ allows for setting the
+        abstraction relation (per schema definition).
+        An additional option \verb+[functional]+ specifies
+        the relation to be functional, which results in different
+        (usually simpler) proof obligations.      
+  \item \verb+refine_init+ for generating a PO assuring
+        compatibility of Init schemas (in forward simulation)
+  \item \verb+refine_op+ for generating two PO's establishing
+        refinement of operation schemas.
+  \end{enumerate}%
+\end{isamarkuptext}%
+\isamarkuptrue%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isatagML
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\ \isanewline
+\isanewline
+signature\ ZMETHOD{\isacharunderscore}PACKAGE\ {\isacharequal}\isanewline
+\ \ \ sig\isanewline
+\ \ \ \ \ \ type\ schema{\isacharunderscore}name\ {\isacharequal}\ string\isanewline
+\isanewline
+\ \ \ \ \ \ val\ gen{\isacharunderscore}tcc{\isacharunderscore}from\ {\isacharcolon}\ string\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ string\ denotes\ thm\ which\ is\ schema{\isacharunderscore}def\ or\ axdef{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ add\ PO\ for\ each\ C{\isacharparenleft}F{\isacharpercent}{\isacharcircum}E{\isacharparenright}{\isacharcolon}\ CONT{\isacharparenleft}C{\isacharcomma}\ F\ {\isacharcolon}\ Domain\ E{\isacharparenright}\ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \isanewline
+\ \ \ \ \ \ val\ gen{\isacharunderscore}cc{\isacharunderscore}state\ {\isacharcolon}\ schema{\isacharunderscore}name\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ stateschema\ is\ schema\ without\ x{\isacharquery}{\isacharcomma}\ x{\isacharbang}{\isacharcomma}\ x{\isacharprime}\ variables{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ add\ PO\ \ {\isacharcolon}\ {\isasymexists}\ x{\isachardot}\ x\ {\isacharcolon}\ stateschema\ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ \ \ val\ gen{\isacharunderscore}cc{\isacharunderscore}op\ \ \ \ {\isacharcolon}\ schema{\isacharunderscore}name\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ opschema\ is\ schema\ with\ x\ and\ x{\isacharprime}\ variables{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ add\ PO\ \ {\isacharcolon}\ {\isasymSforall}\ state{\isachardot}{\isasymforall}\ in{\isachardot}{\isasymSexists}\ state{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isasymexists}\ out{\isachardot}\ op\ \isanewline
+\ \ \ \ \ \ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \isanewline
+\ \ \ \ \ \ val\ declare{\isacharunderscore}abs\ \ {\isacharcolon}\ bool\ {\isacharminus}{\isachargreater}\ schema{\isacharunderscore}name\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ \ absname\ must\ denote\ Z\ schema{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ which\ imports\ exactly\ two\ schemas{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ The\ first\ is\ used\ as\ abstract\ state{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ the\ second\ as\ concrete\ state{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ if\ functional{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}\ {\isachardoublequote}{\isasymSforall}\ state{\isacharunderscore}conc{\isachardot}\ {\isasymSexists1}\ abs{\isacharunderscore}state{\isachardot}\ abs{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ SKIP\ \isanewline
+\ \ \ \ \ \ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ \ \ val\ refine{\isacharunderscore}init\ \ {\isacharcolon}\ schema{\isacharunderscore}name\ {\isacharasterisk}\ schema{\isacharunderscore}name\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ \ abs\ relation\ must\ be\ set{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ init{\isacharunderscore}abs\ init{\isacharunderscore}conc\ must\ be\ schema\ names{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ if\ functional{\isacharcolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}{\isachardoublequote}{\isasymSforall}\ state{\isacharunderscore}abs\ state{\isacharunderscore}conc{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ conc{\isacharunderscore}init\ {\isacharampersand}\ abs\ {\isacharbackslash}implies\ abs{\isacharunderscore}init{\isachardoublequote}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ add\ PO{\isacharcolon}{\isachardoublequote}{\isasymSforall}\ state{\isacharunderscore}conc{\isachardot}\ init{\isacharunderscore}conc\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbackslash}implies\ {\isacharparenleft}{\isasymSexists}\ state{\isacharunderscore}abs{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ init{\isacharunderscore}abs\ {\isacharampersand}\ abs{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \ \ \ \ val\ refine{\isacharunderscore}ops\ \ \ {\isacharcolon}\ schema{\isacharunderscore}name\ {\isacharasterisk}\ schema{\isacharunderscore}name\ {\isacharminus}{\isachargreater}\ theory\ {\isacharminus}{\isachargreater}\ theory\isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ PRE\ \ abs\ relation\ must\ be\ set{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ op{\isacharunderscore}abs\ op{\isacharunderscore}conc\ must\ be\ schema\ names{\isachardot}\isanewline
+\ \ \ \ \ \ \ \ \ \ POST\ if\ functional{\isacharcolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}\ {\isasymSforall}\ state{\isacharunderscore}abs\ state{\isacharunderscore}conc{\isachardot}\ {\isasymforall}\ in{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ pre\ op{\isacharunderscore}abs\ {\isasymand}\ abs\ {\isasymlongrightarrow}\ pre\ op{\isacharunderscore}conc\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}\ {\isasymSforall}\ state{\isacharunderscore}abs\ state{\isacharunderscore}conc{\isachardot}\ {\isasymforall}\ in\ out{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ pre\ op{\isacharunderscore}abs\ {\isasymand}\ abs\ {\isasymand}\ op{\isacharunderscore}conc\ {\isasymand}\ abs{\isacharprime}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isasymlongrightarrow}\ op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}\ {\isasymSforall}\ state{\isacharunderscore}abs\ state{\isacharunderscore}conc{\isachardot}\ {\isasymforall}\ in{\isachardot}\ pre\ op{\isacharunderscore}abs\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharampersand}\ abs\ {\isasymlongrightarrow}\ pre\ op{\isacharunderscore}conc\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ add\ PO{\isacharcolon}\ {\isasymSforall}\ abs{\isacharunderscore}state\ conc{\isacharunderscore}state{\isachardot}\ {\isasymforall}\ in\ out{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ pre\ op{\isacharunderscore}abs\ {\isasymand}\ abs\ {\isasymand}\ op{\isacharunderscore}conc\ \ {\isasymlongrightarrow}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isasymSexists}\ state{\isacharunderscore}abs{\isacharprime}{\isachardot}\ abs{\isacharprime}\ {\isasymand}\ op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ end\isanewline
+\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+\isanewline
+structure\ ZMethod{\isacharunderscore}Package\ \ {\isacharcolon}\ ZMETHOD{\isacharunderscore}PACKAGE\ \ {\isacharequal}\isanewline
+struct\ \isanewline
+\ \ \ open\ ZPrelude{\isacharsemicolon}\isanewline
+\isanewline
+\ \ \ val\ DEBUG\ {\isacharequal}\ ref{\isacharparenleft}{\isacharbrackleft}{\isacharbrackright}{\isacharcolon}\ string\ list{\isacharparenright}\isanewline
+\isanewline
+\ \ \ type\ schema{\isacharunderscore}name\ {\isacharequal}\ string\isanewline
+\isanewline
+\ \ \ fun\ gen{\isacharunderscore}tcc{\isacharunderscore}from\ name\ thy\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}\ error{\isacharparenleft}{\isachardoublequote}NOT\ YET\ IMPLEMENTED{\isachardoublequote}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ fun\ is{\isacharunderscore}schema\ name\ thy\ {\isacharequal}\isanewline
+\ \ \ \ \ \ \ ZEnv{\isachardot}is{\isacharunderscore}def{\isacharparenleft}ZEnv{\isachardot}schemas{\isacharunderscore}of\ {\isacharparenleft}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}{\isacharcomma}name{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+\ \ \ fun\ gen{\isacharunderscore}cc{\isacharunderscore}state\ stateschema\ thy\ \ \ \ \ \ \ \ \ {\isacharequal}\ \isanewline
+\ \ \ let\ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ stateschema\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}stateschema{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ zsig{\isacharunderscore}opt{\isacharequal}\ ZEnv{\isachardot}lookup\ {\isacharparenleft}schemas{\isacharunderscore}of{\isacharparenleft}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}{\isacharcomma}stateschema{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ nn{\isacharequal}\ map\ fst\ {\isacharparenleft}filter{\isacharparenleft}fn\ {\isacharparenleft}x{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isacharequal}{\isachargreater}\ ZPrelude{\isachardot}is{\isacharunderscore}in{\isacharunderscore}name\ x\ orelse\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ZPrelude{\isachardot}is{\isacharunderscore}out{\isacharunderscore}name\ x\ orelse\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ ZPrelude{\isachardot}is{\isacharunderscore}stroke{\isacharunderscore}name\ x{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}schemasig{\isacharunderscore}of{\isacharparenleft}the\ zsig{\isacharunderscore}opt{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ if\ null\ nn\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}state\ schema\ should\ contain\ only\ {\isacharbackslash}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbackslash}undecorated\ variables{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}String{\isachardot}concat\ nn{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ {\isacharparenleft}ZEncoder{\isachardot}ZENV{\isacharcolon}{\isacharequal}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ \ \ \ val\ agoal{\isacharequal}\ {\isachardoublequote}{\isacharpercent}E\ {\isachardoublequote}{\isacharcircum}\ stateschema{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ True{\isachardoublequote}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ val\ cf\ \ \ {\isacharequal}\ \ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy\ agoal{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ thy{\isacharprime}\ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}ccState{\isachardoublequote}{\isacharcomma}stateschema{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf\ thy\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf\ thy{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ in\ thy{\isacharprime}\ \ \isanewline
+\ \ \ \ end\ \ \ \ \ \isanewline
+\isanewline
+\isanewline
+\ \ \ fun\ gen{\isacharunderscore}cc{\isacharunderscore}op\ opschema\ thy\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}\ \isanewline
+\ \ \ let\ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ opschema\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}opschema{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ zsig{\isacharunderscore}opt{\isacharequal}\ ZEnv{\isachardot}lookup\ {\isacharparenleft}schemas{\isacharunderscore}of{\isacharparenleft}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}{\isacharcomma}opschema{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ nn\ \ \ {\isacharequal}\ map\ fst\ {\isacharparenleft}filter{\isacharparenleft}fn\ {\isacharparenleft}x{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isacharequal}{\isachargreater}\ ZPrelude{\isachardot}is{\isacharunderscore}stroke{\isacharunderscore}name\ x{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}schemasig{\isacharunderscore}of{\isacharparenleft}the\ zsig{\isacharunderscore}opt{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ if\ not{\isacharparenleft}null\ nn{\isacharparenright}\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}op\ schema\ should\ contain\ \ {\isacharbackslash}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbackslash}post\ state\ {\isacharparenleft}i{\isachardot}e{\isachardot}\ {\isacharprime}stroked{\isacharprime}{\isacharparenright}\ components{\isachardot}\ {\isachardoublequote}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ {\isacharparenleft}ZEncoder{\isachardot}ZENV{\isacharcolon}{\isacharequal}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ \ \ \ val\ agoal{\isacharequal}\ {\isachardoublequote}pre\ {\isachardoublequote}{\isacharcircum}\ opschema{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ val\ cf\ \ \ {\isacharequal}\ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy\ agoal{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ thy{\isacharprime}\ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}ccOp{\isachardoublequote}{\isacharcomma}opschema{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf\ thy\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf\ thy{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ in\ thy{\isacharprime}\ \ \isanewline
+\ \ \ \ end\ \ \ \ \ \isanewline
+\isanewline
+\ \isanewline
+\ \ \ fun\ declare{\isacharunderscore}abs\ functional\ abs\ thy\ {\isacharequal}\ \isanewline
+\ \ \ let\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ abs\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}abs{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ abs{\isacharunderscore}term\ {\isacharequal}\ concl{\isacharunderscore}of\ {\isacharparenleft}get{\isacharunderscore}thm\ thy\ {\isacharparenleft}Name{\isacharparenleft}abs{\isacharcircum}{\isachardoublequote}{\isacharunderscore}def{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\isanewline
+\ \ \ \ \ \ \ val\ schema\ {\isacharequal}\ ZEncoder{\isachardot}strip{\isacharunderscore}Binder\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ abs{\isacharunderscore}term\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ t\ {\isacharequal}{\isachargreater}\ t\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}{\isachardoublequote}name\ must\ denote\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ decl\ \ \ {\isacharequal}\ {\isacharparenleft}case\ schema\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DECL{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ H\ {\isachardollar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ H\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}{\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}{\isachardoublequote}name\ must\ denote\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ fun\ strip{\isacharunderscore}sname\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}SNAME{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isachardollar}{\isacharparenleft}Const{\isacharparenleft}s{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isacharparenright}{\isachardollar}{\isacharunderscore}{\isacharparenright}\ {\isacharequal}\ s\isanewline
+\ \ \ \ \ \ \ \ \ \ {\isacharbar}strip{\isacharunderscore}sname\ \ {\isacharunderscore}\ {\isacharequal}\ error{\isacharparenleft}{\isachardoublequote}declaration\ part\ must\ consist\ of\ {\isacharbackslash}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbackslash}two\ schema\ names\ only{\isacharbang}{\isachardoublequote}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharparenleft}state{\isacharunderscore}abs{\isacharcomma}state{\isacharunderscore}conc{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}case\ decl\ of\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const\ {\isacharparenleft}{\isachardoublequote}op\ {\isacharampersand}{\isachardoublequote}{\isacharcomma}\ {\isacharunderscore}{\isacharparenright}{\isachardollar}H{\isachardollar}H{\isacharprime}\ {\isacharequal}{\isachargreater}\ {\isacharparenleft}strip{\isacharunderscore}sname\ H{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ strip{\isacharunderscore}sname\ H{\isacharprime}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}{\isachardoublequote}declaration\ part\ must\ consist\ of\ {\isacharbackslash}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbackslash}two\ schema\ names\ only{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ val\ cont\ {\isacharequal}\ FMethod{\isachardot}Mk{\isacharbraceleft}abs{\isacharequal}SOME{\isacharparenleft}abs{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}NameSpace{\isachardot}base\ state{\isacharunderscore}abs{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}NameSpace{\isachardot}base\ state{\isacharunderscore}conc{\isacharparenright}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ functional{\isacharunderscore}refinement{\isacharequal}functional{\isacharbraceright}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ val\ thy{\isacharprime}\ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}set{\isacharunderscore}content\ cont\ thy\isanewline
+\ \ \ \isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ {\isacharparenleft}ZEncoder{\isachardot}ZENV{\isacharcolon}{\isacharequal}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharprime}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+\ \ \ \ \ \ \ val\ agoal{\isacharequal}\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}NameSpace{\isachardot}base\ state{\isacharunderscore}conc{\isacharparenright}{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}E{\isadigit{1}}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}NameSpace{\isachardot}base\ state{\isacharunderscore}abs{\isacharparenright}{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}NameSpace{\isachardot}base\ abs{\isacharparenright}{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ val\ cf\ \ \ {\isacharequal}\ \ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharprime}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy{\isacharprime}\ agoal{\isacharparenright}\isanewline
+\isanewline
+\ \ \ \ \ \ \ val\ thy{\isacharprime}{\isacharprime}{\isacharequal}\ \ if\ functional\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharprime}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}fwRefinementFunctional{\isachardoublequote}{\isacharcomma}abs{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf\ thy{\isacharprime}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ thy{\isacharprime}\isanewline
+\ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ \ \ \ \ if\ functional\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf\ thy{\isacharprime}{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \isanewline
+\ \ \ in\ \ thy{\isacharprime}{\isacharprime}\ end\isanewline
+\isanewline
+\ \ \ fun\ refine{\isacharunderscore}init{\isacharparenleft}init{\isacharunderscore}abs{\isacharcomma}\ init{\isacharunderscore}conc{\isacharparenright}{\isacharparenleft}thy{\isacharparenright}\ {\isacharequal}\isanewline
+\ \ \ \ \ \ \ let\ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ init{\isacharunderscore}abs\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}init{\isacharunderscore}abs{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ init{\isacharunderscore}conc\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}init{\isacharunderscore}conc{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ FMethod{\isachardot}Mk{\isacharbraceleft}abs{\isacharcomma}functional{\isacharunderscore}refinement{\isacharbraceright}\ \ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}content\ thy\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharparenleft}abs{\isacharcomma}\ state{\isacharunderscore}abs{\isacharcomma}\ state{\isacharunderscore}conc{\isacharparenright}{\isacharequal}\ case\ abs\ of\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ NONE\ {\isacharequal}{\isachargreater}\ error{\isachardoublequote}no\ abstraction\ relation\ set{\isacharbang}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ SOME\ x\ {\isacharequal}{\isachargreater}\ x\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}abs\ \ {\isacharequal}\ concl{\isacharunderscore}of\ {\isacharparenleft}get{\isacharunderscore}thm\ thy\ {\isacharparenleft}Name{\isacharparenleft}init{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharunderscore}def{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}conc\ {\isacharequal}\ concl{\isacharunderscore}of\ {\isacharparenleft}get{\isacharunderscore}thm\ thy\ {\isacharparenleft}Name{\isacharparenleft}init{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}{\isacharunderscore}def{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}abs\ \ {\isacharequal}\ ZEncoder{\isachardot}strip{\isacharunderscore}Binder\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ term{\isacharunderscore}abs\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ t\ {\isacharequal}{\isachargreater}\ t\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}init{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}must\ denote\ init\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}conc\ {\isacharequal}\ ZEncoder{\isachardot}strip{\isacharunderscore}Binder\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ term{\isacharunderscore}conc\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ t\ {\isacharequal}{\isachargreater}\ t\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}init{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}must\ denote\ init\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ fun\ test\ m\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DECL{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}SNAME{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ Const{\isacharparenleft}s{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}{\isacharunderscore}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ if\ {\isacharparenleft}NameSpace{\isachardot}base\ s{\isacharparenright}\ {\isacharequal}\ m\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}imported\ schema\ must\ be\ {\isacharcolon}{\isachardoublequote}{\isacharcircum}m{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}test\ m\ {\isacharunderscore}\ {\isacharequal}\ error{\isachardoublequote}illegal\ pattern\ of\ import\ schema{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ test\ state{\isacharunderscore}abs\ \ term{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ test\ state{\isacharunderscore}conc\ term{\isacharunderscore}conc\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal\ {\isacharequal}\ if\ functional{\isacharunderscore}refinement\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharcircum}\ init{\isacharunderscore}conc\ {\isacharcircum}{\isachardoublequote}\ {\isacharampersand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}{\isachardoublequote}\ {\isacharminus}{\isacharminus}{\isachargreater}\ {\isachardoublequote}{\isacharcircum}init{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isachardoublequote}{\isacharcircum}\ init{\isacharunderscore}conc\ {\isacharcircum}{\isachardoublequote}\ {\isacharminus}{\isacharminus}{\isachargreater}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}{\isacharparenleft}{\isacharpercent}E\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isachardoublequote}{\isacharcircum}abs{\isacharcircum}{\isachardoublequote}\ {\isacharampersand}\ {\isachardoublequote}{\isacharcircum}init{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ cf\ \ \ {\isacharequal}\ \ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy\ goal{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ thy{\isacharprime}\ {\isacharequal}\ \ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}fwRefinementInit{\isachardoublequote}{\isacharcomma}state{\isacharunderscore}abs{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf\ thy\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ {\isacharequal}\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf\ thy{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ in\ \ thy{\isacharprime}\ end\isanewline
+\isanewline
+\isanewline
+\isanewline
+\ \ \ fun\ refine{\isacharunderscore}ops\ {\isacharparenleft}op{\isacharunderscore}abs{\isacharcomma}\ op{\isacharunderscore}conc{\isacharparenright}\ \ \ \ \ thy\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ let\ {\isacharparenleft}{\isacharasterisk}\ checking\ syntactic\ side{\isacharminus}conditions\ {\isachardot}{\isachardot}{\isachardot}\ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ op{\isacharunderscore}abs\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ if\ is{\isacharunderscore}schema\ op{\isacharunderscore}conc\ thy\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Must\ be\ schema\ name{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}conc{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ FMethod{\isachardot}Mk{\isacharbraceleft}abs{\isacharcomma}functional{\isacharunderscore}refinement{\isacharbraceright}\ \ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}content\ thy\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ SOME{\isacharparenleft}abs{\isacharcomma}\ state{\isacharunderscore}abs{\isacharcomma}\ state{\isacharunderscore}conc{\isacharparenright}{\isacharequal}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}abs\ \ {\isacharequal}\ concl{\isacharunderscore}of\ {\isacharparenleft}get{\isacharunderscore}thm\ thy\ {\isacharparenleft}Name{\isacharparenleft}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharunderscore}def{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}conc\ {\isacharequal}\ concl{\isacharunderscore}of\ {\isacharparenleft}get{\isacharunderscore}thm\ thy\ {\isacharparenleft}Name{\isacharparenleft}op{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}{\isacharunderscore}def{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}abs\ \ {\isacharequal}\ ZEncoder{\isachardot}strip{\isacharunderscore}Binder\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ term{\isacharunderscore}abs\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ t\ {\isacharequal}{\isachargreater}\ t\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}must\ denote\ op\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ term{\isacharunderscore}conc\ {\isacharequal}\ ZEncoder{\isachardot}strip{\isacharunderscore}Binder\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}case\ term{\isacharunderscore}conc\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharequal}{\isacharequal}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ t\ {\isacharequal}{\isachargreater}\ t\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error{\isacharparenleft}op{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}must\ denote\ op\ schema{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ fun\ test\ m\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DECL{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}op\ {\isacharampersand}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DELTA{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}SNAME{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isachardollar}{\isacharparenleft}Const{\isacharparenleft}s{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isacharparenright}{\isachardollar}{\isacharunderscore}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}if\ {\isacharparenleft}NameSpace{\isachardot}base\ s{\isacharparenright}\ {\isacharequal}\ m\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}imported\ schema\ must\ be\ {\isacharcolon}{\isachardoublequote}{\isacharcircum}m{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}test\ m\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DECL{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}op\ {\isacharampersand}{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DELTA{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}DELTA{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}ZPure{\isachardot}SNAME{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isachardollar}{\isacharparenleft}Const{\isacharparenleft}s{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isacharparenright}{\isachardollar}{\isacharunderscore}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}\ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ {\isacharunderscore}{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}if\ {\isacharparenleft}NameSpace{\isachardot}base\ s{\isacharparenright}\ {\isacharequal}\ m\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}imported\ schema\ must\ be\ {\isacharcolon}{\isachardoublequote}{\isacharcircum}m{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}test\ m\ {\isacharunderscore}\ \ {\isacharequal}\ error{\isacharparenleft}{\isachardoublequote}illegal\ pattern\ of\ schema{\isacharcolon}{\isachardoublequote}{\isacharcircum}m{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ test\ state{\isacharunderscore}abs\ \ term{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ {\isacharequal}\ test\ state{\isacharunderscore}conc\ term{\isacharunderscore}conc\isanewline
+\isanewline
+\ \ \ \ \ \ \ \ \ \ \ fun\ zsig{\isacharunderscore}of\ name\ {\isacharequal}\ \ schemasig{\isacharunderscore}of{\isacharparenleft}the{\isacharparenleft}ZEnv{\isachardot}lookup\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}schemas{\isacharunderscore}of{\isacharparenleft}ZTheory{\isachardot}get{\isacharunderscore}zenv\ thy{\isacharparenright}{\isacharcomma}name{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ fun\ get{\isacharunderscore}params\ test\ name\ {\isacharequal}\ filter\ test\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}map\ fst\ {\isacharparenleft}zsig{\isacharunderscore}of\ name{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ in{\isacharunderscore}parms\ \ {\isacharequal}\ get{\isacharunderscore}params\ ZPrelude{\isachardot}is{\isacharunderscore}in{\isacharunderscore}name\ op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ in{\isacharunderscore}parms{\isacharprime}\ {\isacharequal}\ get{\isacharunderscore}params\ ZPrelude{\isachardot}is{\isacharunderscore}in{\isacharunderscore}name\ op{\isacharunderscore}conc\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ \ \ \ \ \ {\isacharequal}\ if\ in{\isacharunderscore}parms\ {\isacharequal}\ in{\isacharunderscore}parms{\isacharprime}\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Input\ parameters\ must\ agree\ {\isacharbang}{\isachardoublequote}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ out{\isacharunderscore}parms\ {\isacharequal}\ get{\isacharunderscore}params\ ZPrelude{\isachardot}is{\isacharunderscore}out{\isacharunderscore}name\ op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ out{\isacharunderscore}parms{\isacharprime}{\isacharequal}\ get{\isacharunderscore}params\ ZPrelude{\isachardot}is{\isacharunderscore}out{\isacharunderscore}name\ op{\isacharunderscore}conc\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ \ \ \ \ \ {\isacharequal}\ if\ out{\isacharunderscore}parms\ {\isacharequal}\ out{\isacharunderscore}parms{\isacharprime}\ then\ {\isacharparenleft}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ error{\isacharparenleft}{\isachardoublequote}Output\ parameters\ must\ agree\ {\isacharbang}{\isachardoublequote}{\isacharparenright}\isanewline
+\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ generating\ proof\ obligations\ {\isachardot}{\isachardot}{\isachardot}\ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ fun\ ALL\ {\isacharbrackleft}{\isacharbrackright}\ b\ \ {\isacharequal}\ {\isachardoublequote}{\isacharparenleft}{\isachardoublequote}{\isacharcircum}b{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}ALL\ S\ \ b\ \ {\isacharequal}\ {\isachardoublequote}{\isacharparenleft}ALL\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}String{\isachardot}concat\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}map{\isacharparenleft}fn\ x\ {\isacharequal}{\isachargreater}\ x{\isacharcircum}{\isachardoublequote}\ {\isachardoublequote}{\isacharparenright}S{\isacharparenright}{\isacharparenright}{\isacharcircum}{\isachardoublequote}{\isachardot}\ {\isachardoublequote}{\isacharcircum}b{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}\isanewline
+\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal{\isadigit{1}}\ {\isacharequal}\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ALL\ in{\isacharunderscore}parms\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}pre\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymlongrightarrow}\ pre\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}conc{\isacharparenright}{\isacharparenright}{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal{\isadigit{2}}c{\isacharequal}\ if\ functional{\isacharunderscore}refinement\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ {\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isasymlongrightarrow}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ {\isachardoublequote}\ {\isasymlongrightarrow}\ {\isacharparenleft}{\isacharpercent}E\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharcircum}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal{\isadigit{2}}a{\isacharequal}\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}{\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ALL\ in{\isacharunderscore}parms\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ALL\ out{\isacharunderscore}parms\ {\isacharparenleft}{\isachardoublequote}pre\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}conc{\isacharcircum}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymlongrightarrow}\ {\isacharparenleft}{\isacharpercent}E\ {\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isachardoublequote}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal{\isadigit{2}}b{\isacharequal}\ {\isachardoublequote}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isacharat}\ {\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}\ {\isachardoublequote}{\isacharparenleft}{\isacharpercent}A\ {\isachardoublequote}{\isacharcircum}state{\isacharunderscore}conc{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}{\isachardoublequote}\ {\isacharat}\ {\isachardoublequote}{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ALL\ in{\isacharunderscore}parms\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ALL\ out{\isacharunderscore}parms\ {\isacharparenleft}{\isachardoublequote}pre\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs{\isacharcircum}{\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}conc{\isacharcircum}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymand}\ {\isachardoublequote}{\isacharcircum}abs{\isacharcircum}stroke{\isacharunderscore}sym{\isacharcircum}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}\ {\isasymlongrightarrow}\ {\isachardoublequote}{\isacharcircum}op{\isacharunderscore}abs\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenright}{\isacharparenright}{\isacharparenright}{\isacharcircum}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ goal{\isadigit{2}}\ {\isacharequal}\ if\ functional{\isacharunderscore}refinement\ then\ goal{\isadigit{2}}b\ else\ goal{\isadigit{2}}a\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ cf{\isadigit{1}}\ \ \ {\isacharequal}\ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy\ goal{\isadigit{1}}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ cf{\isadigit{2}}\ \ \ {\isacharequal}\ cterm{\isacharunderscore}of{\isacharparenleft}sign{\isacharunderscore}of\ thy{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZEncoder{\isachardot}schema{\isacharunderscore}read\ thy\ goal{\isadigit{2}}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ thy{\isacharprime}\ \ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}fwRefinementOp{\isachardoublequote}{\isacharcomma}op{\isacharunderscore}abs{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf{\isadigit{1}}\ thy\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ thy{\isacharprime}{\isacharprime}\ {\isacharequal}\ ZPO{\isacharunderscore}Mgr{\isachardot}declare{\isacharunderscore}PO\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SOME{\isacharparenleft}Context{\isachardot}theory{\isacharunderscore}name\ thy{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}fwRefinementOp{\isachardoublequote}{\isacharcomma}op{\isacharunderscore}abs{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ cf{\isadigit{2}}\ thy{\isacharprime}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ \ {\isacharequal}\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf{\isadigit{1}}\ thy{\isacharprime}{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ val\ {\isacharunderscore}\ \ \ \ \ {\isacharequal}\ writeln{\isacharparenleft}{\isachardoublequote}PO\ declared{\isacharcolon}\ {\isachardoublequote}{\isacharcircum}{\isacharparenleft}the\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}ZPO{\isacharunderscore}Mgr{\isachardot}get{\isacharunderscore}name{\isacharunderscore}of{\isacharunderscore}PO\ cf{\isadigit{2}}\ thy{\isacharprime}{\isacharprime}{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ in\ \ thy{\isacharprime}{\isacharprime}\ end\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+structure\ P\ {\isacharequal}\ OuterParse\ and\ K\ {\isacharequal}\ OuterKeyword{\isacharsemicolon}\isanewline
+\isanewline
+val\ declare{\isacharunderscore}absP\ {\isacharequal}\isanewline
+\ \ \ \ let\ fun\ declare{\isacharunderscore}abs{\isacharprime}{\isacharparenleft}name{\isacharcomma}X{\isacharparenright}\ {\isacharequal}\ declare{\isacharunderscore}abs\ {\isacharparenleft}isSome\ X{\isacharparenright}\ name\ \isanewline
+\ \ \ \ in\ OuterSyntax{\isachardot}command\ {\isachardoublequote}set{\isacharunderscore}abs{\isachardoublequote}\ {\isachardoublequote}set\ abstraction\ relation{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ {\isacharminus}{\isacharminus}\ {\isacharparenleft}Scan{\isachardot}option\ {\isacharparenleft}P{\isachardot}{\isachardollar}{\isachardollar}{\isachardollar}\ {\isachardoublequote}{\isacharbrackleft}{\isachardoublequote}\ {\isacharbar}{\isacharminus}{\isacharminus}\ P{\isachardot}{\isachardollar}{\isachardollar}{\isachardollar}\ {\isachardoublequote}functional{\isachardoublequote}\ {\isacharminus}{\isacharminus}{\isacharbar}\ P{\isachardot}{\isachardollar}{\isachardollar}{\isachardollar}\ {\isachardoublequote}{\isacharbrackright}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ declare{\isacharunderscore}abs{\isacharprime}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ end{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}declare{\isacharunderscore}absP{\isacharbrackright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ OuterSyntax{\isachardot}add{\isacharunderscore}keywords\ {\isacharbrackleft}{\isachardoublequote}functional{\isachardoublequote}{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+val\ gen{\isacharunderscore}tcc{\isacharunderscore}fromP\ {\isacharequal}\isanewline
+\ \ \ \ OuterSyntax{\isachardot}command\ {\isachardoublequote}gen{\isacharunderscore}thm{\isacharunderscore}tcc{\isachardoublequote}\ {\isachardoublequote}generate\ type\ constraint\ side\ conditions{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ \ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ gen{\isacharunderscore}tcc{\isacharunderscore}from{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}gen{\isacharunderscore}tcc{\isacharunderscore}fromP{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+val\ gen{\isacharunderscore}cc{\isacharunderscore}stateP\ {\isacharequal}\isanewline
+\ \ \ \ OuterSyntax{\isachardot}command\ {\isachardoublequote}gen{\isacharunderscore}state{\isacharunderscore}cc{\isachardoublequote}\ {\isachardoublequote}generate\ state\ consistency\ conditions{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ \ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ gen{\isacharunderscore}cc{\isacharunderscore}state{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}gen{\isacharunderscore}cc{\isacharunderscore}stateP{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+val\ gen{\isacharunderscore}cc{\isacharunderscore}opP\ {\isacharequal}\isanewline
+\ \ \ \ OuterSyntax{\isachardot}command\ {\isachardoublequote}gen{\isacharunderscore}op{\isacharunderscore}cc{\isachardoublequote}\ {\isachardoublequote}generate\ operation\ consistency\ relation{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ \ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ gen{\isacharunderscore}cc{\isacharunderscore}op{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}gen{\isacharunderscore}cc{\isacharunderscore}opP{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+val\ refine{\isacharunderscore}opsP\ {\isacharequal}\isanewline
+\ \ \ \ OuterSyntax{\isachardot}command\ {\isachardoublequote}refine{\isacharunderscore}op{\isachardoublequote}\ {\isachardoublequote}generate\ forward\ refinement\ proof\ obligations{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ \ {\isacharminus}{\isacharminus}\ {\isacharparenleft}P{\isachardot}name{\isacharparenright}\ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ refine{\isacharunderscore}ops{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}refine{\isacharunderscore}opsP{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+val\ refine{\isacharunderscore}initP\ {\isacharequal}\isanewline
+\ \ \ \ OuterSyntax{\isachardot}command\ {\isachardoublequote}refine{\isacharunderscore}init{\isachardoublequote}\ {\isachardoublequote}generate\ forward\ refinement\ proof\ obligations\ for\ init\ schemas{\isachardoublequote}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ OuterKeyword{\isachardot}thy{\isacharunderscore}script\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharparenleft}P{\isachardot}name{\isacharparenright}\ \ {\isacharminus}{\isacharminus}\ {\isacharparenleft}P{\isachardot}name{\isacharparenright}\ {\isachargreater}{\isachargreater}\ {\isacharparenleft}Toplevel{\isachardot}theory\ o\ refine{\isacharunderscore}init{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \ OuterSyntax{\isachardot}add{\isacharunderscore}parsers\ {\isacharbrackleft}refine{\isacharunderscore}initP{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+end\isanewline
+\isanewline
+{\isacharverbatimclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+\isanewline
+%
+\isadelimtheory
+\isanewline
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{end}\isamarkupfalse%
+%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+\isanewline
+\end{isabellebody}%
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "root"
+%%% End:

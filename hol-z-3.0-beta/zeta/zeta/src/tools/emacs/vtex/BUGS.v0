@@ -1,0 +1,67 @@
+
+KNOWN BUGS
+
+* vertical lines of a Z box are sometimes duplicated
+
+* if for the the last space in a zbox-environment
+
+	\begin{env}{Name} ...
+	                ^
+  ... the associated extent is set to 'read-only, it may be still
+  deleted, leading to an inconsistent markup of this environment
+  (appears with test environment `lschema' for locking extents;
+   perhaps a problem of ro-extents in general).
+
+* in a locked Z box, the length of the hline left of the boxes name isn't
+  automatically updated if the name is changed. This is inherent 
+  currently, since the hline belongs to the markup of the overall
+  locked box, which isn't touched by the autoparser.
+
+* the cursor-bug reported to xemacs-beta has been circumvented
+  by inserting a (sit-for) in post-command-hook. Thats really
+  bad, leads to a nervous cursor display, and moreover fixes the 
+  problem not in all situtations. 
+
+- AucTeX compatibility: ESC-q (fill-paragraph) and perhaps other
+  commands delete and rearange markups :-( this leads to the
+  deletion of all markups if vtex-auto-delete-markup is enabled
+
+  Fixed: vtex-inhibit-auto-delete-markup-commands  
+
+* there are still problems with undoing. A sequence of undos
+  is sometimes recognized incorrectly by the auto-parser, which tries
+  to reparse each single undo which is usually not syntax-correct
+  instead of using the whole undo-region.
+
+- \t1 ... etc arent parsed as expected, because 1 is actually a
+  single TeX token ...
+
+  Fixed
+
+* redefining \\ isnt't possible 
+
+
+
+KNOWN FLAWS
+
+* the heuristic for auto-parsing isn't optimal. Diverse
+  experiments to delay auto-parsing until the user is idle failed:
+  - pre-idle-hook is too eager; xemacs becomes in fact idle
+    inbetween the key-presses of a fast auto-repeat
+  - waiting-for-user-input-p doesn't work (at least in versions
+    prior 19.14b23)
+  - (site-for) in a timeout caused problems
+  Another problem is that autoparsing lasts too long
+  if once started. Perhaps it should be sepearated into several
+  chunks, which are fast enough for pre-idle-hook.
+
+* in a locked Z box, an inserted \where isn't autparsed. That's 
+  inherent, since the \where belongs to the markup of the overall
+  box.
+
+* options aren't tackled
+
+* \( ... \) and \[ ... \] isn't handled
+
+* $$ ... $$ isn't handled
+

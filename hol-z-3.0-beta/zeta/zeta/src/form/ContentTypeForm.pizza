@@ -1,0 +1,121 @@
+package zeta.form;
+
+/**
+ * The class of content type forms. <p>
+ *
+ * Inputs an existing content type of the session system.
+ *
+ * @version $Id: ContentTypeForm.pizza,v 1.3 1998/10/27 11:04:17 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.util.Name;
+import zeta.agl.*;
+import zeta.session.*;
+
+public class ContentTypeForm extends ListForm {
+
+  /** The class of content type form states. */
+  public static class State extends ListForm.State {
+    public case State(ContentType type);
+
+    /** 
+     * Get the range list -- all existing content types in the session.
+     */
+    public String[] getRange(Session session){
+      return new ArraySeq(session.getContentTypes())
+			 .map(fun (ContentType t)->String {
+				return t.name.toString();
+			      })
+			 .toArray(String.class);
+    }
+
+    /** Get the index of the selected object in the range, or -1 if no
+	selection. */
+    public int getSelected(Session session){
+      if (type != null){
+	ContentType[] types = session.getContentTypes();
+	for (int i = 0; i < types.length; i++){
+	  if (types[i] == type) return i;
+	}
+      }
+      return -1;
+    }
+
+    /** Set the index of the selected object in the range. */
+    public void setSelected(Session session, int i, Object source){
+      ContentType[] types = session.getContentTypes();
+      if (i >= 0 && i < types.length)
+	type = types[i];
+      notifyChange(source);
+    }
+    
+  }
+
+  /** A static default state. */
+  public static State defaultState = new State(null);
+
+  /** 
+   * Construct a content type form from a state.
+   */
+  public ContentTypeForm(State state){
+    super(state);
+  }
+
+  /** 
+   * Construct a content type form for the default state.
+   */
+  public ContentTypeForm(){
+    this(defaultState);
+  }
+
+  /**
+   * Parse the given sequence of words starting at index. Takes
+   * the first word in the sequence and tries to resolve it as 
+   * a content type. Throws if resolution fails.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start)
+  throws Failures.FormFailed {
+    if (start < words.length){
+      Name name = new Name(words[start]);
+      State cstate = (State)state;
+      try {
+	ContentType old = cstate.type;
+	cstate.type = session.lookupContentType(name);
+	if (old != cstate.type) cstate.notifyChange(this);
+	return start+1;
+      }
+      catch (Failures.NoSuchEntity e){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   "content type `" + name + "' does not exists")
+	);
+	throw new Failures.FormFailed("ContentTypeForm");
+      }
+    }
+    else
+      return -1;
+  }
+      
+  /**
+   * Unparse the internal state of the form. Returns the name of the
+   * content type.
+   */
+  public String[] unparse(Session session){
+    State cstate = (State)state;
+    if (cstate.type != null)
+      return new String[]{cstate.type.name.toString()};
+    else
+      return new String[]{""};
+  }
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    return "<CONTENT-TYPE>";
+  }
+
+}

@@ -1,0 +1,230 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of Z expressions.
+  *
+  * Expressions and schema expressions are unified in this syntax.
+  *
+  * Schema expressions are generalized to allow the introduction
+  * of given and free type declarations.
+  *
+  * @version $Id: Expr.pizza,v 1.2 2000/07/06 09:18:24 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  *
+  */
+
+import zeta.util.Name;
+import zeta.util.Term;
+import zeta.util.AnnotatedTerm;
+
+public class Expr extends AnnotatedTerm {
+
+  /** Number literal.
+    * @param value the string representing the number literal. */
+  public case Number(String value);
+
+  /** Denotation literal.
+    * @param value the string representing the denotation literal. */
+  public case Denotation(String value);
+
+  /** Reference to a variable.
+    * @param name  a name application, containing actualizations
+    * of generics.
+    */
+  public case Variable(NameAppl name);
+
+  /** Tuple expression, with elements of heterogeneous type. 
+    * @param elements  the element expressions of the tuple, an
+    *  array with length greater then <code>1</code>. */
+  public case Tuple(Expr[] elements);
+
+  /** Cartesian product expression. 
+    * @param elements the element expressions of the product. 
+    */
+  public case Product(Expr[] elements);
+
+  /** Binding expression. 
+    * @param bindings  a sequence of equations describing
+    *  the binding.
+    */
+  public case Binding(Decl.Eqn[] bindings);
+
+
+  /** Set display expression, with elements of homogeneous type.
+    * @param elements  the elements, all of the same type. 
+    */
+  public case Display(Expr[] elements);
+
+
+  /** Conditional expression.
+    * @param cond  the condition, a predicate.
+    * @param thenPath the path to be taken if <code>cond</code> is true.
+    * @param elsePath the path to be taken if <code>cond</code> is false.
+   */
+  public case Cond(Predicate cond, Expr thenPath, Expr elsePath);
+
+  /** Quantor expression.
+    * @param kind  the quantor kind, such as lambda, mu, set-comprehension,
+    *   schema quantification and so on.
+    * @param matrix  an expression denoting a schema.
+    * @param range  expression the <code>matrix</code> ranges over.
+    */
+  public case Quantor(QuantorKind kind, Expr matrix, Expr range);
+
+  /** Binding kind. */
+  public static class QuantorKind extends Term {
+    /** Lambda expressions. */
+    public case Lambda;
+    /** Mu description. */
+    public case Mu;
+    /** Let expressions. */
+    public case Let;
+    /** Set comprehension. */
+    public case Set;
+    /** Schema universal quantification. */
+    public case Forall;
+    /** Schema existential quantification. */
+    public case Exists;
+    /** Schema unique existential quantification. */
+    public case Exists1;
+  }
+
+  /** Binding selection. 
+    * @param oper  an expressions denoting a binding.
+    * @param name  a named component of this binding. 
+    */
+  public case Select(Expr oper, NameAppl name);
+
+  /** Unary operator. 
+    * @param kind  the operation kind; mostly schema calculus operators. 
+    * @param oper  the operand.
+    */
+  public case Unary(UnaryKind kind, Expr oper);
+
+  /** Kind of Unaries. */
+  public static class UnaryKind extends Term {
+    /** Power set construction. */
+    public case Power;
+    /** Binding formation. */
+    public case Theta;
+    /** Schema negation. */
+    public case Not;
+    /** Schema Delta operator. */
+    public case Delta;
+    /** Schema selective delta operator. */
+    public case SelectiveDelta(NameAppl[] names);
+    /** Schema Xi operator. */
+    public case Xi;
+    /** Schema precondition operator. */
+    public case Pre;
+    /** Schema hiding operator. 
+     * @param names  the names to hide in schema. */
+    public case Hide(NameAppl[] names);
+    /** Schema renaming operator. 
+      * @param renames  the renaming pairs applied to schema . 
+      */
+    public case Renaming(Rename[] renames);
+    /** Schema decoration operator. 
+      * @param decore  a string representing name decoration. 
+      */
+    public case Decorate(String decore);
+    /** Schema state flattening (DZ only). */
+    public case StateFlat;
+    /** Schema step flattening (DZ only). */
+    public case StepFlat;
+  }
+
+  /** Renaming pair. */
+  public static class Rename extends AnnotatedTerm {
+    /** Renaming.
+      * @param old  the old name
+      * @param _new  the new name
+      */
+    public case Rename(NameAppl old, NameDecl _new);
+  }
+
+  /** Binary operator. 
+    * @param kind  the operation kind; mostly schema calculus operators. 
+    * @param left  the left operand.
+    * @param right  the right operand.
+    */
+  public case Binary(BinaryKind kind, Expr left, Expr right);
+
+  /** Kind of binary operators. */
+  public static class BinaryKind extends Term {
+    /** Function application. */
+    public case Apply;
+    /** Schema conjunction. */
+    public case And;
+    /** Schema disjunction. */
+    public case Or;
+    /** Schema implication. */
+    public case Implies;
+    /** Schema equivalence. */
+    public case Iff;
+    /** Schema sequential composition. */
+    public case Compose;
+    /** Schema projection. */
+    public case Project;
+    /** Schema piping. */
+    public case Pipe;
+  }
+
+  /** Schema text. 
+    * @param decls the sequence of declarations
+    * @param props the sequence of properties.
+    */
+  public case Text(Decl[] decls, Predicate[] props);
+
+  /** Declarations. */
+  public static class Decl extends AnnotatedTerm {
+    /** Direct declaration.  
+      * @param names the names being declared.
+      * @param type the type of the declared names.  */
+    public case Direct(NameDecl[] names, Expr type);
+    /** Equated declaration.  
+      * @param name the name being declared.
+      * @param type the definition of the name. */
+    public case Eqn(NameDecl name, Expr def);
+    /** Inclusion.
+      * @param schema  expression denoting a schema to be included.
+      */
+    public case Inclusion(Expr schema);
+  }
+
+  /** Given Type. Constructs a schema which contains the declaration
+    * of the given type in the signature. 
+    * @param name the name of the given type. */
+  public case GivenType(NameDecl name);
+
+  /** Free Type. Constructs a schema which contains the declaration
+    * of the free type in the signature. 
+    * @param name the name of the free type.
+    * @param branches the branches of the free type. */
+  public case FreeType(NameDecl name, Branch[] branches);
+
+  /** Free type branch. */
+  public static class Branch extends AnnotatedTerm {
+    /** Constant constructor. 
+      * @param name the name of the constructor. */
+    public case Constant(NameDecl name);
+    /** Function constructor.
+      * @param name the name of the constructor.
+      * @param type expression describing the domain of the constructor
+      *   function. */
+    public case Function(NameDecl name, Expr type);
+  }
+
+  /** A unification variable. The operand may be null to indicate
+      that the variable is not bound. Does not appear usually in 
+      interchanged ZIRP. */ 
+  public case UniVar(Name name, Expr oper);
+
+  /** Signature expression. Does only appears in type expressions.
+    * Describes the type of a binding, that is a set of bindings.
+    * @param names  array of names in the signature
+    * @param types  array of types assigned to names at the corresponding
+        index in <code>names</code>. The types are given as expressions.
+    */
+  public case Signature(Name[] names, Expr[] types);
+
+}

@@ -1,0 +1,130 @@
+HOL-Z - an Encoding of Z into the Higher Order Logic of Isabelle
+================================================================
+
+Introduction
+
+HOL-Z is a structure preserving conservative embedding of Z in the 
+higher order logic (HOL) instance of the generic theorem prover Isabelle. 
+
+HOL-Z now contains a complete, LaTeX based frontend for professional
+specification based on the ZETA environment (that we advise to integrate
+in an xemacs and use as editing front-end), proof-obligation generation
+and conversion to a new format *.holz, that can be loaded in Isabelle/HOL-Z
+alternatively to *.thy files and be used to build up proof-environments
+in Isabelle. The HOL-Z library has been significantly improved such
+that proofs achieve a significantly higher degree of automation in HOL-Z.
+Moreover, tactics have been developped that allow for reasoning
+in mixed HOL-Z and HOL terms like:
+
+zlemma Spivey1 :
+"(%A BirthdayBook @ (%A BirthdayBook1 @  
+    (%A name? %: Name@ %A date? %: Date@ 
+      ((name? ~: known /\\  known =  {n. ? i : #1..hwm. n = (names%^i)}) 
+      =+=>                                                               
+      (!i : #1..hwm. name? ~= (names %^ i)))                             
+ )))"
+
+(an expression that is in part a Z-Schema-Calculus expression, 
+ in part a HOL expression) which makes structured proofs in Z possible
+by allowing "bridge lemmas" that relate Z-contexts to logical
+core theorems holding in such a Z-context. Such core theorems
+can then be used to reduce large Z constructions to 
+smaller and more manageable ones by using logical strengthening and
+weakening premisses thus avoiding an early conversion of Z into
+HOL representation and continuing proofs on this basis.
+This style has implicitly been used as the mathematical language in 
+the proof example "Using Z" (Woodcock/Davis).
+
+HOL-Z 3.0 is again a major revision of the system.
+It is based on the most recent Isabelle distribution and
+integrated into the more recent front-end-technologies, i.e.
+the ISAR proof language as well as its support of ProofGeneral 3.6
+in interactive use. HOL-Z 3.0 also contains support for the
+refinement method based on a newly developed proof-obligation
+manager.  This version was developed by Lukas Brugger,
+Achim Brucker and Burkhart Wolff.
+
+HOL-Z is an open Formal Methods Environment, i.e. all parts can be
+accessed and controlled in Makefiles which makes it easy to integrate
+into other software developments processes based on UNIX,
+including version management, workflow management, etc.
+
+Limitations:
+
+- pretty printing of Z syntax is supported, but will produce
+  sometimes only partially pretty-printed and sometimes (wrt. to
+  Z decorations) even WRONG pretty prints.
+  The option show_full_sem must be used in practice quite often
+  in order to get a realistic idea about the Z-formula in the
+  proof state.
+
+- The parser of email syntax is not complete. In particular, there is no
+  support for Z recursive free types or variants of constructors with
+  arguments (simple enumerations work, though).
+  
+  A solution is to use the Isabelle datatype
+  package and load such a theory in the Z environment.
+  Another solution for non-recursive types is the use if 
+  inl and inr for type sums that have been added to Z.
+
+- Parsing can be extremely ambiguous. Use more paranthetheses.
+
+- Z is based on a wealth of alternative formulations.
+  In the ZETA-HOLZ converter, only some of them are used
+  (and in the e-mail format, it is even worse).
+  One has to look into the larger examples or experiment
+  a bit in order to find out what can actually be converted.
+
+- The empty schema [] is not supported in HOL-Z 2.0.
+  Expressions with an empty schema will crash in the ZETA-HOL-Z
+  converter.
+
+- User defined Generic Schemas are not supported in HOL-Z 2.0.
+  Will crash.
+
+- Identifiers in Z specifications must be disjoint to HOL Identifiers
+  (at least in many cases). Conversion may produce strange type-checking
+  errors otherwise.
+  
+- Selectors on Z record types supported; however, due to the
+  fact that the Isabelle representation of HOL-Z represents
+  records by cartesian products (and uses therefore a slightly
+  weaker type system), type projection notation can not always
+  be resolved uniquely.
+  The problem is limited to the e-mail format.
+
+
+Version 2.1:
+- Syntax Change: nnn?, nnn!, nnn´ should be parsed now
+  by Z-Parser (except for !!, where in internal Isabelle
+  restriction can not be avoided)
+- Meta-Variables were parsed such that they were implicitly
+  lifted over schema-signature (by Z-Parser)
+- some new tactic abbreviations: zbr, zbe, ...
+
+Version 3.0:
+- Port to Isabelle 2005
+- ISAR support
+- PO Management and Refinement support.
+- Bugs: 
+  - same limitations to data-types as before.
+  - Pretty-Printing: In rare cases, the schema decoration is not printed.
+  - ZEncoder crashes in larger corbasec-example
+  - Deep Environment Problem: The type-constraint (i.e. the term occuring
+    in the declaration part of a schema x : >T<) is not stored in the ZEnvironment,
+    just the HOL type. This leads in "pre" construct as well as in PO generation
+    for refinements to unconstrained quantifiers and potentially unprovable
+    refinement conditions.
+  - One of the larger case studies should be ported:
+    DARMA?
+    
+
+We are thankful for bug reports and other feedback.
+
+Contact us via email:
+
+Achim Brucker - brucker@inf.ethz.ch
+Burhart Wolff - wolff@inf.ethz.de
+
+
+

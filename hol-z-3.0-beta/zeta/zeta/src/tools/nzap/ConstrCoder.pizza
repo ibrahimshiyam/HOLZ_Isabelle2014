@@ -1,0 +1,512 @@
+package zeta.tools.nzap;
+
+/** Constraint coder.
+  *
+  * @version $Id: ConstrCoder.pizza,v 1.14 2000/07/03 06:59:28 wg Exp $
+  */
+
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.session.*;
+
+import zeta.content.nmz.MZ.*;
+import zeta.content.nmz.MZConstants;
+
+class ConstrCoder {
+
+  /** The schema context this coder is associated with. */
+  SchemaContext parent;
+
+  /** Construct a new constraint coder. */
+  ConstrCoder(SchemaContext parent){
+    this.parent = parent; 
+  }
+
+  /** A constant used for an internal variable name. */
+  private Name internVarName1 = new Name("%%1");
+
+  /** A constant used for an internal variable name. */
+  private Name internVarName2 = new Name("%%2");
+
+  
+  /** The number of registers allocated. */
+  private int regCount = 0;
+
+  /** Retrieve the numbers of registers. */
+  int getRegisterCount(){
+    return regCount;
+  }
+
+  /** A flag which indicates whether we are in a flexible context. */
+  private boolean notFlex = false;
+
+  /** The variables which are currently assigned. */
+  private Set<Name> assignedVars = new HashSet();
+
+  /** The set of variable names which are known to be determined
+      since we have emitted a WAIT somewhere before. */
+  private Set<Name> availVars = new HashSet();
+
+  /** Allocate a new register. */
+  int newRegister(){
+    return regCount++;
+  }
+
+  /** Allocate a new register region. */
+  int newRegisterRegion(int s){
+    int base = regCount;
+    regCount += s;
+    return base;
+  }
+
+
+  /** The code buffer. */
+  private byte[] buffer = new byte[256];
+  private int fill = 0; 
+  private static final int minFree = 12;
+
+  int getCodeSize(){
+    return fill;
+  }
+
+  byte[] getCode(){
+    return buffer;
+  }
+
+  /** Emit an instruction. */
+  private void emit(byte opc){
+    if (fill >= buffer.length-minFree){
+      byte[] newbuf = new byte[buffer.length*2];
+      System.arraycopy(buffer,0,newbuf,0,fill);
+      buffer = newbuf;
+    }
+    buffer[fill++] = opc;
+  }
+
+  /** Emit an instruction with arguments. */
+  private void emit(byte opc, int param){
+    emit(opc); emitInt(param);
+  }
+
+  /** Emit an instruction with arguments. */
+  private void emit(byte opc, int param1, int param2){
+    emit(opc); emitInt(param1); emitInt(param2);
+  }
+
+  /** Emit an instruction with arguments. */
+  private void emit(byte opc, int param1, int param2, int param3){
+    emit(opc); emitInt(param1); emitInt(param2); emitInt(param3);
+  }
+
+  /** Emit an integer argument. */
+  private void emitInt(int param){
+    fill = ZAM.writeInt(buffer, fill, param);
+  }
+
+  /** Make a sub constraint coder. */
+  private ConstrCoder newSubCoder(){
+    ConstrCoder coder = new ConstrCoder(parent);
+    coder.regCount = regCount;
+    coder.availVars = availVars;
+    coder.assignedVars = assignedVars;
+    return coder;
+  }
+
+
+  /** Join a sub coders register count. */
+  private void joinRegCount(ConstrCoder other){
+    regCount = other.regCount;
+  }
+    
+
+  /** Join a sub coders code. */
+  private void join(ConstrCoder other){
+    if (fill+other.fill >= buffer.length-minFree){
+      int newl = buffer.length*2;
+      while (fill+other.fill >= newl-minFree){ 
+	newl *= 2;
+      }
+      byte[] newbuf = new byte[newl];
+      System.arraycopy(buffer,0,newbuf,0,fill);
+      buffer = newbuf;
+    }
+    System.arraycopy(other.buffer,0,buffer,fill,other.fill);
+    fill += other.fill;
+  }
+
+  /** Join two subcoders available vars. */
+  private void joinAvailVars(ConstrCoder c1, ConstrCoder c2){
+    availVars = availVars.includeAll(
+		  c1.availVars.intersect(c2.availVars)
+		);
+  }
+
+
+  /** Compile an expression in this constraint coder. */
+  void compile(Expr expr, int target){
+
+      switch (expr) {
+      case Denotation(String value):
+	emit(ZAM.MKDENO, parent.unit.getDenotationIndex(value), target);
+	break;
+      case Call(Name name, Seq<Expr> args):
+	int region = compileArgsSpec(parent.unit.getArgSpec(name), args);
+	emit(ZAM.CALLNATIVE, parent.unit.getNativeFuncIndex(name, args.size()),
+	     region, target);
+	if (notFlex) emit(ZAM.WAIT, target);
+	break;
+      case Variable(Name name):
+	SchemaContext.VarKind kind = parent.lookupVar(name);
+	switch (kind){
+	case Local(int index):
+	  if (notFlex && !availVars.contains(name)){
+	    emit(ZAM.WAITLOAD, index, target);
+	    availVars = availVars.include(name);
+	  } else {
+	    emit(ZAM.LOAD, index, target);
+	  }
+	  break;
+	case Param(int index):
+	  if (notFlex && !availVars.contains(name)){
+	    emit(ZAM.WAITLOADPARAM, index, target);
+	    availVars = availVars.include(name);
+	  } else {
+	    emit(ZAM.LOADPARAM, index, target);
+	  }
+	  break;
+	case Global(int index):
+	  if (notFlex && !availVars.contains(name)){
+	    emit(ZAM.WAITLOADGLOBAL, index, target);
+	    availVars = availVars.include(name);
+	  } else {
+	    emit(ZAM.LOADGLOBAL, index, target);
+	  }
+	  break;
+	}
+	break;
+      case Term(Name name, Seq<Expr> args):
+	int region = compileArgsFlex(args);
+	emit(ZAM.MKTERM, parent.unit.getConstructorIndex(name, args.size()),
+	     region, target);
+	break;
+      case Singleton(Expr arg):
+	int temp = newRegister();
+	compileFlex(arg, temp);
+	emit(ZAM.MKSINGLE, temp, target);
+	break;
+      case Hom(Name name, Expr arg):
+	int temp = newRegister();
+	compileNonFlex(arg, temp);
+	emit(ZAM.HOM, parent.unit.getHomIndex(name), temp, target);
+	if (notFlex) emit(ZAM.WAIT, target);
+	break;
+      case Empty():
+	emit(ZAM.MKEMPTY, target);
+	break;
+      case Universal():
+	emit(ZAM.MKUNIV, target);
+	break;
+      case Intersection(Expr left, Expr right):
+	int temp1 = newRegister();
+	int temp2 = newRegister();
+	compileNonFlex(left, temp1);
+	compileNonFlex(right, temp2);
+	emit(ZAM.ISECT, temp1, temp2, target);
+	break;
+      case Union(Expr left, Expr right):
+	int temp1 = newRegister();
+	int temp2 = newRegister();
+	compileNonFlex(left, temp1);
+	compileNonFlex(right, temp2);
+	emit(ZAM.UNION, temp1, temp2, target);
+	break;
+      case Apply(Expr left, Expr right):
+	boolean done = false;
+	switch (left){
+	case Variable(Name name):
+	  SchemaContext.VarKind kind = parent.lookupVar(name);
+	  switch (kind){
+	  case Global(int index):
+	    int temp = newRegister();
+	    compileFlex(right, temp);
+	    if (!availVars.contains(name)){
+	      emit(ZAM.WAITGLOBAL, index);
+	      availVars = availVars.include(name);
+	    }
+	    emit(ZAM.APPLYGLOBAL, index, temp, target);
+	    done = true;
+	  }
+	}
+	if (!done){
+	  int temp1 = newRegister();
+	  compileNonFlex(left, temp1);
+	  int temp2 = newRegister();
+	  compileFlex(right, temp2);
+	  emit(ZAM.APPLY, temp1, temp2, target);
+	}
+	if (notFlex) emit(ZAM.WAIT, target);
+	break;
+      case Complement(Expr arg):
+	// FIXME: dirty access to paramTab and paramNames
+	int temp = newRegister();
+	compileFlex(arg, temp);
+	Expr var = new Expr.Variable(internVarName1).set(expr.locator);
+	SchemaContext sctx =
+	  new SchemaContext(parent.unit, this, 
+			    expr.locator, var, new HashSet());
+	sctx.paramTab = 
+	  sctx.paramTab.define(internVarName2,
+			       new SchemaContext.VarKind.Local(-1));
+	sctx.paramNames = new ArraySeq(internVarName2);
+	sctx.compile(
+	  new ArraySeq(
+		new Property.Subset(
+		      new Expr.Intersection(
+			    new Expr.Singleton(
+				  var
+				).set(var.locator),
+			    new Expr.Variable(
+				  internVarName2
+				).set(arg.locator)
+			  ).set(expr.locator),
+		      new Expr.Empty().set(expr.locator)
+		    ).set(expr.locator)
+	      )
+	);
+	emit(ZAM.MKINTEN, sctx.finish(), temp, target);
+	break;
+      case Conditional(Expr cond, Expr tpath, Expr epath):
+	int temp = newRegister();
+	compileNonFlex(cond, temp);
+	ConstrCoder tctx = newSubCoder();
+	tctx.compileFlex(tpath, target);
+	joinRegCount(tctx);
+	ConstrCoder ectx = newSubCoder();
+	ectx.compileFlex(epath, target);
+	joinRegCount(ectx);
+	tctx.emit(ZAM.GOTO, ectx.fill);
+	emit(ZAM.IFNOT, temp, tctx.fill);
+	join(tctx);
+	join(ectx);
+	joinAvailVars(tctx, ectx);
+	if (notFlex) emit(ZAM.WAIT, target);
+	break;
+      case Translate(Expr arg, Expr source, Expr dest):
+	// FIXME: dirty access to paramTab and paramNames
+	int temp = newRegister();
+	compileFlex(arg, temp);
+	SchemaContext sctx = 
+	  new SchemaContext(parent.unit, this, expr.locator, dest, 
+			   source.freeVars().excludeAll(dest.freeVars()));
+	sctx.paramTab = 
+	  sctx.paramTab.define(internVarName1,
+			       new SchemaContext.VarKind.Local(-1));
+	sctx.paramNames = new ArraySeq(internVarName1);
+	sctx.compile(
+	  new ArraySeq(
+		new Property.Member(source, new Expr.Variable(internVarName1)
+						    .set(arg.locator))
+			    .set(expr.locator)
+	      )
+	);
+	emit(ZAM.MKINTEN, sctx.finish(), temp, target);
+	break;
+      case Schema(Expr binder, Set<Name> freeVars, Seq<Property> props):
+	SchemaContext sctx = 
+	  new SchemaContext(parent.unit, this, expr.locator, binder, freeVars);
+	sctx.compile(props);
+	if (!sctx.paramNames.isEmpty()){
+	  // generate code passing intension parameters
+	  int s = sctx.paramNames.size();
+	  int paramRegion = newRegisterRegion(s);
+	  for (int i = 0; i < s; i++){
+	    Name name = sctx.paramNames.at(i);
+	    try {
+	      SchemaContext.VarKind kind = sctx.paramTab.get(name);
+	      switch (kind){
+	      case Local(int index):
+		// ???
+		// emit(ZAM.WAITLOAD, index, paramRegion+i);
+		emit(ZAM.LOAD, index, paramRegion+i);
+		break;
+	      case Param(int index):
+		emit(ZAM.LOADPARAM, index, paramRegion+i);
+		break;
+	      default:
+		throw FatalError.assertionFailed("intension parameter kind");
+	      }
+	    }
+	    catch (NoSuchElementException e){
+	      throw FatalError.assertionFailed("intension parameter unbound");
+	    }
+	  }
+	  emit(ZAM.MKINTEN, sctx.finish(), paramRegion, target);
+	} else {
+	  emit(ZAM.MKOUTERINTEN, sctx.finish(), target);
+	}
+	break;
+      default:
+	throw FatalError.notImplemented();
+      }
+  }
+
+  /** Compile an expression in this constraint coder, with
+      waiting access to variables. */ 
+  void compileNonFlex(Expr expr, int target){
+    boolean saveFlex = notFlex;
+    notFlex = true;
+    compile(expr, target);
+    notFlex = saveFlex;
+  }
+
+  void compileFlex(Expr expr, int target){
+    boolean saveFlex = notFlex;
+    notFlex = false;
+    compile(expr, target);
+    notFlex = saveFlex;
+  }
+
+  int compileArgs(Seq<Expr> args){
+    int s = args.size();
+    int region = newRegisterRegion(s);
+    for (int i = 0; i < s; i++){
+      // uses default mode
+      compile(args.at(i), region + i);
+    }
+    return region;
+  }
+
+  int compileArgsNonFlex(Seq<Expr> args){
+    int s = args.size();
+    int region = newRegisterRegion(s);
+    for (int i = 0; i < s; i++){
+      // overwrites default mode
+      compileNonFlex(args.at(i), region + i);
+    }
+    return region;
+  }
+
+  int compileArgsFlex(Seq<Expr> args){
+    int s = args.size();
+    int region = newRegisterRegion(s);
+    for (int i = 0; i < s; i++){
+      // overwrites default mode
+      compileFlex(args.at(i), region + i);
+    }
+    return region;
+  }
+
+  int compileArgsSpec(Seq<boolean> spec, Seq<Expr> args){
+    int s = args.size();
+    int region = newRegisterRegion(s);
+    for (int i = 0; i < s; i++){
+      // overwrites default mode according to spec
+      if (spec.at(i)){
+	compileNonFlex(args.at(i), region + i);
+      } else {
+	compileFlex(args.at(i), region + i);
+      }
+    }
+    return region;
+  }
+
+  /** Compile a property in this constraint coder. */
+  void compile(Seq<Property> props){
+    if (props.size() > 1) emit(ZAM.DEPTHFIRST);
+    props.apply(
+      fun (Property prop)->void {
+	switch (prop){
+	case Call(Name name, Seq<Expr> args):
+	  int region = compileArgsSpec(parent.unit.getArgSpec(name), args);
+	  emit(ZAM.TESTNATIVE, parent.unit.getNativePredIndex(name, args.size()),
+	       region);
+	  break;
+	case IsTrue(Expr expr):
+	  int temp = newRegister();
+	  compileNonFlex(expr, temp);
+	  emit(ZAM.IF, temp, 1);
+	  emit(ZAM.FAILURE);
+	  // emit(ZAM.SUCCESS);
+	  break;
+	case Equal(Expr left, Expr right):
+	  Seq<Pair<Name,Expr>> s = decomposeAssign(left, right);
+	  if (s == null) s = decomposeAssign(right, left);
+	  if (s != null){
+	    s.apply(
+	      fun (Pair<Name,Expr> p)->void{
+		int temp = newRegister();
+		compileFlex(p.snd, temp);
+		SchemaContext.VarKind kind = parent.lookupVar(p.fst);
+		switch (kind){
+		case Local(int index):
+		  emit(ZAM.STORE, temp, index);
+		  break;
+		case Global(int index):
+		  emit(ZAM.STOREGLOBAL, temp, index);
+		  break;
+		case Param(int index):
+		  int temp1 = newRegister();
+		  emit(ZAM.LOADPARAM, index, temp1);
+		  emit(ZAM.UNIFY, temp, temp1);
+		  break;
+		}
+	      }
+	    );
+	  } else {
+	    int temp2 = newRegister();
+	    compileFlex(right, temp2);
+	    int temp1 = newRegister();
+	    compileFlex(left, temp1);
+	    emit(ZAM.UNIFY, temp1, temp2);
+	  }
+	  break;
+	case Member(Expr left, Expr right):
+	  int temp2 = newRegister();
+	  compileNonFlex(right, temp2);
+	  int temp1 = newRegister();
+	  compileFlex(left, temp1);
+	  emit(ZAM.MEMBER, temp1, temp2);
+	  break;
+	case Subset(Expr left, Expr right):
+	  int temp1 = newRegister();
+	  int temp2 = newRegister();
+	  compileNonFlex(left, temp1);
+	  compileNonFlex(right, temp2);
+	  emit(ZAM.SUBSET, temp1, temp2);
+	  break;
+	}
+      }
+    );
+    emit(ZAM.SUCCESS);
+  }
+
+  private Seq<Pair<Name,Expr>> decomposeAssign(Expr lhs, Expr rhs){
+    switch (lhs){
+    case Term(Name cons1, Seq<Expr> args1):
+      switch (rhs){
+      case Term(Name cons2, Seq<Expr> args2):
+	if (cons1.equals(cons2)){
+	  int s = args1.size();
+	  Seq<Pair<Name,Expr>> r = new BufferSeq();
+	  for (int i = 0; i < s; i++){
+	    Seq<Pair<Name,Expr>> r1 = 
+	      decomposeAssign(args1.at(i), args2.at(i));
+	    if (r1 == null) return null;
+	    r = r.appendAll(r1);
+	  }
+	  return r;
+	}
+      }
+      return null;
+    case Variable(Name name):
+      return new ArraySeq(new Pair(name, rhs));
+    }
+    return null;
+  }
+
+}

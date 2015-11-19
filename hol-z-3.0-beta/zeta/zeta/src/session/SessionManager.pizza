@@ -1,0 +1,74 @@
+package zeta.session;
+
+/**
+ * A session manager allows to create and open sessions. <p>
+ *
+ * @version $Id: SessionManager.pizza,v 1.1.1.1 1998/09/01 10:51:21 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.util.Name;
+import zeta.util.FatalError;
+
+public abstract class SessionManager {
+
+  /** 
+   * Create a session working on a new empty project, based
+   * on the current default session manager.
+   */
+  public static Session create(String projectName) {
+    return getManager().createProject(projectName);
+  }
+
+  /** 
+   * Create a session working on an exisiting project,
+   * based on the current default session manager.
+   */
+  public static Session open(String projectName) 
+  throws Failures.NoSuchEntity {
+    return getManager().openProject(projectName);
+  }
+
+  /**
+   * The default session manager.
+   */
+  private static SessionManager manager = null;
+
+  /**
+   * Get the default session manager.
+   */
+  public static SessionManager getManager(){
+    if (manager == null){
+      // FIXME: setting up the name of the session manager by a Java property
+      try {
+	Class managerClass = 
+	  Class.forName("zeta.tools.sman.SessionManagerImpl");
+	manager = (SessionManager)managerClass.newInstance();
+      }
+      catch (Exception e){
+	throw new FatalError("cannot create a default session manager: " + e);
+      }
+    }
+    return manager;
+  }
+
+  /**
+   * Set the default session manager.
+   */
+  public static void setManager(SessionManager manager){
+    SessionManager.manager = manager;
+  }
+
+  /** 
+   * The creation method of a session manager.
+   */
+  public abstract Session createProject(String projectName);
+
+
+  /** 
+   * The open method of a session manager.
+   */
+  public abstract Session openProject(String projectName) 
+  throws Failures.NoSuchEntity;
+    
+}

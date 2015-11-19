@@ -1,0 +1,38 @@
+package zeta.session;
+
+/**
+ * The class of Messages send by the session itself to notify
+ * interested parties about state changes.
+ *
+ * @version $Id: SessionStateMessage.pizza,v 1.1 1998/10/27 11:04:26 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.format.Format;
+
+import zeta.format.*;
+import zeta.util.Name;
+
+public class SessionStateMessage extends Message {
+
+  /** The given unit was added. */
+  public case UnitAdded(Unit unit);
+
+  /** The given content type was added. */
+  public case ContentTypeAdded(ContentType type);
+
+  /** The named tool adaptor was added. */
+  public case AdaptorAdded(Adaptor adaptor);
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    switch (this){
+    case UnitAdded(Unit unit):
+      return Format.literal("added unit " + unit.getName());
+    case ContentTypeAdded(ContentType type):
+      return Format.literal("added type " + type);
+    case AdaptorAdded(Adaptor adaptor):
+      return Format.literal("added adaptor " + adaptor.getName());
+    }
+  }
+
+}

@@ -1,0 +1,20 @@
+#!/bin/sh
+# $Id: xemacs_visit_locator,v 1.6 2000/05/10 08:38:51 wg Exp $
+
+if [ -z "$ZETABASE" ]; then
+    echo "\$ZETABASE not defined" >&2
+    exit 1
+fi
+
+. $ZETABASE/etc/etenv.sh        
+
+form="(progn (zeta-server-visit \"$1\" $2 $3 $4 $5))"
+$GNUDOIT "$form" 1>/dev/null 2>/dev/null
+if [ ! "$?" = "0" ]
+then
+  echo "Connection to XEmacs editor lost." 
+  echo "Ensure XEmacs is up and gnuserv (M-x gnuserv-start) is running." 
+  exit 1
+else
+  exit 0
+fi

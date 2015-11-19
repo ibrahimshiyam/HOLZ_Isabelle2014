@@ -1,0 +1,376 @@
+package zeta.tools.emacs;
+
+/** The Emacs Editor Adaptor
+  *
+  * @version $Id: EditorAdaptor.pizza,v 1.2 2000/05/16 08:10:47 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import java.util.Date;
+import java.io.*;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.zirp.*;
+import zeta.content.text.*;
+
+import zeta.tools.util.*;
+import zeta.tools.latex.LatexConfig;
+
+public class EditorAdaptor extends DefaultAdaptor implements TextEditor {
+
+  
+  // CONSTANTS
+
+  /**
+   * Whether we are running on Windows ...
+   */
+  static boolean onWin = System.getProperty("os.name").startsWith("Win");
+
+  /*
+   * The startup message of this adaptor.
+   */
+  private static final String startupMessage = 
+    "installed Emacs adaptor v1.0";
+
+  /**
+   * The name of this adaptor.
+   */
+  private static final Name toolName = new Name("Emacs");
+
+
+  // ADAPTOR INITIALIZATION
+
+  /**
+   * Return the name of this adaptor.
+   */
+  public Name getName(){
+    return toolName;
+  }
+
+  /** 
+   * Initialize a newly created instance of this adaptor.
+   */
+  public void initialize(Session session, StorageHandle handle){
+    super.initialize(session, handle);
+    sendProgress(startupMessage);
+    session.registerForm(editForm);
+    session.registerTextEditor(this);
+  }
+
+
+  // ADAPTOR METHODS
+  
+  /** 
+   * Return the content types which this adaptor can generally
+   * compute.
+   */
+  public ContentType[] computedTypes() {
+    return new ContentType[]{ };
+  }
+
+  /** Always throws. */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName {
+    throw new Failures.UnresolvableName(name);
+  }
+
+  /**
+   * Always throws.
+   */
+  public void tryCompute(Target target)
+  throws Failures.ComputationFailed, Failures.CannotCompute {
+    throw new Failures.CannotCompute(target);
+  }
+
+  /** Always returns true. */
+  public boolean isUptodate(Target spec, Date definedAt){
+    return true;
+  }
+
+  /** Always returns false. */
+  public boolean notifyOutdate(Target spec, Date definedAt,
+			       StorageHandle handle){
+    return false;
+  }
+
+  /** Does call saveRelated in the editor. */
+  public void checkExternalData(){
+    if (editorInUse){
+      saveRelated();
+      try {
+	commit();
+      }
+      catch (IOException e){
+	System.err.println(e);
+      }
+    }
+  }
+    
+  /** Does nothing. */
+  public void flush(){
+  }
+
+  // EDITOR METHODS
+
+  /**
+   * Whether we have used the editor.
+   */
+  boolean editorInUse = false;
+
+  /**
+   * A sequence of accumulated forms.
+   */
+  Seq<String> forms = new BufferSeq();
+
+  
+
+  
+  /** Return button name. */
+  public String getButtonName(){
+    return "@xemacs.gif;XE";
+  }
+
+  /**
+   * Add the given visit intention for a subsequent commit. <p>
+   * For Emacs, we just accumulate the information.
+   */
+  public void add(Locator.VisitCapability.TextVisit cap) {
+    forms = forms.append(
+	      "(zeta-server-register " + locatorRepr(cap) + ")"
+	    );
+  }
+
+  /** 
+   * Visit the given locator. 
+   */
+  public void visit(Locator.VisitCapability.TextVisit cap) {
+    forms = forms.append(
+	      "(zeta-server-visit " + locatorRepr(cap) + ")");
+    editorInUse = true;
+  }
+
+  /** 
+   * Reset the added and committed visiting intentions.
+   */
+  public void reset() {
+    if (editorInUse){
+      forms = forms.append("(zeta-server-clear)");
+    }
+  }
+
+  /**
+   * Open the given file for editing.
+   */
+  public void open(File file) {
+    forms = forms.append(
+	      "(zeta-server-open " + 
+	      quote("\"" + file.getAbsolutePath() + "\")"));
+    editorInUse = true;
+  }
+
+  /**
+   * Release any file-system locks on this file. Does nothing for Emacs.
+   */
+  public void unlock(File file) {
+  }
+
+  /**
+   * Reopen this file for editing. Reopening a file which has not
+   * yet been openeded should behave as initial open.
+   */
+  public void reopen(File file) {
+    forms = forms.append(
+	  "(zeta-server-reopen" + 
+	  quote("\"" + file.getAbsolutePath() + "\")"));
+    editorInUse = true;
+  }
+
+  /**
+   * Close editing the given file. Does nothing for Emacs.
+   */
+  public void close(File file, boolean dontSave) {
+  }
+
+  /**
+   * Save the given file.
+   */
+  public void save(File file, boolean silently) {
+    forms = forms.append(
+	  "(zeta-server-save " + quote("\"" + file.getAbsolutePath() + "\"") +
+	  (silently ? " t)" : ")"));
+  }
+
+  /**
+   * Save all related files.
+   */
+  public void saveRelated() {
+    if (editorInUse) 
+      forms = forms.append("(zeta-server-save-related)");
+  }
+
+  /**
+   * Convert a text cap into the string Emacs understands.
+   */
+  private String locatorRepr(Locator.VisitCapability.TextVisit cap) {
+    return 
+      quote("\"" + cap.file.getAbsolutePath() + "\"") + " " + 
+      Integer.toString(cap.firstRow) + " " +
+      Integer.toString(cap.firstCol) + " " +
+      Integer.toString(cap.lastRow) + " " +
+      Integer.toString(cap.lastCol);
+  }
+
+
+  /**
+   * Commit the accumulated forms.
+   */
+  public void commit() throws IOException {
+    if (forms.size() > 0){
+      StringBuffer buf = new StringBuffer();
+      buf.append("(concat");
+      forms.apply(
+	fun (String form)->void {
+	  buf.append(" ");
+	  buf.append(form);
+	}
+      );
+      buf.append(")");
+      forms = new BufferSeq();
+      doit(buf.toString());
+    }
+  }
+
+  /**
+   * Let Emacs evaluate the given form.
+   */
+  private void doit(String form) throws IOException {
+    doit(form, false);
+  }
+  private void doit(String form, boolean quickly) throws IOException {
+    String gnudoit = System.getProperty("zeta.prog.gnudoit");
+    if (gnudoit == null){
+      throw new IOException(
+		  "Emacs adaptor does not knows how to call `gnudoit'.\n"+
+		  "Property `zeta.prog.gnudoit' is not set."
+		);
+    }
+    Process proc;
+    // System.err.println("gnulient: " + form);
+    proc = Runtime.getRuntime()
+		  .exec(quickly ? new String[]{gnudoit, "-q", form}
+		                : new String[]{gnudoit, form});
+    if (quickly) return;
+    String output = readResult(proc.getInputStream()).trim();
+    // System.err.println("out: " + output);
+    String err = readResult(proc.getErrorStream()).trim();
+    // System.err.println("err: " + err);
+    try {
+      int p = proc.waitFor();
+      if (p != 0){
+	throw new IOException(
+		    "XEmacs client failed." +
+		    // (error code " + p + ")" +
+		    // (err.length() > 0 ? ":\n" + err : "") + 
+		    "\nEnsure that XEmacs is up and running gnuserv."
+		  );
+      }
+    } catch (InterruptedException e){
+      throw new IOException(
+		  "Emacs client interrupted: " + e
+		);
+    }
+    if (output.length() > 0 || err.length() > 0){
+      throw new IOException("XEmacs client:\n" + output + "\n" + err);
+    }
+  }
+
+  private static String readResult(InputStream stream){
+    String res = null;
+    try {
+      BufferedReader reader = 
+	new BufferedReader(new InputStreamReader(stream));
+      String line;
+      while ((line = reader.readLine()) != null){
+	if (res != null)
+	  res += "\n" + line;
+	else
+	  res = line;
+      }
+      reader.close();
+    }
+    catch (IOException e){
+    }
+    return res == null ? "" : res;
+  }
+
+  private static String quote(String s){
+    StringBuffer res = new StringBuffer();
+    int n = s.length();
+    for (int i = 0; i < n; i++){
+      char c = s.charAt(i);
+      switch (c) {
+      case '\\':
+	res.append("\\\\");
+	break;
+      default:
+	if (onWin && c == '"') 
+	  res.append("\\\"");
+	else
+	  res.append(c);
+      }
+    }
+    return res.toString();
+  }
+
+
+
+  // COMMANDS
+
+  private final TopLevelForm editForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Function().setModal(true)
+		  .setToolIcon("@xemacs.gif;XE"),
+      new SeqForm(
+	    new LiteralForm("edit").describe("Edit source of unit"),
+	    new UnitForm().style(Form.Style.INVISIBLE)
+	  ),
+      "Edit source of unit",
+      fun (Session session, Locator locator) throws Failures.FormFailed 
+							    -> void {
+	// FIXME: source of unit into zeta.session.Unit
+	Locator l = session.unitLocator(UnitForm.defaultState.unit);
+	if (l != null){
+	  Locator.VisitCapability[] caps = l.getVisitCapabilities();
+	  for (int i = 0; i < caps.length; i++){
+	    if (caps[i] instanceof Locator.VisitCapability.TextVisit){
+	      visit((Locator.VisitCapability.TextVisit)caps[i]);
+	      try {
+		commit();
+		return;
+	      } catch (IOException e){
+		sendError("could not edit source of unit via`" +
+			  l + "':\n" + e.getMessage());
+		throw new Failures.FormFailed("Edit");
+	      }
+	    }
+	  }
+	  sendError("`" + l + "'cannot be visited\nby the attached editor `" +
+		    getName() + "'");
+	  throw new Failures.FormFailed("Edit");
+	} else {
+	  sendError("source of `" + 
+		    UnitForm.defaultState.unit.getName() + 
+		    "' cannot be located");
+	  throw new Failures.FormFailed("Edit");
+	}
+      }
+    );
+
+}

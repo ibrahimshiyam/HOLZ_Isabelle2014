@@ -1,0 +1,11 @@
+AUTOSUBNODES	= # zam
+PIZZA_FILES =   ZapUtil.pizza ZAM.pizza UnitContext.pizza SchemaContext.pizza \
+		ConstrCoder.pizza \
+		ZamIface.pizza ZamJniIface.pizza \
+		ZapAdaptor.pizza DumpZAM.pizza
+		# ZamProcIface.pizza \
+JAVAFLAGS	= 
+NODEKIND	= java
+
+inst:
+	$(ET_INSTALL) lib/images expr.gif pred.gif

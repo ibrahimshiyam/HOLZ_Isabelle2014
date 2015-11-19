@@ -1,0 +1,19 @@
+package zeta.form;
+
+/**
+ * The abstract class of compound forms. <p>
+ *
+ * A compound form is composed from subforms.
+ *
+ * @version $Id: CompoundForm.pizza,v 1.1 1998/10/21 11:42:50 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.Session;
+import zeta.session.Failures;
+
+public abstract class CompoundForm extends Form {
+
+  /** Return the direct subforms of this compound form. */
+  public abstract Form[] getSubforms();
+
+}

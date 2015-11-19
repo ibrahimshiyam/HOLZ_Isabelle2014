@@ -1,0 +1,59 @@
+package zeta.content.zirp;
+
+/** Actualization annotation slots.
+  *
+  * This slot is provided under certain conditions
+  * at terms of class  <code>absy.NameAppl</code>
+  * if the syntax is context-checked.
+  *
+  * An actualization represents the sequence of instances of generic
+  * type parameters as they are derived by a type checker.
+  *
+  * This annotation is only present at name applications which 
+  * represent generic global constants. It is not present at names
+  * which represent mSZ classes.
+  *
+  * The expressions contained in actualizations are restricted 
+  * to type expressions, as defined in class <code>Type</code>.
+  *
+  * @see zeta.content.zirp.Type
+  *
+  * @version $Id: Act.pizza,v 1.1.1.1 1998/09/01 10:51:17 wg Exp $ */
+
+import zeta.util.*;
+
+public class Act {
+  
+  /** The slot object. */
+  public static final Slot slot = Slot.register(Act.class.getName(),
+						Expr[].class);
+
+  /** Set value of actualization annotation slot.
+    * @param an    the annotation
+    * @param act   the array of type expressions representing the 
+    *   actualization. This should be a valid type expressions as explained
+    *   in class Type.
+    * @see zeta.content.zirp.Type
+    */
+  public static void put(Annotation an, Expr[] act){
+    slot.put(an, act);
+    // slot.put(an, Term.internArray(act));
+  }
+
+  /** Get value of actualization annotation slot.
+    * @param an    the annotation
+    * @return the actualization, or null, if no one is provided.
+    */
+  public static Expr[] get(Annotation an){
+    return (Expr[])slot.get(an);
+  }
+
+  /** Test wether actualization annotation slot is provided. 
+    * @param an    the annotation
+    * @return true if the actualization annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+}

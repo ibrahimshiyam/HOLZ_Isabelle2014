@@ -1,0 +1,193 @@
+package zeta.tools.sh;
+
+/**
+ * Structured representation of message content. Provides identification
+ * of locators embedded in a message string.
+ *
+ * @version $Id: MessageMarkup.pizza,v 1.5 2000/05/14 17:43:32 wg Exp $
+ */
+
+import java.util.StringTokenizer;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.session.*;
+
+import zeta.tools.latex.TextLocator;
+
+
+class MessageMarkup {
+  
+  /** Class of message markup elements. */
+  static class Element {
+    /** A literal string containing no line breaks. */
+    case Literal(String text);
+    /** A line break. */
+    case BREAK;
+    /** A reference to a unit. */
+    case EmbeddedUnit(Unit unit);
+    /** A location. */
+    case EmbeddedLocator(Locator locator);
+  }
+
+
+  /** Create a message markup from a string representation of a message. */
+  static Seq<Element> create(ShellState state, String repr){
+    Parser parser = new Parser(state, repr);
+    parser.parse();
+    return parser.elems;
+  }
+    
+
+  /** The message parser. */
+  static class Parser {
+    private final ShellState state;
+    private final char[] input;
+    private int pos;
+    Seq<Element> elems = new BufferSeq();
+    StringBuffer line = new StringBuffer();
+    final Set<Name> toolNames;
+
+    Parser(ShellState state, String repr){
+      this.state = state;
+      this.input = repr.toCharArray();
+      this.pos = 0;
+      this.toolNames = 
+	HashSet.from(
+	  new ArraySeq(state.session.getAdaptors())
+		      .map(fun (Adaptor a)->Name {
+			     return a.getName();
+			   }
+			  )
+	);
+    }
+
+    void parse(){
+      while (pos < input.length){
+	switch (input[pos]){
+	case '\r':
+	  // ignore
+	  pos++;
+	  continue;
+	case '\n':
+	  if (line.length() > 0)
+	    elems = elems.append(new Element.Literal(line.toString()));
+	  elems = elems.append(Element.BREAK);
+	  line.setLength(0);
+	  pos++;
+	  continue;
+	case ':':
+	  int nameStop = line.length()-1;
+	  while (nameStop >= 0 && 
+		 Character.isLetterOrDigit(line.charAt(nameStop)))
+	    nameStop--;
+	  nameStop++;
+	  int l;
+	  if ((l = line.length() - nameStop) > 0){
+	    char[] nameChars = new char[l];
+	    line.getChars(nameStop, line.length(), nameChars, 0);
+	    Name toolName = new Name(new String(nameChars));
+	    if (toolNames.contains(toolName)){
+	      // a valid tool name followed by a `:' 
+	      // now read the label
+	      StringBuffer label = new StringBuffer();
+	      int pos1 = pos+1;
+	      while (pos1 < input.length && isLabelChar(input[pos1])){
+		label.append(input[pos1++]);
+	      }
+	      if (pos1 < input.length && input[pos1] == '('){
+		label.append(input[pos1++]);
+		while (pos1 < input.length && input[pos1] != ')'){
+		  label.append(input[pos1++]);
+		}
+		if (pos1 < input.length)
+		  label.append(input[pos1++]);
+	      }
+	      String phrase = toolName + ":" + label;
+	      Element elem = null;
+	      // System.err.println("trying phrase " + phrase);
+	      try {
+		// see if this phrase denotes a unit
+		Unit unit = state.session.getUnit(new Name(phrase));
+		elem = new Element.EmbeddedUnit(unit);
+	      }
+	      catch (Failures.NoSuchEntity e){
+		// see if we can parse this phrase to a locator
+		// FIXME: need to have locator parsers systemized!
+		Locator loc = parseLocator(phrase);
+		if (loc != null){
+		  elem = new Element.EmbeddedLocator(loc);
+		}
+	      }
+	      if (elem != null){
+		line.setLength(nameStop);
+		if (line.length() > 0){
+		  elems = elems.append(new Element.Literal(line.toString()));
+		  line.setLength(0);
+		}
+		elems = elems.append(elem);
+		pos = pos1;
+		continue;
+	      }
+	    }
+	  }
+	  // take ':' as is 
+	  line.append(input[pos++]);
+	  break;
+	default:
+	  line.append(input[pos++]);
+	}
+      }
+      if (line.length() > 0)
+	elems = elems.append(new Element.Literal(line.toString()));
+    }
+    
+  }
+  
+  private static Locator parseLocator(String phrase){
+    // FIXME: need to have locator parsers systemized!
+    int i;
+    if (phrase.startsWith("LTX:") &&
+	(i = phrase.indexOf("(")) > 0){
+      StringTokenizer tkn = new StringTokenizer(phrase.substring(i+1),
+						".-)",
+						false);
+      try {
+	int frow = Integer.parseInt(tkn.nextToken());
+	int fcol = Integer.parseInt(tkn.nextToken());
+	int lrow = Integer.parseInt(tkn.nextToken());
+	int lcol = Integer.parseInt(tkn.nextToken());
+	return new TextLocator(new Name(phrase.substring(4, i)),
+			       frow, fcol, lrow, lcol);
+      }
+      catch (Exception e){
+	return null;
+      }
+    } else
+      return null;
+  }
+
+  private static boolean isLabelChar(char ch){
+    switch (ch){
+    case ';': // FIXME: what separator to choose for compound locators?
+      return false;
+    case ',':
+      return false;
+    case '+':
+      return false;
+    case '(':
+      return false;
+    case '\r':
+      return false;
+    case '\n':
+      return false;
+    case '\'':
+      return false;
+    case '`':
+      return false;
+    default:
+      return !Character.isWhitespace(ch);
+    }
+  }
+
+}

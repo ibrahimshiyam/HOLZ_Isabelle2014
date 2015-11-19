@@ -1,0 +1,257 @@
+\section{Executable Encoding of Uses Cases}
+
+The satisfaction relation for fragments, $(d,\sigma) \ucin f$, where
+$d$ is a dialogue, $\sigma$ a system state and $f$ a fragment, is not
+executable in its descriptive definition from the previous section.
+We could perhaps define an executable version of the constructors for
+fragments and of the satisfaction relation: however, the
+representation of fragments as sets of patterns is a dead-end
+regarding \emph{efficient} executability.  The problem comes apparent
+in the definition of $\_ \ucthen \_$ which equals to $$\lambda f,f':
+Fragment[\alpha,\pi,\Sigma] @ \{ p: f; p': f' @ p \cat p' \}$$
+A
+common prefix $p$ is not shared in the composition and needs to be
+``parsed'' again for every $p'$. A better representation would use
+\emph{trees}, preserving common prefixes in fragments.  In this
+section, we develop an encoding of fragments with executable
+satisfaction based on this idea.
+
+For a tree-like representation, we encode fragments as a set of
+\emph{branches}. A branch is either $\uceod$ -- indicating that a
+dialogue may end here -- or $\ucbr(i,r,f)$, where $i$ is the interaction
+at the head of this branch, $r$ the state transition, and $f$ the
+followup fragment:
+
+\renewcommand{\assumed}{}
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{UseCases}    
+\end{zdirectives} \\
+
+%%pregen \cpower
+%% \begin{zed} \cpower X == \assumed \power X \end{zed}
+
+\begin{schema}{Interaction[\alpha,\pi]}
+  actor: \alpha; action: \pi
+\end{schema}
+\begin{zed}
+  Dialogue[\alpha,\pi] == \assumed \seq Interaction[\alpha,\pi] 
+\end{zed}
+\begin{zed}
+  Branch[\alpha,\pi,\Sigma] ::= % \\\t1
+    \uceod | 
+    \ucbr \ldata \assumed Interaction[\alpha,\pi] \cross
+                    (\Sigma \rel \Sigma) \cross
+                    Fragment[\alpha,\pi,\Sigma] \rdata \\
+  Fragment[\alpha,\pi,\Sigma] == 
+    \assumed \cpower Branch[\alpha,\pi,\Sigma] \\
+\end{zed}
+\end{zedgroup}
+\noindent
+This definition makes use of an extension of the Z of the \Zeta{}
+system, allowing generic free types. Note that the power operator used for
+fragments cannot be the general powerset in order to let the
+construction be consistent -- with $\cpower$ we denote the
+``executable'' power-sets.
+
+Based on the tree encoding, we redefine the operations on fragments.
+The operator templates and basic constructors for fragments
+nearly remain the same:
+\begin{zedgroup}
+\begin{zdirectives}
+  \zfunction{65 (\_ \ucmki \_)} \\
+  \zfunction{60 (\_ \ucmk \_)} \\
+  \zfunction{60 (\_ \ucmkt \_ \uctrans \_)} \\
+  \zfunction{50 \rightassoc (\_ \ucthen \_)} \\
+  \zfunction{40 \leftassoc (\_ \ucexcept \_)}
+\end{zdirectives}
+\begin{axdef}[\alpha,\pi]
+  \_ \ucmki \_ ==
+    \lambda actor: \alpha; action: \pi @ % \\\t9
+      \theta Interaction[\alpha,\pi]  \\
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucmkt \_ \uctrans \_ == 
+    \lambda actor: \alpha; action: \pi; r: \Sigma \rel \Sigma @ \\\t9
+      \{\ucbr (actor \ucmki action, r, \{\uceod\})\}  \\
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucmk \_ ==
+    \lambda actor: \alpha; action: \pi @ 
+         actor \ucmkt action \uctrans \id[\Sigma]
+\end{axdef}
+\end{zedgroup}
+
+For the definition of sequential composition, we use a technique
+which is paradigmatic for the tree encoding of fragments: the
+composition is lazily ``pushed'' through the construction of the
+tree:
+
+\begin{zedgroup}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucthen \_ : \<Fragment[\alpha,\pi,\Sigma] \cross
+                   Fragment[\alpha,\pi,\Sigma] ~ \fun \\\t1
+                   Fragment[\alpha,\pi,\Sigma] \> 
+\where
+ (\_ \ucthen \_) = \lambda f_1,f_2: Fragment[\alpha,\pi,\Sigma] @ \\\t1
+    \<
+     % \{b: Branch[\alpha,\pi,\Sigma] | \uceod \in f_1; b \in f_2\} ~ \cup \\
+     (\IF \uceod \in f_1 \THEN f_2 \ELSE \emptyset) ~ \cup \\
+     \{\<
+       i: Interaction[\alpha,\pi]; r: \Sigma \rel \Sigma \\
+       f_1': Fragment[\alpha,\pi,\Sigma] % \\
+       | \ucbr(i,r,f_1') \in f_1 \\
+       @ \ucbr(i,r,f_1' \ucthen f_2)
+       \}\>\>
+\end{axdef}
+\end{zedgroup}
+
+%\noindent
+%Since our execution model of Z uses a strict evaluation
+%order, we use a suspension such as $$\{b: Branch[\alpha,\pi,\Sigma] |
+%\uceod \in f_1; b \in f_2\}$$ instead of the more intuitive 
+%formulation $$\IF \uceod \in f_1 \THEN f_2 \ELSE \emptyset$$
+%which on the level of the Z semantics represents the same meaning.
+
+The definition of $f_1 \ucexcept f_2$ uses similar techniques:
+\begin{zedgroup}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucexcept \_ : \<Fragment[\alpha,\pi,\Sigma] \cross
+                   Fragment[\alpha,\pi,\Sigma] ~ \fun \\\t1
+                   Fragment[\alpha,\pi,\Sigma] \> 
+\where
+ (\_ \ucexcept \_) = \lambda f_1,f_2: Fragment[\alpha,\pi,\Sigma] @ \\\t1
+    \<
+     (\IF \uceod \in f_1 \THEN \{\uceod\} \ELSE \emptyset) ~ \cup \\
+     \{\<
+       i: Interaction[\alpha,\pi]; r_1,r_2: \Sigma \rel \Sigma \\
+       f_1',f_2': Fragment[\alpha,\pi,\Sigma] \\
+       | \ucbr(i,r_1,f_1') \in f_1; \ucbr(i,r_2,f_2') \in f_2 % \\
+       @ \ucbr(i,r_2,f_2')
+     \} ~ \cup \\\>
+     \{\<
+       i: Interaction[\alpha,\pi]; r_1: \Sigma \rel \Sigma \\
+       f_1': Fragment[\alpha,\pi,\Sigma] \\
+       | \ucbr(i,r_1,f_1') \in f_1 % \\
+       @ \ucbr(i,r_1,f_1' \ucexcept f_2)
+     \} \\\> \>
+\end{axdef}
+\end{zedgroup}
+\noindent 
+The third case in the set union describes the actual interruption,
+where we continue with $f_2$, provided that there is an overlapping
+between a current interaction of $f_1$ and the first interaction of $f_2$.
+
+In the definition of the $\ucrepeat$ operator, again we use a suspension
+to embed the recursive expansion of the operator. In order to avoid
+looping of $\ucrepeat \{\uceod\}$, $\uceod$ is excluded in the repetition:
+
+\begin{zedgroup}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \ucrepeat : \<Fragment[\alpha,\pi,\Sigma] 
+                   ~ \fun 
+                   Fragment[\alpha,\pi,\Sigma] \> 
+\where
+ \ucrepeat = \lambda f: Fragment[\alpha,\pi,\Sigma] @ \\\t1
+    \<
+    (\mu f': Fragment[\alpha,\pi,\Sigma] |
+      f' = 
+     \{\uceod\} ~ \cup \\
+     \{b: Branch[\alpha,\pi,\Sigma] |
+        b \in (f \setminus \{\uceod\}) \ucthen f'\})
+     \>
+\end{axdef}
+\end{zedgroup}
+
+The definition of the choice, $\ucselect$, is the same as in the
+model semantics: 
+
+\begin{zedgroup}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \ucselect == 
+    \lambda fs: \power Fragment[\alpha,\pi,\Sigma] @ \bigcup fs
+\end{axdef}
+\end{zedgroup}
+\noindent
+Generalized union is executable by the definition
+$$ \bigcup SS = \{S: \power A; ; x: A | S \in SS; x \in S @ x\}$$
+as provided by the standard Z toolkit.
+
+We finally define satisfaction: $(d,\sigma) \ucin f$
+``parses'' a dialogue and initial state by trying the branches of a
+fragment tree. This is a typical depth-first backtracking algorithm:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zrelation{(\_ \ucin \_)}
+\end{zdirectives}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucin \_ : \power(\<(Dialogue[\alpha,\pi] \cross \Sigma) \cross 
+                  Fragment[\alpha,\pi,\Sigma])\>
+\where
+  (\_ \ucin \_) = \\\t1
+  \<
+  \{ \< 
+     \sigma: \Sigma; f: Fragment[\alpha,\pi,\Sigma] | \uceod \in f % \\
+     @ ((\langle\rangle, \sigma), f) \} ~ \cup \\\>
+  \{ \< 
+     d: Dialogue[\alpha,\pi]; \sigma,\sigma': \Sigma;
+     f,f': Fragment[\alpha,\pi,\Sigma] \\ 
+      r: \Sigma \rel \Sigma % \\
+     | \<d \neq \langle\rangle; \ucbr(head~d,r,f') \in f \\ 
+       (\sigma,\sigma') \in r;
+       (tail~d, \FORCE \sigma') \ucin f' \\\>
+     @ ((d, \sigma), f)
+   \}\>\>
+\end{axdef}
+\end{zedgroup}
+
+
+To model concurrency, we conservatively extend our current encoding by
+a new operator for parallel composition.  The definition uses the same
+``trick'' as before, pushing the composition lazily through tree
+construction:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zfunction{45 (\_ \ucpar \_)}
+\end{zdirectives} \\
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucpar  \_ : 
+      \<Fragment[\alpha,\pi,\Sigma] \cross
+                   Fragment[\alpha,\pi,\Sigma] ~ \fun \\\t1
+                   Fragment[\alpha,\pi,\Sigma]\\ \> 
+\where
+ (\_ \ucpar \_) = \lambda f_1,f_2: Fragment[\alpha,\pi,\Sigma] @ \\\t1
+   \<
+%   \{b: Branch[\alpha,\pi,\Sigma] | \uceod \in f_1; b \in f_2\} ~ \cup \\
+%   \{b: Branch[\alpha,\pi,\Sigma] | \uceod \in f_2; b \in f_1\} ~ \cup \\
+   (\IF \uceod \in f_1 \THEN f_2 \ELSE ~ \IF \uceod \in f_2 \THEN f_1 
+                                    \ELSE \emptyset)~\cup \\
+   \{\<
+     i: Interaction[\alpha,\pi]; 
+     r_1,r_2: \Sigma \rel \Sigma \\
+     f_1',f_2': Fragment[\alpha,\pi,\Sigma] \\
+     | \ucbr(i,r_1,f_1') \in f_1; \ucbr(i,r_2,f_2') \in f_2 \\
+     @ \ucbr(i, r_1 \cap r_2, f_1' \ucpar f_2')\} \cup ~ \\ \>
+   \{\<
+     i: Interaction[\alpha,\pi]; 
+     r_1: \Sigma \rel \Sigma \\
+     f_1': Fragment[\alpha,\pi,\Sigma] \\
+     | \ucbr(i,r_1,f_1') \in f_1 % \\
+     @ \ucbr(i,r_1, f_1' \ucpar f_2)\} \cup ~ \\ \>
+   \{\<
+     i: Interaction[\alpha,\pi]; 
+     r_2: \Sigma \rel \Sigma \\
+     f_2': Fragment[\alpha,\pi,\Sigma] \\
+     | \ucbr(i,r_2,f_2') \in f_2 % \\
+     @ \ucbr(i,r_2, f_1 \ucpar f_2')\}\> \>
+\end{axdef}
+\end{zedgroup}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "ucases"
+%%% End: 

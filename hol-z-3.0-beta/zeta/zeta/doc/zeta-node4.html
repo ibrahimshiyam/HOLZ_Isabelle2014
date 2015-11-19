@@ -1,0 +1,78 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>3. Batch Operation</TITLE>
+<META NAME="description" CONTENT="3. Batch Operation">
+<META NAME="keywords" CONTENT="zeta">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zeta.css">
+<LINK REL="previous" HREF="zeta-node3.html">
+<LINK REL="up" HREF="zeta.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif_gr.gif"> 
+<A NAME="tex2html75"
+ HREF="zeta.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html71"
+ HREF="zeta-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html77"
+ HREF="zeta-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Up:</B> <A NAME="tex2html76"
+ HREF="zeta.html">Operation of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html72"
+ HREF="zeta-node3.html">2. XEmacs Support for</A>
+ &nbsp <B>  <A NAME="tex2html78"
+ HREF="zeta-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION00040000000000000000"></A>
+<A NAME="sec:batch"></A>
+<BR>
+3. Batch Operation
+</H1>
+
+<P>
+On startup, the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> system reads and executs commands in the files
+<code>$ZETABASE/lib/zetarc</code>, <code>$HOME/.zetarc</code> and <code>./zetarc</code>
+in this order.  The first file usually loads the adaptors.  You can
+use any Z<SMALL>E</SMALL>T<SMALL>A</SMALL> command in the batch files, but note that some
+commands are not available unless the adaptors which provide them have
+been loader.  Use the <TT> help</TT> command to get a list and short
+explanation of all available commands.  Useful commands in
+zetarc-scripts are:
+
+<P>
+
+<UL><LI><TT> plugin &lt;class&gt;</TT>:  Plugin an adaptor specified by the
+        given class.  The class must be found in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s
+        classpath. 
+
+<LI><TT> load &lt;filename&gt;</TT>*: load a L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X file.
+
+<LI><TT> path &lt;pathname&gt;</TT>*: set the L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X search path.
+
+<LI><TT> make &lt;unitname&gt; &lt;content-type&gt;</TT>: establish the given
+        content type for the unit.
+
+</UL>
+
+<P>
+<BR><HR>
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,337 @@
+\section{The Basic Specification}
+
+\textbf{STATUS: The document is type-checked, but not carefully
+  proof-read. Several ports of this document may have introduced
+  all sorts of typos and logical probelms \ldots }
+
+\zsection{SteamDat}
+
+\begin{zed}
+   PhysModes     ::= waiting | adjusting | ready | running | stopped \\
+   Alarm         ::= ON | OFF \\
+   UnitStates    ::= working | broken | closed  | \\
+                     opening  | open  | flow  | noflow \\
+   SensorStates == \{working, broken\}
+\end{zed}
+
+We have the following system variables:
+\begin{enumerate}
+\item  C           : capacity of the tank  ($l$)
+\item  W           : maximal steam output  ($l/s$)
+\item  U1          : max decrease of the steam output ($l/s^2$)
+\item  U2          : max. increase of the steam output ($l/s^2$)
+\item  NP          : number of pumps
+\item  P           : pump throughput ($l/s$)
+\item  pump$\_$delay : punp starting time ($s$)
+\item  T           : sampling rate
+\item  M1,M2,N1,N2 : absolut and normal water level limits ($l$)
+\end{enumerate}
+
+
+\begin{axdef}
+    C   : \nat \\
+    W   : \nat \\
+    U1  : \nat \\
+    U2  : \nat \\
+    P   : \nat \\
+    NP  : \nat \\
+    T   : \nat \\
+    pump\_delay : \nat \\
+    M1  : \nat \\
+    M2  : \nat \\
+    N1  : \nat \\
+    N2  : \nat 
+ \where
+    0 \leq M1 \land  M1 \leq N1 \land N1 \leq N2 \land  N2 \leq  M2 \land  M2 \leq  C \\  
+    NP = 4 \land  T = pump\_delay \land  pump\_delay = 5 \\
+    T * NP * P < N2 - N1 \land T * W < N2 - N1
+\end{axdef}
+
+
+\zsection[SteamDat]{SteamBoiler}
+
+\begin{schema}{WaterSensorModel}
+         qst : SensorStates\\ 
+         qa1 : \nat \\
+         qa2 : \nat 
+\where
+         0 \leq qa1  \land 
+         qa1 \leq qa2 \land   
+         qa2 \leq C 
+
+\end{schema}
+
+\begin{schema}{WaterSensorInit}
+         WaterSensorModel '
+\where
+         qst' = working \land 
+         qa1' = 0      \land 
+         qa2' = C
+\end{schema}
+
+
+
+\begin{schema}{WaterSensorWorking}
+WaterSensorModel 
+\where qst = working 
+\end{schema}
+
+\begin{schema}{WaterTolerable} 
+WaterSensorModel 
+\where M1 \leq qa1 \land qa2 \leq  M2
+\end{schema}
+
+\begin{schema}{WaterAboveNormal} 
+WaterSensorModel 
+\where N2 < qa2  
+\end{schema}
+
+\begin{schema}{WaterBelowNormal} 
+WaterSensorModel 
+\where qa1 < N1  
+\end{schema}
+
+\begin{schema}{WaterNormal}  
+WaterSensorModel 
+\where N1 \leq  qa1 \land qa2 \leq N2 
+\end{schema} 
+
+ 
+\begin{schema}{SteamSensorModel} 
+        vst : SensorStates\\ 
+        va1 : \nat\\ 
+        va2 : \nat
+\where                                  
+        0 \leq va1  \\  
+        va1 \leq  va2 \\  
+        va2 \leq W  
+\end{schema}
+
+
+\begin{schema}{SteamZero}
+       SteamSensorModel\\ 
+       va1 : \nat
+\where       
+       va1 = 0 
+\end{schema}
+
+\begin{schema}{SteamSensorWorking} 
+        SteamSensorModel\\
+        vst : SensorStates 
+\where       
+        vst = working
+\end{schema}
+
+\begin{zed}
+ValveStates == \{open,closed\}
+\end{zed}
+
+\begin{schema}{ValveModel}  vlv: ValveStates        \end{schema}
+\begin{schema}{ValveClosed} ValveModel       \where vlv = closed \end{schema}
+\begin{schema}{ValveOpen}   ValveModel       \where vlv = open   \end{schema}
+ 
+\begin{zed}
+PumpStates == \{closed,opening,open,broken\}
+\end{zed}
+ 
+\begin{schema}{PumpModel}     
+       pst : PumpStates\\
+       pa1 : \nat\\
+       pa2 : \nat
+\where
+       pa1 \leq pa2 \\
+       pst\in\{closed,opening\} \implies pa1=0 \land pa2=0 \\
+       pst = open \implies pa1 = P \land pa2 = P
+\end{schema}
+
+\begin{zed}
+MonitorStates == \{flow, noflow, broken\} 
+\end{zed}
+
+\begin{schema}{MonitoredPumpModel}   
+       PumpModel\\ 
+       mst : MonitorStates
+\where                                   
+       pst = broken \implies mst=flow   \implies pa1 = P  \land pa2 = P\\
+       mst=noflow \implies pa1 = 0 \land pa2 = 0  \\
+       mst=broken \implies pa1 = 0 \land pa2 = P   \\
+\\
+       pst\in\{closed,opening\} \implies mst \in \{noflow,broken\} \\
+\\
+       pst = open \implies mst \in \{flow,broken\}
+\end{schema}   
+
+
+\begin{schema}{Modes}  
+       st : PhysModes\\
+       alarm : Alarm
+\where
+       st = stopped \implies alarm = ON
+\end{schema}
+
+\begin{schema}{MonitoredPumpsModel}
+       Ps  : \seq MonitoredPumpModel\\
+       pa1 : \num \\
+       pa2 : \num
+\where 
+       \# Ps = NP  %\\
+%       pa1 = P * (\# \{i : 1\upto NP @ (Ps~i).pa1 = P\}) \\
+%       pa2 = P * (\# \{i : 1\upto NP @ (Ps~i).pa2 = P\}) 
+\end{schema}
+
+
+
+\begin{schema}{ActorModels} 
+  MonitoredPumpsModel\\
+  vlv:ValveStates 
+\where 
+  ValveModel
+\end{schema}
+
+\begin{zed}
+SensorModels == WaterSensorModel \land SteamSensorModel                          
+\end{zed}       
+
+%
+%"UnitModels   == (SensorModels \land ActorModels)"
+%
+
+\begin{schema}{PumpsOpen}
+     MonitoredPumpsModel
+\where  \forall i:1\upto NP @ ((Ps~i).mst) \neq broken \implies ((Ps~i).mst) = open
+\end{schema}
+
+\begin{schema}{ PumpsClosed}
+     MonitoredPumpsModel   
+\where  \forall i:1\upto NP @ ((Ps~i).mst) \neq broken 
+                        \implies ((Ps~i).mst) = closed
+\end{schema}
+
+  
+\begin{schema}{PumpsWorking}  
+      MonitoredPumpsModel
+\where  \forall i:1 \upto NP @ ((Ps~i).mst) \neq broken
+\end{schema}
+
+
+\begin{schema}{PumpControlsWorking}
+      MonitoredPumpsModel
+\where  \forall i:1 \upto NP @ ((Ps~i).pst) \neq broken
+\end{schema}
+   
+\begin{zed}  
+NoDefects       == (WaterSensorWorking \land SteamSensorWorking \land 
+                     PumpsWorking       \land PumpControlsWorking)                                   
+\\
+TolerableDefects == (WaterSensorWorking \lor 
+                     (SteamSensorWorking \land PumpControlsWorking))
+\end{zed}  
+
+ 
+\begin{schema}{SteamBoiler}
+       WaterSensorModel\\
+       SteamSensorModel\\
+       MonitoredPumpsModel\\
+       ValveModel\\
+       Modes
+\where
+       st\in\{waiting,adjusting,ready\} \implies alarm = OFF
+                             \implies  NoDefects \land SteamZero            \land
+       st = running                 \implies alarm = OFF 
+                             \implies WaterTolerable \land TolerableDefects \land
+       st = running \lor PumpsOpen    \implies ValveClosed
+\end{schema} 
+
+
+\begin{schema}{DataTransmission}
+\Delta SteamBoiler 
+\where st' = st \land alarm = OFF 
+\end{schema}
+
+
+
+\begin{schema}{LEVEL\_REPAIRED}
+       \Delta SteamBoiler     \\
+       \Xi SteamSensorModel\\
+       \Xi ActorModels
+\where
+       alarm = OFF       \\
+       (qst = broken    \land st' = st)       \lor 
+       qst \neq broken     \land st' = stopped    \\
+       qst' = working   \land (qa1',qa2') = (qa1,qa2) 
+ \end{schema}
+
+
+\begin{schema}{STEAM\_REPAIRED}  
+       \Delta SteamBoiler\\
+       \Xi WaterSensorModel\\
+       \Xi ActorModels
+\where
+       alarm = OFF      \\
+       (vst = broken   \land st' = st)     \lor 
+       vst \neq broken    \land st' = stopped  \\
+       vst' = working  \land (va1',va2') = (va1,va2) 
+\end{schema}
+
+
+\begin{schema}{PUMP\_CONTROL\_REPAIRED} 
+       \Delta SteamBoiler\\ 
+       \Xi SensorModels\\
+       \Xi ValveModel\\
+       i : (1 \upto NP)
+\where
+       alarm = OFF   \\
+       (((Ps ~ i).pst)  = broken  \land st' = st) \lor  
+       (\lnot((Ps ~ i).pst) = broken  \land st'= stopped)         \\
+       \forall j: 1\upto NP @ j \neq i \implies (Ps'~j) \neq (Ps~j)   \\
+       ((Ps~i).mst) \in \{closed,opening\}                    \\
+                         \implies ((Ps'~i).pst) = noflow  \\
+       ((Ps~i).mst) = open  \implies (Ps'~i).pst = flow   \\
+       ((Ps~i).mst) = broken  \implies ((Ps'~i).pst) = noflow  \\
+       ((Ps'~i).mst) = ((Ps~i).mst) 
+\end{schema}
+
+\begin{schema}{PUMP\_REPAIRED}
+         \Delta SteamBoiler\\ 
+         \Xi SensorModels\\
+         \Xi ValveModel\\
+         i : (1 \upto NP)
+\where
+         alarm = OFF \\
+         (((Ps~i).mst)  = broken  \land st' = st) \lor 
+         (\lnot((Ps~i).mst) = broken) \land st'=stopped  \\
+         \forall j:1\upto NP @ j \neq i \implies (Ps'~j) \neq (Ps~j)   \\
+         ((Ps'~i).mst) = closed    \\
+         (((Ps~i).pst) = flow \land ((Ps'~i).pst) = broken) \lor \\
+         (((Ps~i).pst) \neq flow \land ((Ps'~i).pst) = (Ps~i).pst) 
+\end{schema}
+
+\begin{schema}{STEAM\_BOILER\_WAITING}
+       \Delta SteamBoiler\\ 
+       \Xi SensorModels\\
+       alarm: Alarm\\
+       st: PhysModes\\
+       st': PhysModes
+\where
+       alarm = OFF  \\
+       st = waiting  \\
+       WaterAboveNormal \implies st'=adjusting \land ValveOpen '  \land
+       PumpsClosed '\\
+       WaterBelowNormal \implies st'=adjusting \land ValveClosed '\land
+       PumpsOpen '  \\
+       WaterNormal      \implies st'=ready     \land (\Xi ActorModels)
+\end{schema}
+
+\begin{zed}
+Pumps1 == (PumpsOpen \implies  \lnot(PumpsClosed)) \\
+Water1 == (WaterAboveNormal  \implies \lnot(WaterNormal)) \\  
+Water2 == (WaterBelowNormal  \implies \lnot (WaterNormal)) \\
+Water3 == (WaterAboveNormal  \implies \lnot(WaterBelowNormal))\\
+Water4 == \lnot(WaterBelowNormal) \land \lnot(WaterAboveNormal) \implies WaterNormal
+\end{zed}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

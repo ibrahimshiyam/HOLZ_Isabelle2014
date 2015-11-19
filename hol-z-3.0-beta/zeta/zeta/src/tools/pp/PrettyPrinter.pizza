@@ -1,0 +1,2023 @@
+package zeta.tools.pp;
+
+import zeta.content.text.*;
+import zeta.content.text.Lexem.*;
+import zeta.content.text.Text;
+import zeta.content.text.Text.*;
+import zeta.content.text.Config.*;
+
+import zeta.content.zirp.*;
+import zeta.content.zirp.Item.*;
+import zeta.content.zirp.Expr.*;
+import zeta.content.zirp.Expr.Decl.*;
+import zeta.content.zirp.Predicate.*;
+import zeta.content.zirp.Transition.*;
+import zeta.content.zirp.State.*;
+import zeta.content.zirp.Fixity.*;
+import zeta.content.zirp.Layout.*;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+
+import java.io.*;
+
+import java.util.NoSuchElementException;
+
+public class PrettyPrinter {
+  private Config config;
+  private UnitEnv environment;
+  private Map<Lexem,Fixity> specialFixities = new HashMap();
+
+  /** Create a pretty-printer from the given language configuration. */
+  public PrettyPrinter(Config config, UnitEnv environment) {
+    super();
+    this.config = config;
+    this.environment = environment;
+    specialFixities =
+      specialFixities.define(Lexem.If,
+                             new Fixity(110, false, new Component[]{}))
+                     .define(Lexem.Dot,
+                             new Fixity(10000, false, new Component[] {}))
+                     .define(Lexem.Cross,
+                             new Fixity(10000, false, new Component[] {}))
+                     // Quantifiers
+                     .define(Lexem.Exists, getQuantorFixity())
+                     .define(Lexem.Exists1, getQuantorFixity())
+                     .define(Lexem.Forall, getQuantorFixity())
+                     .define(Lexem.Lambda, getQuantorFixity())
+                     .define(Lexem.Mu, getQuantorFixity())
+                     .define(Lexem.Let, getQuantorFixity())
+                     // schemaExpr
+                     .define(Lexem.Pipe, getInfixFixity(200,Pipe))
+                     .define(Lexem.Compose, getAssocInfixFixity(210,Compose))
+                     .define(Lexem.Hide, getInfixFixity(220,Hide))
+                     .define(Lexem.Project, getInfixFixity(230,Project))
+                     // schemaExpr, predicate
+                     .define(Lexem.Iff, getInfixFixity(300,Iff))
+                     .define(Lexem.Implies, getInfixFixity(305,Implies))
+                     .define(Lexem.Or, getAssocInfixFixity(310,Or))
+                     .define(Lexem.And, getAssocInfixFixity(315,And))
+                     .define(Lexem.Choice, getAssocInfixFixity(320,Choice))
+                     .define(Lexem.Compute, getInfixFixity(325,Compute))
+                     .define(Lexem.Preempt, getInfixFixity(330,Preempt))
+                     .define(Lexem.Leadsto, getInfixFixity(335,Leadsto))
+                     .define(Lexem.Trans, getInfixFixity(340,Trans))
+                     .define(Lexem.Chop, getInfixFixity(345,Chop))
+                     // expr 
+                     .define(Lexem.Not, getPrefixFixity(700,Not))
+                     .define(Lexem.Power, getPrefixFixity(710,Power))
+                     .define(Lexem.Pre, getPrefixFixity(720,Pre))
+                     .define(Lexem.Theta, getPrefixFixity(730,Theta))
+                     .define(Lexem.Xi, getPrefixFixity(740,Xi))
+                     .define(Lexem.Delta, getPrefixFixity(745,Delta))
+                     // predicates
+                     .define(Lexem.Await, getPrefixFixity(750,Await))
+                     .define(Lexem.Everywhere, getPrefixFixity(760,Everywhere))
+                     .define(Lexem.Somewhere, getPrefixFixity(770,Somewhere))
+                     .define(Lexem.Repeat, getPrefixFixity(780,Repeat))
+                     .define(Lexem.Prefix, getPrefixFixity(790,Prefix))
+                     ;
+  }
+
+  public Format pretty(Item item) {
+    return
+      config.prettySubtexts(prettyItem(item), FormatKind.Block(0));
+  }
+
+  public Format pretty(UnitAbsy unit) {
+    return
+      config.prettySubtexts(prettyUnitAbsy(unit), FormatKind.Beneath(0));
+  }
+
+  public Format pretty(Expr expr) {
+    return
+      config.prettySubtexts(prettyExpr(expr), FormatKind.Block(0));
+  }
+
+  public Format pretty(Predicate predicate) {
+    return
+      config.prettySubtexts(prettyPredicate(predicate), FormatKind.Block(0));
+  }
+
+  private Seq<Text> prettyUnitAbsy(UnitAbsy unit) {
+    Seq<Text> buffer = new BufferSeq();
+    switch (unit) {
+      case ClassDef(Name name,
+                    Name[] parents,
+                    Name[] formals,
+                    Item[] items):
+        for (int i = 0, l = items.length; i < l; i++)
+          buffer = buffer.appendAll(prettyItem(items[i]));
+        Text[] it = buffer.toArray(Text.class);
+        return
+          new ArraySeq(ZedClass(name,parents,formals,it));
+      case Section(Name name,
+                   Name[] parents,
+                   Item[] items):
+        for (int i = 0, l = items.length; i < l; i++)
+          buffer = buffer.appendAll(prettyItem(items[i]));
+        Text[] it = buffer.toArray(Text.class);
+        return
+          new ArraySeq(ZedSection(name,parents,it));
+    }
+  }
+
+  private Seq<Text> prettyRename(Rename rename) {
+    Seq<Text> buffer = new BufferSeq();
+
+    switch (rename) {
+      case
+        Rename(NameAppl old,
+               NameDecl _new):
+
+          buffer = new BufferSeq();
+          buffer = open(buffer);
+            buffer = buffer.appendAll(prettyNameDecl(_new));
+            buffer = buffer.append(ZedToken(Slash));
+            buffer = buffer.appendAll(prettyNameAppl(old));
+          buffer = close(buffer);
+        break;
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyActualizations(Expr[] actuals) {
+    Seq<Text> buffer = new BufferSeq();
+    int l = actuals.length;
+
+    buffer = open(buffer);
+      buffer = buffer.append(ZedToken(Lbrack));
+      buffer = open(buffer);
+        Seq<Seq<Text>> b = new BufferSeq();
+        for (int i = 0; i < l; i++)
+          b = b.append(prettyExpr(actuals[i]));
+        buffer = buffer.appendAll(enumerate(b,Comma));
+      buffer = close(buffer);
+      buffer = buffer.append(ZedToken(Rbrack));
+    buffer = close(buffer);
+    return buffer;
+  }
+
+  private Seq<Text> prettyName(Name name) {
+    Seq<Text> buffer;
+    Fixity fixity = getFixity(name);
+
+    if (fixity != null) {
+      buffer = new BufferSeq();
+      int f = fixity.components.length;
+      int ari = getArity(fixity);
+
+      buffer = open(buffer,FormatKind.Append(0));
+        for (int i = 0; i < f; i++) {
+          switch (fixity.components[i]) {
+            case Operand(int prio):
+              buffer = buffer.append(ZedToken(Arg));
+              break;
+            case OperandList(Name left, Name right):
+              buffer = buffer.appendAll(prettyName(left));
+              buffer = buffer.append(ZedToken(Arg));
+              buffer = buffer.appendAll(prettyName(right));
+              break;
+            case Keyword(Name n):
+              buffer = buffer.append(ZedToken(Word(n.toString())));
+              break;
+          }
+        }
+      buffer = close(buffer);
+    } else { // no fixity -> simple name
+      buffer = new ArraySeq(Literal(name.toString()));
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyNameDecl(NameDecl decl) {
+    return
+      prettyDeclAttr(DeclAttr.get(decl.an)).appendAll(prettyName(decl.name));
+  }
+
+  private Seq<Text> prettyNameAppl(NameAppl appl) {
+    Seq<Text> buffer = new BufferSeq();
+
+    switch (appl) {
+      case 
+        NameAppl(Name name,
+                 Expr[] actuals):
+          Fixity fixity = getFixity(name);
+
+
+          int l = actuals.length;
+          int f, ari;
+          ari = getArity(fixity);
+          if (fixity != null && l < ari) {
+            f = fixity.components.length;
+            if (l > 0) {
+              buffer = new BufferSeq();
+              buffer = open(buffer);
+                // not enough actualizations
+                // --> (name)[param1,...,paramN]
+                buffer = enclose(buffer,
+                                           ZedToken(Lparenth),
+                                           ZedToken(Rparenth));
+                buffer = buffer.appendAll(prettyActualizations(actuals));
+              buffer = close(buffer);
+            } else {
+              buffer = enclose(prettyName(name),
+                                         ZedToken(Lparenth),
+                                         ZedToken(Rparenth));
+            }
+          } else if (fixity != null && l > 0) {
+            // there is a fixity and there are actualizations,
+            // so they must be enough
+            buffer = new BufferSeq();
+            buffer = open(buffer);
+              int act = 0; // act contains the actualized params found
+              f = fixity.components.length;
+              for (int i = 0; i < f; i++) 
+                switch (fixity.components[i]) {
+                  case Operand(int prio):
+                    buffer =
+                      buffer.appendAll(parenthesize(prettyExpr(actuals[act]),
+                                                 getFixity(actuals[act]),
+                                                 prio));
+                    act++;
+                    break;
+                  case OperandList(Name left, Name right):
+                    buffer =
+                      buffer.appendAll(enclose(
+                                          prettyExpr(actuals[act]),
+                                          prettyName(left),
+                                          prettyName(right)));
+                    act++;
+                    break;
+                  case Keyword(Name n):
+                    buffer = buffer.append(Literal(n.toString()));
+                    break;
+                }
+            buffer = close(buffer);
+          } else if (l > 0) { // no fixity, but actualizations -> append
+            buffer = open(buffer);
+              buffer = buffer.appendAll(prettyName(name));
+              buffer = buffer.appendAll(prettyActualizations(actuals));
+            buffer = close(buffer);
+          } else { // no fixity no actualizations
+            buffer = prettyName(name);
+          }
+      break;
+    }
+    return buffer;
+  }
+
+  /*
+  private Lexem getRoleLexem(SchemaRole role) {
+    switch (role) {
+      case Data:     return Data;
+      case Init:     return Init;
+      case Port:     return Port;
+      case Property: return Property;
+      case Alias(SchemaRole baseRole,
+                 String symbol):
+                     return Word(symbol);
+      case Plain:
+        return null;
+    }
+  }
+  */
+
+  private Seq<Text>[] collectSubstates(Seq<Text> superstate, State[] sub) {
+    Seq<Seq<Text>> b;
+    Seq<Text>[] subresult, result;
+    Seq<Text> s;
+
+    result = new BufferSeq[sub.length+1];
+    result[0] =
+      superstate
+        .prepend(ZedToken(Lglue))
+        .append(ZedToken(Rglue));
+    for (int i = 0, l = sub.length; i < l; i++) {
+      s = superstate.
+          append(ZedToken(Colon)).
+          appendAll(prettyNameDecl(getStateName(sub[i])));
+      switch (sub[i]) {
+        case BasicState(NameDecl name):
+          s = close(s);
+          result[i+1] = 
+            s .prepend(ZedToken(Lglue))
+              .append(ZedToken(Rglue));
+          break;
+        case SuperState(NameDecl name,
+                        StateKind kind,
+                        State[] substates,
+                        NameDecl[] connectors,
+                        Transition[] transitions):
+          subresult = collectSubstates(s,substates);
+          b = new BufferSeq();
+          for (int j = 0, k = subresult.length; j < k; j++)
+            b = b.append(subresult[j]);
+          result[i+1] = enumerate(b,Comma);
+          break;
+      }
+    }
+    return result;
+  }
+
+  private Seq<Text> prettySchemaBox(NameDecl name,
+                                    NameDecl[] formals,
+                                    Expr def) {
+    Seq<Text> buffer = new BufferSeq();
+    Seq<Seq<Text>> b;
+    Text[] hd, it, pr;
+
+    buffer = buffer.appendAll(prettyNameDecl(name));
+    int l;
+    if ((l = formals.length) > 0) {
+      b = new BufferSeq();
+      for (int i = 0; i < l; i++)
+        b = b.append(prettyNameDecl(formals[i]));
+      buffer = buffer.appendAll(enclose(enumerate(b,Comma),
+                                                  ZedToken(Lbrack),
+                                                  ZedToken(Rbrack)));
+    }
+    switch (def) {
+      case
+        Text(Decl[] decls,
+             Predicate[] props):
+          hd = buffer.toArray(Text.class);
+          if ((l = decls.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyDecl(decls[i]));
+            it = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            it = new Text[0];
+          }
+          if ((l = props.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyPredicate(props[i]));
+            pr = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            pr = new Text[0];
+          }
+          return 
+            new ArraySeq(ZedMarkup(ZedMarkupKind.Schema,hd,it,pr));
+      default: // can't happen
+        return null;
+    }
+  }
+
+  private Seq<Text> prettyAxiomaticDef(NameDecl[] formals, Expr def) {
+    Seq<Text> buffer;
+    Seq<Seq<Text>> b; 
+    Text[] hd, it, pr;
+
+    switch (def) {
+      case
+        Text(Decl[] decls,
+             Predicate[] props):
+          if (props.length == 0 &&
+              decls.length == 1)
+            switch (decls[0]) {
+              case Eqn(NameDecl name, Expr box):
+                if (box instanceof Expr.Text &&
+                    (!Layout.isProvided(box.an) ||
+                     Layout.get(box.an) == VerticalBox))
+                  return
+                    prettySchemaBox(name, formals, box);
+                else
+                  return
+                    prettyAbbrev(decls[0], formals);
+            }
+          if (formals.length > 0) {
+            b = new BufferSeq();
+            for (int i = 0, l = formals.length; i < l; i++)
+              b = b.append(prettyNameDecl(formals[i]));
+            buffer = enclose(enumerate(b,Comma),
+                                       ZedToken(Lbrack),
+                                       ZedToken(Rbrack));
+            hd = buffer.toArray(Text.class);
+          } else {
+            hd = new Text[0];
+          }
+          int l;
+          if ((l = decls.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyDecl(decls[i]));
+            it = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            it = new Text[0];
+          }
+          if ((l = props.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyPredicate(props[i]));
+            pr = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            pr = new Text[0];
+          }
+          buffer = 
+            new ArraySeq(ZedMarkup(ZedMarkupKind.AxiomaticDef,hd,it,pr));
+        break;
+      default:
+        hd = pr = new Text[0];
+        it = prettyExpr(def).toArray(Text.class);
+        buffer =
+          new ArraySeq(ZedMarkup(ZedMarkupKind.Unboxed,hd,it,pr));
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyItem(Item item) {
+    Seq<Text> buffer;
+    Seq<Seq<Text>> b; 
+    Text[] hd, it, pr;
+
+    switch (item) {
+      case
+        AxiomaticDef(NameDecl[] formals,
+                     Expr def):
+          return prettyAxiomaticDef(formals, def);
+      case
+        ConfigDef(Configuration configuration):
+          return new ArraySeq();
+/* FIXME:
+          hd = prettyNameDecl(name).toArray(Text.class);
+          it = new Text[0];
+          pr = new Text[0];
+          buffer = new ArraySeq(ZedMarkup(ZedMarkupKind.Config,hd,it,pr));
+        break;
+*/
+      case
+        StatechartDef(State root):
+          buffer = prettyState(root);
+        break;
+      case
+        StaticReactionDef(NameDecl name,
+                          LabelExpr[] reactions):
+          hd = prettyNameDecl(name).toArray(Text.class);
+          buffer = new BufferSeq();
+          int l;
+          if ((l = reactions.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyLabelExpr(reactions[i]));
+            it = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            it = new Text[0];
+          }
+          pr = new Text[0];
+          buffer = new ArraySeq(ZedMarkup(ZedMarkupKind.Reaction,hd,it,pr));
+        break;
+      case
+        TransitionDef(NameDecl name,
+                      LabelExpr[] reactions):
+          hd = prettyNameDecl(name).toArray(Text.class);
+          it = new Text[0];
+          int l;
+          if ((l = reactions.length) > 0) {
+            b = new BufferSeq();
+            for (int i = 0; i < l; i++)
+              b = b.append(prettyLabelExpr(reactions[i]));
+            pr = enumerate(b,Linesep,FormatKind.Beneath(0)).toArray(Text.class);
+          } else {
+            pr = new Text[0];
+          }
+          buffer = new ArraySeq(ZedMarkup(ZedMarkupKind.Transition,hd,it,pr));
+        break;
+      case
+        AttributeDef(AttributeKind attrib,
+                     NameAppl[] name):
+          buffer = new BufferSeq();
+
+          switch (attrib) {
+/*
+            case Alias(AttributeKind baseAttribute,
+                       String symbol):
+              buffer = buffer.append(ZedToken(Word(symbol)));
+              break;
+*/
+            case Derived:
+              buffer = buffer.append(ZedToken(Derived));
+              break;
+            case Input:
+              buffer = buffer.append(ZedToken(Input));
+              break;
+            case Plain:
+          }
+          b = new BufferSeq();
+          for (int i = 0, l = name.length; i < l; i++)
+            b = b.append(prettyNameAppl(name[i]));
+          buffer = buffer.appendAll(enumerate(b,Comma));
+          buffer = buffer.append(ZedToken(Linesep));
+          hd = pr = new Text[0];
+          it = buffer.toArray(Text.class);
+          buffer = new ArraySeq(ZedMarkup(ZedMarkupKind.Unboxed,hd,it,pr));
+        break;
+      case
+        EnrichDef(NameAppl name):
+          buffer = new BufferSeq();
+
+          buffer = open(buffer);
+            buffer = buffer.append(ZedToken(Enrich));
+            buffer = buffer.appendAll(prettyNameAppl(name));
+            buffer = buffer.append(ZedToken(Linesep));
+          buffer = close(buffer);
+          hd = pr = new Text[0];
+          it = buffer.toArray(Text.class);
+          buffer = new ArraySeq(ZedMarkup(ZedMarkupKind.Unboxed,hd,it,pr));
+        break;
+/*
+      case 
+        PragmaDef(Name name, Name[] params):
+          boolean isImport = name.toString().equals("import");
+          it = new Text[params.length];
+          for (int i = params.length; i-->0; )
+            if (isImport)
+              it[i] = Literal("\""+params[i]+"\"");
+            else
+              it[i] = Literal(params[i].toString());
+          buffer = new ArraySeq(ZedPragma(name.toString(),it));
+        break;
+*/
+      case EmbeddedText(Text text):
+        buffer = new ArraySeq(text);
+        break;
+      case FixityDef(Fixity fixity):
+        buffer = new ArraySeq(ZedFixity(fixity));
+        break;
+    }
+    return buffer;
+  }
+
+  private NameDecl getStateName(State state) {
+    switch (state) {
+      case BasicState(NameDecl name):
+        return name;
+      case SuperState(NameDecl name,
+                      StateKind kind,
+                      State[] substates,
+                      NameDecl[] connectors,
+                      Transition[] transitions):
+        return name;
+      case RefState(NameDecl name):
+        return name;
+    }
+  }
+
+  private Lexem getStateLexem(State state) {
+    switch (state) {
+      case BasicState(_):
+        return Lexem.BasicState;
+      case SuperState(_,Xor,_,_,_):
+        return Lexem.XorState;
+      case SuperState(_,And,_,_,_):
+        return Lexem.AndState;
+      case RefState(_):
+        return Lexem.RefState;
+    }
+  }
+
+  private Seq<Text> prettyState(State state) {
+    switch (state) {
+      case SuperState(NameDecl name,
+                      StateKind kind,
+                      State[] substates,
+                      NameDecl[] connectors,
+                      Transition[] transitions):
+        Text[] hd = prettyNameDecl(name).toArray(Text.class);
+        Seq<Text> buffer = new BufferSeq();
+        Seq<Seq<Text>> b = new BufferSeq();
+        int l = substates.length;
+        int i;
+        for (i = 0; i < l; i++) {
+          buffer = open(buffer);
+            buffer = open(buffer);
+              buffer =
+                buffer.appendAll(prettyNameDecl(getStateName(substates[i])));
+              buffer = buffer.append(ZedToken(Colon));
+            buffer = close(buffer);
+            buffer = buffer.append(ZedToken(getStateLexem(substates[i])));
+            buffer = buffer.append(ZedToken(Linesep));
+          buffer = close(buffer);
+        }
+        b = new BufferSeq();
+        l = connectors.length;
+        if (l > 0) {
+          for (i = 0; i < l; i++)
+            b = b.append(prettyNameDecl(connectors[i]));
+          buffer = open(buffer);
+            buffer = open(buffer);
+              buffer = buffer.appendAll(enumerate(b,Comma));
+              buffer = buffer.append(ZedToken(Colon));
+            buffer = close(buffer);
+            buffer = buffer.append(ZedToken(Connector));
+          buffer = close(buffer);
+        }
+        Text[] it = buffer.toArray(Text.class);
+        b = new BufferSeq();
+        l = transitions.length;
+        for (i = 0; i < l; i++)
+          b = b.append(prettyTransition(transitions[i]));
+        Text[] pr = enumerate(b,Linesep).toArray(Text.class);
+        buffer = new BufferSeq();
+        ZedMarkupKind k;
+        switch (kind) {
+          case And: k = ZedMarkupKind.AndState; break;
+          case Xor: k = ZedMarkupKind.XorState; break;
+        }
+        buffer = buffer.append(ZedMarkup(k,hd,it,pr));
+        l = substates.length;
+        for (i = 0; i < l; i++)
+          buffer = buffer.appendAll(prettyState(substates[i]));
+        return buffer;
+    }
+    return new ArraySeq();
+  }
+
+  private Seq<Text> prettyMatrix(Expr expr) {
+    return prettyMatrix(expr,0);
+  }
+
+  private Seq<Text> prettyMatrix(Expr expr, int indent) {
+    Seq<Text> buffer;
+    Seq<Text> h;
+    Seq<Seq<Text>> b;
+
+    switch (expr) {
+      case
+        Text(Decl[] decls,
+             Predicate[] props):
+          buffer = new BufferSeq();
+          b = new BufferSeq();
+          for (int i = 0, l = decls.length; i < l; i++)
+            b = b.append(prettyDecl(decls[i]));
+          buffer = buffer.appendAll(enumerate(b,Semi,FormatKind.Line(indent)));
+          if (props.length > 0) {
+            h = buffer;
+            buffer = new BufferSeq();
+            buffer = open(buffer,FormatKind.Line(indent));
+              buffer = buffer.appendAll(h);
+              buffer = buffer.append(ZedToken(Mid));
+              b = new BufferSeq();
+              for (int i = 0, l = props.length; i < l; i++)
+                b = b.append(prettyPredicate(props[i]));
+              buffer =
+                buffer.appendAll(enumerate(b,Linesep,FormatKind.Beneath(2)));
+            buffer = close(buffer);
+          }
+        return buffer;
+      default:
+        return prettyExpr(expr,indent);
+    }
+  }
+
+  private boolean shouldParenthesizeSelect(Expr oper) {
+    switch (oper) {
+      case Select(Expr expr, NameAppl name):
+        return false;
+      case Binding(Eqn[] eqns):
+        return false;
+      case Display(Expr[] contents):
+        return false;
+      case Text(Decl[] decls, Predicate[] props):
+        return false;
+      case Tuple(Expr[] elements):
+        return false;
+      case Variable(NameAppl name):
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  private int getTupleLength(Expr tuple) {
+    switch (tuple) {
+      case Tuple(Expr[] comp):
+        return comp.length;
+      default:
+        return 0;
+    }
+  }
+
+  private Seq<Text> prettyExpr(Expr expr) {
+    return prettyExpr(expr,0);
+  }
+
+  private Seq<Text> prettyExpr(Expr expr, int indent) {
+    Seq<Text> buffer;
+    Seq<Text> h; // auxiliary variable
+    Seq<Seq<Text>> b; // auxiliary variable
+    
+    switch (expr) {
+      case
+        Number(String value):
+          buffer = new ArraySeq(Literal(value));
+        break;
+      case
+        Denotation(String value):
+          buffer = new ArraySeq(Literal("\\ZD{" + value + "}"));
+        break;
+      case
+        Variable(NameAppl name):
+          buffer = prettyNameAppl(name);
+        break;
+      case
+        Tuple(Expr[] elements):
+        // (element1,...,elementN)
+          buffer = new BufferSeq();
+          b = new BufferSeq();
+          for (int i = 0, l = elements.length; i < l; i++)
+            b = b.append(prettyExpr(elements[i]));
+          buffer = buffer.appendAll(enclose(enumerate(b,Comma,2),
+                                                      ZedToken(Lparenth),
+                                                      ZedToken(Rparenth)));
+        break;
+      case
+        Product(Expr[] elements):
+        // set1 \cross ... \cross setN
+          buffer = new BufferSeq();
+          b = new BufferSeq();
+          for (int i = 0, l = elements.length; i < l; i++) {
+            // if you _could_ put parantheses around, do so
+            if (getFixity(elements[i]) != null) {
+              h = new BufferSeq();
+              h = enclose(prettyExpr(elements[i]),
+                                    ZedToken(Lparenth),
+                                    ZedToken(Rparenth));
+            } else {
+              h = prettyExpr(elements[i]);
+            }
+            b = b.append(h);
+          }
+          buffer = buffer.appendAll(enumerate(b,Cross));
+        break;
+      case
+        Binding(Eqn[] bindings):
+        // <| name1 -> expr1, ..., nameN -> exprN |>
+          b = new BufferSeq();
+// FIXME: No token Bind anymore?
+          for (int i = 0, l = bindings.length; i < l; i++)
+            b = b.append(prettyEqn(bindings[i],ZedToken(Defeq)));
+          buffer = enclose(enumerate(b,Comma,2),
+                                     ZedToken(Lbind),
+                                     ZedToken(Rbind));
+        break;
+      case
+        Signature(Name[] names,
+                  Expr[] types):
+          // [ name1 : type1; ...; nameN : typeN ]
+          buffer = new BufferSeq();
+          b = new BufferSeq();
+          for (int i = 0, l = names.length; i < l; i++) {
+            h = new BufferSeq();
+            h = open(h);
+              h = h.appendAll(prettyName(names[i]));
+              h = h.append(ZedToken(Colon));
+              h = h.appendAll(prettyExpr(types[i],2));
+            h = close(h);
+            b = b.append(h);
+          }
+          buffer = 
+            buffer.appendAll(
+              enclose(enumerate(b,Semi,indent),
+              ZedToken(Lbrack),
+              ZedToken(Rbrack))
+            );
+        break;
+      case
+        Display(Expr[] elements):
+          //  element_1, ..., element_N
+          b = new BufferSeq();
+          for (int i = 0, l = elements.length; i < l; i++)
+            b = b.append(prettyExpr(elements[i]));
+          // buffer = enumerate(b,Comma,indent);
+	  // Thu Jan 21 22:12:13 MET 1999, buessow
+          buffer = enclose(enumerate(b,Comma,indent),
+			   ZedToken(Lset),
+			   ZedToken(Rset));
+
+        break;
+      case
+        Cond(Predicate cond,
+             Expr thenPath,
+             Expr elsePath):
+          buffer = new BufferSeq();
+
+          buffer = open(buffer,indent);
+            buffer = open(buffer);
+              buffer = buffer.append(ZedToken(If));
+              buffer = buffer.appendAll(prettyPredicate(cond,2));
+            buffer = close(buffer);
+            buffer = open(buffer);
+              buffer = buffer.append(ZedToken(Then));
+              buffer = buffer.appendAll(prettyExpr(thenPath,2));
+            buffer = close(buffer);
+            buffer = open(buffer);
+              buffer = buffer.append(ZedToken(Else));
+              buffer = buffer.appendAll(prettyExpr(elsePath,2));
+            buffer = close(buffer);
+          buffer = close(buffer);
+        break;
+      case
+        Quantor(Expr.QuantorKind kind,
+                Expr matrix,
+                Expr range):
+          // <quantor> <declarations> [ | <predicate> ] [ @ <expression> ]
+          // or
+          // { <declarations> [ | <predicate> ] [ @ <expression> ] }
+          buffer = new BufferSeq();
+          Lexem quantor = getQuantorLexem(kind);
+
+          switch (kind) {
+            case Set:
+              if (range != null) {
+                buffer = open(buffer,2);
+                  buffer = buffer.appendAll(prettyMatrix(matrix));
+                  buffer = buffer.append(ZedToken(Spot));
+                  buffer = buffer.appendAll(prettyExpr(range,2));
+                buffer = close(buffer);
+              } else { // set without range
+                buffer = buffer.appendAll(prettyMatrix(matrix,2));
+              }
+              buffer = enclose(buffer,
+                                         ZedToken(Lset),
+                                         ZedToken(Rset));
+              break;
+/* // not special anymore
+            case Let: 
+              buffer = open(buffer,FormatKind.Block(indent));
+                buffer = open(buffer);
+                  buffer = buffer.append(ZedToken(Let));
+                  switch (matrix) {
+                    case Abbrev(Eqn[] eqns):
+                      b = new BufferSeq();
+                      for (int i = 0, l = eqns.length; i < l; i++)
+                        b = b.append(prettyEqn(eqns[i],ZedToken(Defeq)));
+                      buffer = buffer.appendAll(enumerate(b,Semi,2));
+                  }
+                  buffer = buffer.append(ZedToken(Spot));
+                buffer = close(buffer);
+                buffer = buffer.appendAll(prettyExpr(range,2));
+              buffer = close(buffer);
+              break;
+*/
+            default:
+              buffer = open(buffer);
+                if (range != null) {
+                  buffer = open(buffer,FormatKind.Block(indent));
+                    buffer = buffer.append(ZedToken(quantor));
+                    buffer = open(buffer,2);
+                      buffer = buffer.appendAll(prettyMatrix(matrix));
+                      buffer = buffer.append(ZedToken(Spot));
+                    buffer = close(buffer);
+                  buffer = close(buffer);
+                  buffer = buffer.appendAll(prettyExpr(range,2));
+                } else { // can only happen if for quantor Mu
+                  buffer = buffer.append(ZedToken(quantor));
+                  buffer = buffer.appendAll(prettyMatrix(matrix,2));
+                }
+              buffer = close(buffer);
+              break;
+          }
+        break;
+      case
+        Text(Decl[] decls,
+             Predicate[] props):
+        // This is a special case:
+        // stand-alone it looks like: 
+        // \lbrack <declarations> [ | <predicate> ] \rbrack
+        // but in the context of a quantor, the \lbrack and \rbrack vanish
+        // in the context of a schema definition, it is displayed vertically:
+        // | <declarations>
+        //[|-----------------
+        // | <predicate>     ] (but that is handled in prettyItem())
+          buffer = enclose(prettyMatrix(expr,2),
+                                     ZedToken(Lbrack),
+                                     ZedToken(Rbrack));
+        break;
+      case
+        Select(Expr oper,
+               NameAppl name):
+          buffer = new BufferSeq();
+
+          buffer = open(buffer,indent);
+            if (shouldParenthesizeSelect(oper)) {
+              buffer = buffer.appendAll(enclose(prettyExpr(oper,2),
+                                                          ZedToken(Lparenth),
+                                                          ZedToken(Rparenth)));
+            } else {
+              buffer = buffer.appendAll(prettyExpr(oper));
+            }
+            buffer = open(buffer,FormatKind.Append(2));
+              buffer = buffer.append(ZedToken(Dot));
+              buffer = buffer.appendAll(prettyNameAppl(name));
+            buffer = close(buffer);
+          buffer = close(buffer);
+        break;
+      case
+        Unary(Expr.UnaryKind kind,
+              Expr oper):
+          buffer = new BufferSeq();
+          Fixity fix = getFixity(expr);
+
+          switch (kind) {
+            case StateFlat: // FIXME: What does this look like?
+            case StepFlat:  // FIXME: What does this look like?
+              break;
+            case Pre: 
+            case Power:
+            case Theta:
+            case Not:
+            case Xi:
+            case Delta:
+            // lets assume the fixity looks like this: (i) : keyword (j)
+              buffer = open(buffer);
+                buffer =
+                  buffer.append(Literal(getKeyword(fix.components[0])));
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(oper,2),
+                                             getFixity(oper),
+                                             getComponentPrio(fix.
+                                                               components[1])));
+              buffer = close(buffer);
+              break;
+            // assume fixity: (i) : \hide \lpar (j ,) \rpar
+            case Hide(NameAppl[] names):
+              buffer = open(buffer);
+                buffer = buffer.append(ZedToken(Hide));
+                b = new BufferSeq();
+                for (int i = 0, l = names.length; i < l; i++)
+                  b = b.append(prettyNameAppl(names[i]));
+                buffer =
+                  buffer.appendAll(enclose(enumerate(b,Comma,2),
+                                                     ZedToken(Lparenth),
+                                                     ZedToken(Rparenth)));
+              buffer = close(buffer);
+              break;
+            // assume fixity: (i) : \delta \lpar (j ,) \rpar (k)
+            case SelectiveDelta(NameAppl[] names):
+              buffer = open(buffer);
+                buffer = buffer.append(ZedToken(Delta));
+                b = new BufferSeq();
+                for (int i = 0, l = names.length; i < l; i++)
+                  b = b.append(prettyNameAppl(names[i]));
+                buffer =
+                  buffer.appendAll(enclose(enumerate(b,Comma,2),
+                                                     ZedToken(Lparenth),
+                                                     ZedToken(Rparenth)));
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(oper),
+                                             getFixity(oper),
+                                             0));
+              buffer = close(buffer);
+              break;
+            // (i) : (j) \lbrack (k ,) \rbrack
+            case Renaming(Rename[] renames):
+              buffer = open(buffer);
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(oper),
+                                             getFixity(oper),
+                                             0));
+                b = new BufferSeq();
+                for (int i = 0, l = renames.length; i < l; i++)
+                  b = b.append(prettyRename(renames[i]));
+                buffer = buffer.appendAll(enclose(enumerate(b,Comma),
+                                                            ZedToken(Lbrack),
+                                                            ZedToken(Rbrack)));
+              buffer = close(buffer);
+              break;
+            // fixity (i) : (j) (k)
+            case Decorate(String decore):
+              buffer = open(buffer);
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(oper),
+                                             getFixity(oper),
+                                             0));
+                buffer = buffer.appendAll(prettyDecoration(decore));
+              buffer = close(buffer);
+              break;
+          }
+        break;
+      case
+        Binary(Expr.BinaryKind kind,
+               Expr left,
+               Expr right):
+          buffer = new BufferSeq();
+          Fixity fix = getFixity(expr);
+
+          switch (kind) {
+            case Apply:
+              switch (left) {
+                case Variable(NameAppl(Name name, Expr[] actuals)):
+                  int ari = getArity(fix);
+
+                  if (fix != null && actuals.length == 0 &&
+                      (ari == 1 ||
+                       (ari > 1 &&
+                        right instanceof Tuple &&
+                        getTupleLength(right) == ari))) {
+                    int j = 0;
+                    Expr[] components;
+
+                    if (right instanceof Tuple && 
+                        getTupleLength(right) == ari) {
+                      switch (right) {
+                        case Tuple(Expr[] comp):
+                          components = comp;
+                          break;
+                        default:
+                          components = new Expr[] { right };
+                      }
+                    } else {
+                      components = new Expr[] { right };
+                    }
+                    buffer = open(buffer,indent);
+                      for (int i = 0, l = fix.components.length; i < l; i++) {
+                        switch (fix.components[i]) {
+                          case Keyword(Name n):
+                            buffer = buffer.append(Literal(n.toString()));
+                            break;
+                          case Operand(int prio):
+                            buffer =
+                              buffer.appendAll(parenthesize(
+                                                prettyExpr(components[j],2),
+                                                getFixity(components[j]),
+                                                prio));
+                            j++;
+                            break;
+                          case OperandList(Name leftp, Name rightp):
+                            buffer =
+                              buffer.appendAll(enclose(
+                                                prettyExpr(components[j]),
+                                                prettyName(leftp),
+                                                prettyName(rightp)));
+                            j++;
+                            break;
+                        }
+                      }
+                    buffer = close(buffer);
+                  }
+                }
+                if (buffer.size() == 0) {
+                  // don't distribute operands
+                  // assume fixity: (i) : (j) (k)
+                  fix = getApplyFixity();
+
+                  buffer = open(buffer,indent);
+                    buffer = buffer.appendAll(parenthesize(
+                                                prettyExpr(left),
+                                                getFixity(left),
+                                                getComponentPrio(
+                                                  fix.components[0])));
+                    buffer = buffer.appendAll(parenthesize(
+                                                prettyExpr(right,2),
+                                                getFixity(right),
+                                                getComponentPrio(
+                                                  fix.components[1])));
+                  buffer = close(buffer);
+                }
+              break;
+            // assume fixity: (i): (j) <keyword> (k)
+            case And:
+            case Or:
+            case Implies:
+            case Iff:
+            case Compose:
+            case Project:
+            case Pipe:
+              buffer = open(buffer,indent);
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(left),
+                                             getFixity(left),
+                                             getComponentPrio(fix.
+                                                               components[0])));
+                buffer =
+                  buffer.append(Literal(getKeyword(fix.components[1])));
+                buffer =
+                  buffer.appendAll(parenthesize(prettyExpr(right,2),
+                                             getFixity(right),
+                                             getComponentPrio(fix.
+                                                               components[0])));
+              buffer = close(buffer);
+              break;
+          }
+        break;
+      case
+        GivenType(NameDecl name):
+          buffer = enclose(prettyNameDecl(name),
+                                     ZedToken(Lbrack),
+                                     ZedToken(Rbrack));
+        break;
+      case
+        FreeType(NameDecl name,
+                 Branch[] branches):
+          buffer = new BufferSeq();
+          buffer = open(buffer);
+            buffer = buffer.appendAll(prettyNameDecl(name));
+            buffer = buffer.append(ZedToken(Defsyn));
+            // don't use enumerate here
+            buffer = open(buffer,FormatKind.Line(2));
+              for (int i = 0, l = branches.length; i < l; i++) {
+                h = prettyBranch(branches[i]);
+                if (i > 0) {
+                  buffer = open(buffer,FormatKind.Append(0));
+                    buffer = buffer.append(ZedToken(Mid));
+                    buffer = buffer.appendAll(h);
+                  buffer = close(buffer);
+                } else {
+                  buffer = buffer.appendAll(h);
+                }
+              }
+            buffer = close(buffer);
+          buffer = close(buffer);
+        break;
+      case
+// FIXME: what does this look like?
+        UniVar(Name name, Expr oper):
+          buffer = new BufferSeq();
+          break;
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyLabelExpr(LabelExpr expr) {
+    return prettyLabelExpr(expr,0);
+  }
+
+  private Seq<Text> prettyLabelExpr(LabelExpr expr, int indent) {
+    Seq<Text> buffer;
+
+    switch (expr) {
+      case Guarded(Predicate guard,
+                   Predicate action):
+        buffer = new BufferSeq();
+        buffer = open(buffer,indent);
+          buffer = open(buffer);
+            buffer = buffer.appendAll(prettyPredicate(guard));
+            buffer = buffer.append(ZedToken(Trans));
+          buffer = close(buffer);
+          buffer = buffer.appendAll(prettyPredicate(action));
+        buffer = close(buffer);
+        break;
+      case Temporal(Predicate predicate):
+        buffer = prettyPredicate(predicate,indent);
+        break;
+      case Reference(NameAppl name):
+        buffer = prettyNameAppl(name);
+        break;
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyDecl(Decl decl) {
+    switch (decl) {
+      case
+        Direct(NameDecl[] names,
+               Expr type):
+        // name1, ..., nameN : type
+          Seq<Text> buffer = new BufferSeq();
+          Seq<Seq<Text>> b = new BufferSeq();
+
+          int l = names.length;
+          buffer = open(buffer);
+            buffer = open(buffer);
+              for (int i = 0; i < l; i++)
+                b = b.append(prettyNameDecl(names[i]));
+              buffer = buffer.appendAll(enumerate(b,Comma));
+              buffer = buffer.append(ZedToken(Colon));
+            buffer = close(buffer);
+            buffer = buffer.appendAll(prettyExpr(type,2));
+          buffer = close(buffer);
+          return buffer;
+      case
+        Inclusion(Expr schema):
+          return prettyExpr(schema);
+      case
+        Eqn(NameDecl name,
+            Expr def):
+          return prettyEqn(Eqn(name,def),ZedToken(Defeq));
+    }
+  }
+
+  private Seq<Text> prettyBranch(Branch branch) {
+    Seq<Text> buffer;
+    switch (branch) {
+      case
+        Constant(NameDecl name):
+          return prettyNameDecl(name);
+      case
+        Function(NameDecl name,
+                 Expr type):
+          buffer = new BufferSeq();
+          buffer = open(buffer,FormatKind.Append(0));
+            buffer = buffer.appendAll(prettyNameDecl(name));
+            buffer = buffer.appendAll(enclose(prettyExpr(type),
+                                                        ZedToken(Ldata),
+                                                        ZedToken(Rdata)));
+          buffer = close(buffer);
+          return buffer;
+    }
+  }
+
+  private Seq<Text> prettyPredicate(Predicate pred) {
+    return prettyPredicate(pred,0);
+  }
+
+  private Seq<Text> prettyPredicate(Predicate pred, int indent) {
+    Seq<Text> buffer = new BufferSeq();
+    Seq<Seq<Text>> b;
+
+    switch (pred) {
+      case
+        Schema(Expr schema):
+          return prettyExpr(schema,indent);
+      case
+        Test(Expr elem,
+             Expr set):
+          switch (set) {
+            case Variable(NameAppl(Name name, Expr[] actuals)):
+              Fixity fix = getFixity(set);
+              int ari = getArity(fix);
+              if (fix != null && actuals.length == 0 &&
+                  ari > 0 &&
+                  (ari == 1 || elem instanceof Tuple)) { 
+                // (a,b) \elem (\_<=\_)    --> a <= b
+                // a \elem (good\_)        --> good a
+                // aber: x \elem (\_<=\_)  --> x \elem (\_<=\_)
+                int j = 0;
+                Expr[] components;
+                
+                switch (elem) {
+                  case Tuple(Expr[] comp):
+                    components = comp;
+                    break;
+                  default:
+                    components = new Expr[] { elem };
+                }
+
+                buffer = open(buffer,FormatKind.Block(indent));
+                for (int i = 0, l = fix.components.length; i < l; i++) {
+                  switch (fix.components[i]) {
+                    case Keyword(Name n):
+                      buffer = buffer.append(Literal(n.toString()));
+                      break;
+                    case Operand(int prio):
+                      if (ari == 1) // only one operand
+                        buffer =
+                          buffer.appendAll(parenthesize(prettyExpr(elem,2),
+                                                        getFixity(elem),
+                                                        prio));
+                      else 
+                        buffer =
+                          buffer.appendAll(parenthesize(
+                                            prettyExpr(components[j],2),
+                                            getFixity(components[j]),
+                                            prio));
+                      j++;
+                      break;
+                    case OperandList(Name left, Name right):
+                      buffer =
+                        buffer.appendAll(enclose(
+                                            prettyExpr(components[j]),
+                                            prettyName(left),
+                                            prettyName(right)));
+                      j++;
+                      break;
+                  }
+                }
+                return close(buffer);
+              } 
+            }
+            Fixity fix = getFixity(ZNames.in);
+            // assume fixity (i) : (j) \in (k)
+            buffer = open(buffer,indent);
+              buffer = open(buffer);
+                buffer =
+                  buffer.appendAll(parenthesize(
+                                        prettyExpr(elem),
+                                        getFixity(elem),
+                                        getComponentPrio(fix.components[0])));
+                buffer =
+                  buffer.append(Literal(getKeyword(fix.components[1])));
+              buffer = close(buffer);
+              buffer =
+                buffer.appendAll(parenthesize(
+                                        prettyExpr(set,2),
+                                        getFixity(set),
+                                        getComponentPrio(fix.components[2])));
+            buffer = close(buffer);
+        break;
+      case
+        Fact(FactKind kind):
+          switch (kind) {
+            case False:
+              buffer = new ArraySeq(ZedToken(False));
+              break;
+            case True:
+              buffer = new ArraySeq(ZedToken(True));
+              break;
+          }
+        break;
+      case
+        Unary(Predicate.UnaryKind kind,
+              Predicate oper):
+          buffer = new BufferSeq();
+
+          switch (kind) {
+            case Await:
+            case Everywhere:
+            case Not:
+            case Prefix:
+            case Repeat:
+            case Somewhere:
+              Fixity fix = getFixity(pred);
+              // assume fixity: (i) : <keyword> (j)
+              buffer = open(buffer,indent);
+                buffer =
+                  buffer.append(Literal(getKeyword(fix.components[0])));
+                buffer =
+                  buffer.appendAll(parenthesize(prettyPredicate(oper,2),
+                                             getFixity(oper),
+                                             getComponentPrio(fix.
+                                                               components[1])));
+              buffer = close(buffer);
+              break;
+            /*
+            // FIXME: What is the ConstrRef for?
+            case StepConstr(ConstrRef ref,
+                            NameAppl rel,
+                            Expr expr):
+              buffer = open(buffer);
+                buffer = buffer.appendAll(prettyPredicate(oper));
+                buffer = buffer.append(ZedToken(LSubs));
+                buffer = buffer.append(ZedToken(Length));
+                buffer = buffer.appendAll(prettyNameAppl(rel));
+                buffer = buffer.appendAll(prettyExpr(expr));
+                buffer = buffer.append(ZedToken(RSubs));
+              buffer = close(buffer);
+              break;
+            case TimeConstr(ConstrRef ref,
+                            NameAppl rel,
+                            Expr expr):
+              buffer = open(buffer);
+                buffer = buffer.appendAll(prettyPredicate(oper));
+                buffer = buffer.append(ZedToken(LSubs));
+                buffer = buffer.append(ZedToken(Duration));
+                buffer = buffer.appendAll(prettyNameAppl(rel));
+                buffer = buffer.appendAll(prettyExpr(expr));
+                buffer = buffer.append(ZedToken(RSubs));
+              buffer = close(buffer);
+              break;
+            */
+            case TransLift:
+              buffer = enclose(prettyPredicate(pred),
+                                         ZedToken(Ltrans),
+                                         ZedToken(Rtrans));
+              break;
+            case StateLift:
+              buffer = enclose(prettyPredicate(pred),
+                                         ZedToken(Lstate),
+                                         ZedToken(Rstate));
+              break;
+          }
+        break;
+      case
+        Binary(Predicate.BinaryKind kind,
+               Predicate left,
+               Predicate right):
+
+          switch (kind) {
+            case And:
+            case Or:
+            case Choice:
+            case Chop:
+            case Compose:
+            case Iff:
+            case Implies:
+            case Leadsto:
+            case Compute:
+            case Preempt:
+
+              // assume fixity: (i): (j) <keyword> (k)
+              buffer = new BufferSeq();
+              Fixity fix = getFixity(pred);
+              buffer = open(buffer,indent);
+                buffer =
+                  buffer.appendAll(parenthesize(prettyPredicate(left),
+                                             getFixity(left),
+                                             getComponentPrio(fix.
+                                                               components[0])));
+                buffer =
+                  buffer.append(Literal(getKeyword(fix.components[1])));
+                buffer =
+                  buffer.appendAll(parenthesize(prettyPredicate(right,2),
+                                             getFixity(right),
+                                             getComponentPrio(fix.
+                                                               components[2])));
+              buffer = close(buffer);
+              break;
+            // FIXME: Is this a predicate of form: guard/action ?
+            case Trans:
+              buffer = open(buffer,indent);
+                buffer = buffer.appendAll(prettyPredicate(left));
+                buffer = buffer.append(ZedToken(Trans));
+                buffer = buffer.appendAll(prettyPredicate(right));
+              buffer = close(buffer);
+              break;
+            // FIXME: Is this a predicate of the form event[condition] ?
+            case Guarded:
+              buffer = open(buffer,indent);
+                buffer = buffer.appendAll(prettyPredicate(left));
+                buffer =
+                  buffer.appendAll(enclose(prettyPredicate(right),
+                                                     ZedToken(Lbrack),
+                                                     ZedToken(Rbrack)));
+              buffer = close(buffer);
+          }
+        break;
+      case
+        Quantor(Predicate.QuantorKind kind,
+                Expr matrix,
+                Predicate range):
+          buffer = new BufferSeq();
+
+          switch (kind) {
+            case Exists:
+            case Exists1:
+            case Forall:
+            case Let:
+            // <quantor> <schema> @ <predicate>
+              Lexem lexem = getQuantorLexem(kind);
+              buffer = open(buffer,indent);
+                buffer = open(buffer,FormatKind.Block(0));
+                  buffer = buffer.append(ZedToken(lexem));
+                  buffer = buffer.appendAll(prettyMatrix(matrix,2));
+                  buffer = buffer.append(ZedToken(Spot));
+                buffer = close(buffer);
+                buffer = buffer.appendAll(prettyPredicate(range,2));
+              buffer = close(buffer);
+              break;
+/*
+            case Let:
+            // LET var1 == expr1; ...; varN == exprN @ predicate
+              switch (matrix) {
+                case Abbrev(Eqn[] eqns):
+                  buffer = open(buffer,indent);
+                    buffer = open(buffer,FormatKind.Line(0));
+                      buffer = buffer.append(ZedToken(Let));
+                      b = new BufferSeq();
+                      for (int i = 0, l = eqns.length; i < l; i++)
+                        b = b.append(prettyEqn(eqns[i],ZedToken(Defeq)));
+                      buffer = buffer.appendAll(enumerate(b,Semi,2));
+                      buffer = buffer.append(ZedToken(Spot));
+                    buffer = close(buffer);
+                    buffer = buffer.appendAll(prettyPredicate(range,2));
+                  buffer = close(buffer);
+             }
+             break;
+*/
+          }
+    }
+    return buffer;
+  }
+
+  private Seq<Text> prettyAbbrev(Decl eqn, NameDecl[] formals) {
+    Seq<Text> buffer = new BufferSeq();
+
+    switch (eqn) {
+      case Eqn(NameDecl(Name name), Expr expr):
+        Fixity fix = getFixity(name);
+        if (fix != null &&
+            fix.isGeneric) {
+          buffer = open(buffer);
+            buffer = open(buffer);
+              buffer = open(buffer,FormatKind.Append(0));
+                int op = 0;
+                for (int i = 0; i < fix.components.length; i++)
+                  switch (fix.components[i]) {
+                    case Operand(int prio):
+                      buffer = buffer.appendAll(prettyNameDecl(formals[op++]));
+                      break;
+                    case OperandList(Name left, Name right):
+                      buffer = buffer.appendAll(enclose(
+                                                  prettyNameDecl(formals[op++]),
+                                                  prettyName(left),
+                                                  prettyName(right)));
+                      break;
+                    case Keyword(Name n):
+                      buffer = buffer.append(Literal(n.toString()));
+                      break;
+                  }
+              buffer = close(buffer);
+              buffer = buffer.append(ZedToken(Defeq));
+            buffer = close(buffer);
+            buffer = buffer.appendAll(prettyExpr(expr,2));
+          buffer = close(buffer);
+        } else {
+          buffer = prettyEqn(eqn,ZedToken(Defeq));
+        }
+        return
+          new ArraySeq(ZedMarkup(ZedMarkupKind.Unboxed,
+                                 new Text[0],
+                                 buffer.toArray(Text.class),
+                                 new Text[0]));
+      default:
+        return null;
+    }
+  }
+
+  private Seq<Text> prettyDeclAttr(DeclAttr attr) {
+    if (attr != null)
+      switch (attr) {
+        case Plain:
+          return new ArraySeq();
+        case Data:
+          return new ArraySeq(ZedToken(Data));
+        case Port:
+          return new ArraySeq(ZedToken(Port));
+        case Init:
+          return new ArraySeq(ZedToken(Init));
+        case Property:
+          return new ArraySeq(ZedToken(Property));
+        case Alias(DeclAttr baseAttr,
+                   String symbol):
+          return new ArraySeq(Literal(symbol));
+      }
+    else
+      return new ArraySeq();
+  }
+
+  private Seq<Text> prettyEqn(Decl eqn, Text token) {
+    switch (eqn) {
+      case Eqn(NameDecl name,
+               Expr def):
+        Seq<Text> buffer = new BufferSeq();
+
+        buffer = open(buffer);
+          buffer = open(buffer);
+            buffer = buffer.appendAll(prettyNameDecl(name));
+            buffer = buffer.append(token);
+          buffer = close(buffer);
+          buffer = open(buffer,2);
+            buffer = buffer.appendAll(prettyExpr(def));
+          buffer = close(buffer);
+        buffer = close(buffer);
+        return buffer;
+      default:
+        return null;
+    }
+  }
+
+  private Seq<Text> prettyTransition(Transition transition) {
+    Seq<Text> buffer = new BufferSeq();
+
+    switch (transition) {
+      case Transition(NameAppl source,
+                      NameAppl target,
+                      LabelExpr label):
+        buffer = open(buffer,FormatKind.Line(0));
+          buffer = buffer.appendAll(prettyNameAppl(source));
+          buffer = open(buffer,2);
+            buffer = buffer.append(ZedToken(When));
+            buffer = buffer.appendAll(prettyLabelExpr(label,2));
+          buffer = close(buffer);
+          buffer = open(buffer,2);
+            buffer = buffer.append(ZedToken(Goto));
+            buffer = buffer.appendAll(prettyNameAppl(target));
+          buffer = close(buffer);
+        buffer = close(buffer);
+        break;
+    }
+    return buffer;
+  }
+
+  private int getArity(Fixity fixity) {
+    int arity = 0;
+    if (fixity == null)
+      return 0;
+    for (int i = fixity.components.length; i-->0; )
+      switch (fixity.components[i]) {
+        case Operand(int prio):
+          arity++;
+          break;
+        case OperandList(Name left, Name right):
+          arity++;
+          break;
+      }
+    return arity;
+  }
+
+  private Lexem getQuantorLexem(Expr.QuantorKind kind) {
+    switch (kind) {
+      case Exists:  return Exists;
+      case Exists1: return Exists1;
+      case Forall:  return Forall;
+      case Lambda:  return Lambda;
+      case Let:     return Let;
+      case Mu:      return Mu;
+      case Set:     return Lset;
+    }
+  }
+
+  private Lexem getUnaryLexem(Expr.UnaryKind kind) {
+    switch (kind) {
+      case Power: return Power; 
+      case Theta: return Theta; 
+      case Not:   return Not;
+      case Delta: return Delta;
+      case Xi:    return Xi;
+      case Pre:   return Pre;
+      case StateFlat: // FIXME
+        return null;
+      case StepFlat:  // FIXME
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  private Lexem getBinaryLexem(Expr.BinaryKind kind) {
+    switch (kind) {
+      case And:     return And;
+      case Or:      return Or;
+      case Implies: return Implies;
+      case Iff:     return Iff;
+      case Compose: return Compose;
+      case Project: return Project;
+      case Pipe:    return Pipe;
+      default: 
+        return null;
+    }
+  }
+
+  private Seq<Text> getDecoration(Name name) {
+    return prettyDecoration(name.decoration());
+  }
+
+  private Seq<Text> prettyDecoration(String decoration) {
+    int i, j;
+    Seq<Text> buffer = new BufferSeq();
+
+    for (i = decoration.length(); i-->0; ) {
+      switch (decoration.charAt(i)) {
+        case Name.input:
+          buffer = buffer.prepend(ZedToken(StrokeIn));
+          break;
+        case Name.output:
+          buffer = buffer.prepend(ZedToken(StrokeOut));
+          break;
+        case Name.prime:
+          buffer = buffer.prepend(ZedToken(StrokePrime));
+          break;
+        case Name.index:
+          j = i;
+          while (i-->0 && decoration.charAt(i) != Name.index);
+          buffer =
+            buffer.
+              prepend(ZedToken(StrokeIndex(decoration.substring(i+1,j))));
+          break;
+        // no default case
+      }
+    }
+    return buffer;
+  }
+
+  private int getComponentPrio(Component component) {
+    switch (component) {
+      case Operand(int prio):
+        return prio;
+      default:
+        return 0;
+    }
+  }
+
+  private String getKeyword(Component component) {
+    switch (component) {
+      case Keyword(Name name):
+        return name.toString();
+      default:
+        return null;
+    }
+  }
+
+  private Fixity getFixity(Name name) {
+    try {
+      return environment.getFixity(name).fixity;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /** Return fixity assignment of given special construct (or null if
+    * none.  The
+    * following lexems have an assignment: <code>Lexem.Cross,
+    * Lexem.Theta, Lexem.Delta, Lexem.Xi, Lexem.Pre, Lexem.Dot</code>
+    */
+  public Fixity specialFixity(Lexem lexem){
+    try {
+      return specialFixities.get(lexem);
+    } catch (NoSuchElementException e) {
+      return null;
+    }
+  }
+
+  private Fixity getPrefixFixity(int prio, Lexem lexem) {
+    return
+      new Fixity(prio, false, 
+                 new Component[] {
+                   Component.Keyword(Name.stdName(config.getRepr(lexem))),
+                   Component.Operand(prio+1)
+                 });
+  }
+
+  private Fixity getPostfixFixity(int prio, Lexem lexem) {
+    return
+      new Fixity(prio, false, 
+                 new Component[] {
+                   Component.Operand(prio+1),
+                   Component.Keyword(Name.stdName(config.getRepr(lexem)))
+                 });
+  }
+
+  private Fixity getAssocInfixFixity(int prio, Lexem lexem) {
+    return
+      new Fixity(prio, false, 
+                 new Component[] {
+                   Component.Operand(prio),
+                   Component.Keyword(Name.stdName(config.getRepr(lexem))),
+                   Component.Operand(prio)
+                 });
+  }
+
+  private Fixity getInfixFixity(int prio, Lexem lexem) {
+    return
+      new Fixity(prio, false, 
+                 new Component[] {
+                   Component.Operand(prio+1),
+                   Component.Keyword(Name.stdName(config.getRepr(lexem))),
+                   Component.Operand(prio+2)
+                 });
+  }
+
+  private Fixity getQuantorFixity() {
+    return
+      new Fixity(100, false, new Component[] {});
+  }
+
+  private Fixity getApplyFixity() {
+    return
+      Fixity(900, false,
+             new Component[] {
+               Component.Operand(900),
+               Component.Operand(901) 
+             });
+  }
+
+  private Fixity getFixity(Expr e) {
+    switch (e) {
+/*
+      case Abbrev(Eqn[] eqns):
+        return null;
+*/
+      case FreeType(NameDecl name, Branch[] branches):
+        return null;
+      case GivenType(NameDecl name):
+        return null;
+      case Text(Decl[] decls, Predicate[] props):
+        return null;
+      case Tuple(Expr[] components):
+        return null;
+      case Denotation(String value):
+        return null;
+      case Number(String value):
+        return null;
+      case Signature(Name[] names, Expr[] types):
+        return null;
+      case Binding(Eqn[] bindings):
+        return null;
+      case Display(Expr[] elements):
+        return null; // never put parantheses around these
+      case Product(Expr[] elements):
+        return specialFixity(Cross);
+      case Cond(Predicate cond, Expr thenPath, Expr elsePath):
+        return specialFixity(If);
+      case Select(Expr oper, NameAppl name):
+        return specialFixity(Dot);
+      case Quantor(Expr.QuantorKind kind, Expr matrix, Expr range):
+        switch (kind) {
+          case Set:
+            return null;
+          default:
+            return specialFixity(getQuantorLexem(kind));
+        }
+      case Unary(Expr.UnaryKind kind, Expr oper):
+        switch (kind) {
+          case Decorate(String decore): 
+            return null;
+          case Renaming(Rename[] renames):
+            return null;
+          case SelectiveDelta(NameAppl[] names):
+            return null;
+          case Hide(NameAppl[] names): 
+            return null;
+          default:
+            return specialFixity(getUnaryLexem(kind));
+        }
+      case Binary(Expr.BinaryKind kind, Expr left, Expr right):
+        switch (kind) {
+          case Apply:
+            switch (left) {
+              case Variable(NameAppl(Name name, Expr[] actuals)):
+                Fixity result;
+                if ((result = getFixity(name)) != null)
+                  return result;
+                return Fixity(900, false, 
+                              new Component[] {
+                              Component.Keyword(name),
+                              Component.Operand(901)
+                              });
+              default:
+                return getApplyFixity();
+            }
+          default:
+            return specialFixity(getBinaryLexem(kind));
+        }
+      case Variable(NameAppl(Name name, Expr[] actuals)):
+        return getFixity(name);
+// FIXME: what's the fixity of UniVars?
+      case UniVar(Name name, Expr oper):
+        return null;
+    }
+  }
+
+  private Lexem getQuantorLexem(Predicate.QuantorKind kind) {
+    switch (kind) {
+      case Exists:  return Exists;
+      case Exists1: return Exists1;
+      case Forall:  return Forall;
+      case Let:     return Let;
+    }
+  }
+
+  private Lexem getUnaryLexem(Predicate.UnaryKind kind) {
+    switch (kind) {
+      case Not:        return Not;
+      case Await:      return Await; 
+      case Everywhere: return Everywhere;
+      case Somewhere:  return Somewhere;
+      case Repeat:     return Repeat;
+      case Prefix:     return Prefix;
+      default:
+        return null;
+    }
+  }
+
+  private Lexem getBinaryLexem(Predicate.BinaryKind kind) {
+    switch (kind) {
+      case And:     return And;
+      case Or:      return Or;
+      case Implies: return Implies;
+      case Iff:     return Iff;
+      case Chop:    return Chop;
+      case Compose: return Compose;
+      case Leadsto: return Leadsto;
+      case Preempt: return Preempt;
+      case Compute: return Compute;
+      case Choice:  return Choice;
+      default:
+        return null;
+    }
+  }
+
+  private Fixity getFixity(Predicate p) {
+    switch (p) {
+      case Fact(FactKind kind):
+        return null;
+      case Test(Expr elem, Expr set): // suppose there are no conflicts
+        return null;
+      case Schema(Expr schema):
+        return getFixity(schema);
+      case Quantor(Predicate.QuantorKind kind, Expr matrix, Predicate range):
+        return specialFixity(getQuantorLexem(kind));
+      case Unary(Predicate.UnaryKind kind, Predicate oper):
+        switch (kind) {
+          // FIXME
+          case StepConstr(ConstrRef ref, NameAppl rel, Expr expr):
+            return null;
+            // (i) : (j) _{ \dLength (k) (l) }
+          case TimeConstr(ConstrRef ref, NameAppl rel, Expr expr):
+            return null;
+            // (i) : (j) _{ \dDuration (k) (l) }
+          default:
+            return specialFixity(getUnaryLexem(kind));
+        }
+      case Binary(Predicate.BinaryKind kind, Predicate left, Predicate right):
+        switch (kind) {
+          case Guarded: // Maybe: (i) : (j) \lbrack (k) \rbrack 
+            // FIXME
+            return null;
+          default:
+            return specialFixity(getBinaryLexem(kind));
+            /*
+            Lexem lex = getBinaryLexem(kind);
+            Fixity result;
+            if ((result = specialFixity(lex)) == null)
+              result = getInfixFixity(300,lex);
+            return result;
+            */
+        }
+    }
+  }
+
+  private Seq<Text> enumerate(Seq<Seq<Text>> s, Lexem sep) {
+    return enumerate(s,sep,0);
+  }
+
+  private Seq<Text> enumerate(Seq<Seq<Text>> s, Lexem sep, int indent) {
+    return enumerate(s,sep,FormatKind.Line(indent));
+  }
+  private Seq<Text> enumerate(Seq<Seq<Text>> s,
+                              Lexem sep, 
+                              FormatKind kind) {
+    Seq<Text> buffer = new BufferSeq();
+    Seq<Text> c;
+
+    if (!s.isEmpty()) {
+      Enum<Seq<Text>> e = s.enumerate();
+
+      if (s.size() > 1) {
+        buffer = open(buffer,kind);
+          while (e.more()) {
+            c = e.current();
+            e.advance(); // look ahead
+            if (e.more()) {
+              buffer = open(buffer,FormatKind.Append(0));
+                buffer = buffer.appendAll(c);
+                buffer = buffer.append(ZedToken(sep));
+              buffer = close(buffer);
+            } else {
+              buffer = open(buffer,FormatKind.Block(0));
+                buffer = buffer.appendAll(c);
+              buffer = close(buffer);
+            }
+          }
+        buffer = close(buffer);
+      } else {
+        buffer = open(buffer,kind);
+          buffer = buffer.appendAll(e.current());
+        buffer = close(buffer);
+      }
+    }
+    return buffer;
+  }
+
+  private Seq<Text> enclose(Seq<Text> s, Seq<Text> left, Seq<Text> right) {
+    Seq<Text> buffer = new BufferSeq();
+
+    buffer = open(buffer,FormatKind.Append(0));
+      buffer = buffer.appendAll(left);
+      buffer = open(buffer,FormatKind.Block(2));
+        buffer = buffer.appendAll(s);
+      buffer = close(buffer);
+      buffer = buffer.appendAll(right);
+    buffer = close(buffer);
+    return buffer;
+  }
+
+  private Seq<Text> enclose(Seq<Text> s, Text left, Text right) {
+    return enclose(s, new ArraySeq(left), new ArraySeq(right));
+  }
+
+  private Seq<Text> parenthesize(Seq<Text> s, Fixity fix, int prio) {
+    if (fix != null && fix.prio < prio) {
+      return enclose(s,ZedToken(Lparenth),ZedToken(Rparenth));
+    } else {
+      return s;
+    }
+  }
+
+  private Seq<Text> open(Seq<Text> text, FormatKind kind) {
+    return text.append(Text.FormatBegin(kind));
+  }
+
+  private Seq<Text> open(Seq<Text> text, int indent) {
+    return open(text,FormatKind.Block(indent));
+  }
+
+  private Seq<Text> open(Seq<Text> text) {
+    return open(text,0);
+  }
+
+  private Seq<Text> close(Seq<Text> text) {
+    return text.append(Text.FormatEnd);
+  }
+
+  private Component[] getComponents(Fixity fix) {
+    switch (fix) {
+      case Fixity(int prio, boolean isGeneric, Component[] components):
+        return components;
+    }
+  }
+
+}

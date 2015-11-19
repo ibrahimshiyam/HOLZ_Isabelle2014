@@ -1,0 +1,684 @@
+package zeta.tools.zparser;
+
+/**
+ * The Mixfix parser.
+ *
+ * @version $Id: MixfixParser.pizza,v 1.4 1998/09/13 15:24:13 wg Exp $
+ */
+
+import net.sf.pizzacompiler.lang.Pair;
+import net.sf.pizzacompiler.util.Stack;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.content.zirp.*;
+import zeta.content.text.*;
+import zeta.session.*;
+
+import Fixity.*;
+
+
+class MixfixParser {
+
+  /**
+   * Internal class for representing compiled information about fixities.
+   */
+  static public class CFixity extends Term {
+    public case CFixity(
+		  Name name,
+		  int prio,
+		  boolean isGeneric,
+		  Component[] components,
+		  (CFixity, Locator, Seq<Tree>)->Tree reducer
+		);
+  }
+
+  /**
+   * Class for holding syntax for mixfix parser. 
+   */
+  static public class Tree extends Term {
+    /** A keyword. */
+    public case Keyword(Name name, Locator locator);
+    /** A expression operand. */
+    public case Operand(Expr expr);
+    /** A operand list. */
+    public case OperandList(Name lname, Name rname, Expr expr);
+    /** A reduced predicate operand. */
+    public case PredicateOperand(Predicate pred);
+    /** An unreduced cartesian product. For internal use only. */
+    public case Cart(Seq<Expr> opers);
+
+    /** Return expression represented by tree, or null if none.
+	Reduces cartesian products. */
+    Expr getExpr(){
+      switch (this){
+      case Operand(Expr expr):
+	return expr;
+      case Cart(Seq<Expr> opers):
+	Expr res = Expr.Product(opers.toArray(Expr.class));
+	Locator.put(res.an, 
+		   ItemParser.upto(Locator.get(opers.at(0).an),
+				Locator.get(
+				  opers.at(opers.size()-1).an)));
+	return res;
+      default:
+	return null;
+      }
+    }
+			    
+    /** Return predicate represented by tree.
+	Converts an expression into a schema reference if necessary. */
+    Predicate getPredicate(){
+      switch (this){
+      case PredicateOperand(Predicate pred):
+	return pred;
+      default:
+	Expr expr = getExpr();
+	if (expr != null){
+	  Predicate res = Predicate.Schema(expr);
+	  Locator.put(res.an, Locator.get(expr.an));
+	  return res;
+	} else
+	  return null;
+      }
+    }
+
+    /** Convert tree into string. */
+    public String toString(){
+      switch (this) {
+      case Keyword(Name name, _):
+	return name.toString();
+      case Operand(_): case PredicateOperand(_):
+	return "_";
+      case OperandList(Name lname, Name rname, _):
+	return lname + ",," + rname;
+      case Cart(Seq<Expr> opers):
+	StringBuffer res = new StringBuffer("_");
+	for (int i = 1; i < opers.size(); i++){
+	  res.append(Lexem.Cross.toString());
+	  res.append("_");
+	}
+	return res.toString();
+      }
+    }
+    
+    /* Get locator of tree. */
+    Locator getLocator(){
+      switch (this) {
+      case Keyword(_, Locator loc):
+	return loc;
+      case Operand(Expr e):
+	return Locator.get(e.an);
+      case OperandList(_, _, Expr e):
+	return Locator.get(e.an);
+      case PredicateOperand(Predicate p):
+	return Locator.get(p.an);
+      case Cart(Seq<Expr> opers):
+	return ItemParser.upto(Locator.get(opers.at(0).an),
+			    Locator.get(opers.at(opers.size()-1).an));
+      }
+    }
+    
+  }
+
+
+  /** 
+   * Array of array of compiled fixities with increasing priority. 
+   */
+  private final CFixity[][] fixities;
+
+  /** 
+   * Diagnostics produced during mixfix parsing. 
+   */
+  private Diag diag = new Diag();
+
+  /** 
+   * Create a new mixfix parser. This operation is relative expansive
+   * since it does some calculations in advance, and hence should be
+   * performed only once for a parse job.
+   * @param fixities  the user-defined fixities to consider.
+   */
+  MixfixParser(UnitEnv.FixityInfo[] fixities){
+    Map<int, Seq<CFixity>> map = new HashMap();
+
+    // add builtin fixities
+    map = add( // juxtaposed function application
+	    map,
+	    new CFixity(
+		  null, 
+		  Fixity.applyPrio, 
+		  false,
+		  new Component[]{ Component.Operand(Fixity.applyPrio),
+				   Component.Operand(Fixity.applyPrio+1) },
+		  juxtaposedReducer
+		)
+	  );
+    map = add( // powerset
+	    map,
+	    new CFixity(
+		  null, 
+		  Fixity.powerPrio, 
+		  false,
+		  new Component[]{ Component.Keyword(
+				     new Name(Lexem.Power.toString())),
+				   Component.Operand(Fixity.powerPrio) },
+		                                     // CHECKME: +1?
+		  powerReducer
+		)
+	  );
+    map = add( // cartesian product
+	    map,
+	    new CFixity(
+		  null, 
+		  Fixity.cartPrio, 
+		  false,
+		  new Component[]{ Component.Operand(Fixity.cartPrio+1),
+				   Component.Keyword(
+				     new Name(Lexem.Cross.toString())),
+				   Component.Operand(Fixity.cartPrio) },
+		  cartReducer
+		)
+	  );
+    
+
+    // add user-defined fixities
+    for (int i = 0; i < fixities.length; i++){
+      Fixity f = fixities[i].fixity;
+      CFixity cf = null;
+      if (f.prio < 0 && f.components.length > 1){
+	switch (f.components[0]){
+	case Operand(_):
+	  switch (f.components[f.components.length-1]){
+	  case Operand(_):
+	    // binary relation
+	    cf = new CFixity(
+		       f.makeName(),
+		       -1,
+		       false,
+		       new ArraySeq(f.components).subseq(0,
+							 f.components.length-1)
+				   .append(Component.Operand(-1))
+				   .toArray(Component.class),
+		       binRelReducer
+		     );
+	  }
+	}
+      }
+      if (cf == null){
+	cf = new CFixity(
+		   f.makeName(),
+		   f.prio,
+		   f.isGeneric,
+		   f.components,
+		   f.prio < 0 ? relReducer : funReducer
+		 );
+      }
+      map = add(map, cf);
+    }
+    // System.out.println("fixity map: ");     
+    // System.out.println(map);     
+    this.fixities =
+      ArraySeq.from(map).sort(fun (Pair<int, Seq<CFixity>> p1,
+				   Pair<int, Seq<CFixity>> p2)->int {
+				return p1.fst - p2.fst;
+			      }
+			     )
+	      .map(fun (Pair<int,Seq<CFixity>> p)->CFixity[]{
+		     return p.snd.toArray(CFixity.class);
+	           })
+	      .toArray(CFixity[].class);
+  }
+
+  /**
+   * Add a fixity to priority mapping.
+   */
+  private static Map<int,Seq<CFixity>> add(Map<int,Seq<CFixity>> map, 
+					   CFixity f){
+    if (map.defines(f.prio)){
+      return map.define(f.prio, map.get(f.prio).append(f));
+    } else {
+      return map.define(f.prio, new BufferSeq().append(f));
+    }
+  }
+
+  /**
+   * Parse the given forest as predicate.
+   * Returns null if parsing wasn't successful. Diagnostics
+   * can be retrieved with getAndClearDiag().
+   */
+  Predicate predicate(Tree[] forest){
+    Tree tree = new Parser().parse(Fixity.relationPrio, new ArraySeq(forest));
+    if (tree == null) return null;
+    return tree.getPredicate();
+  }
+    
+  /**
+   * Parse the given forest as expression.
+   * Returns null if parsing wasn't successfull. Diagnostics
+   * can be retrieved with getAndClearDiag().
+   */
+  Expr expr(Tree[] forest){
+    Tree tree = new Parser().parse(Fixity.minExprPrio, new ArraySeq(forest));
+    if (tree == null) return null;
+    return tree.getExpr();
+  }
+
+  /** 
+   * Get and clear accumulated diagnostics.
+   */
+  public Diag getAndClearDiag(){
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+
+  /**
+   * The parser class.
+   */
+  class Parser {
+
+    private Stack<Tree> left = new Stack();
+    private Stack<Tree> right = new Stack();
+    int rightCnt = 0;
+
+    /**
+     * Parse the given forest at priority and try to reduce it to a tree.
+     * Return null and produce diagnostics if parsing fails. 
+     */
+    Tree parse(int prio, Seq<Tree> forest) {
+      for (int i = forest.size()-1; i >= 0; i--){
+	right.push(forest.at(i));
+	rightCnt++;
+      }
+      try {
+	parse(prio);
+	Tree current = right.pop();
+	rightCnt--;
+	if (rightCnt == 0 && 
+	    (current instanceof Tree.Operand || 
+	     current instanceof Tree.PredicateOperand ||
+	     current instanceof Tree.Cart))
+	  return current;
+	else {
+	  Seq<Tree> unparsable = new BufferSeq().append(current);
+	  while (!right.isEmpty()){
+	    unparsable = unparsable.append(right.pop());
+	  }
+	  diag = 
+	    diag.add(locator(unparsable),
+		     Diag.Category.Error,
+		     Format.describe("cannot reduce mixfix expression",
+				   "unreduced expression", 
+				   showForest(unparsable)));
+	  return null;
+	}
+      }
+      catch (AmbigiousException e){
+	diag = 
+	  diag.add(
+	    locator(forest),
+	    Diag.Category.Error,
+	    Format.describe("ambigious mixfix expression",
+			    "pattern", showForest(forest),
+			    "matches",
+			    Format.beneath(
+			      e.cands
+			       .map(
+				 fun (Pair<CFixity,Pair<Tree,Seq<Tree>>> cand)
+				     ->Format {
+				   return 
+				     Format.beneath(
+				       showFixity(cand.fst),
+				       Format.space(3),
+				       Format.indent(
+					 cand.snd.fst
+					     .getLocator()
+					     .toFormat(new FormatInfo())
+				       )
+				     );
+				 }
+			       )
+			    )
+			   )
+	  );
+	return null;
+      }
+    }
+
+    private void parse(int prio) throws AmbigiousException {
+      int i = fixities.length-1;
+      while (i >= 0 && fixities[i][0].prio >= prio){
+	if (rightCnt == 1 && !(right.top() instanceof Tree.OperandList))
+	  return;
+	int j = 0;
+	while (j < fixities[i].length){
+	  if (tryFixity(fixities[i][j]))
+	    j = 0;
+	  else
+	    j++;
+	}
+	i--;
+      }
+    }
+
+    private boolean tryFixity(CFixity fixity) throws AmbigiousException {
+      // System.out.println("trying " + fixity);
+      // System.out.println("<<<<<<");
+      // dumpStack(left);
+      // System.out.println(">>>>>>");
+      // dumpStack(right);
+      Component[] comps = fixity.components;
+      for (int i = 0; i < comps.length; i++){
+	if (right.isEmpty()) {
+	  retract(i);
+	  return false;
+	}
+	switch (comps[i]){
+	case Operand(int prio):
+	  if (i > 0){
+	    parse(prio);
+	  }
+	  switch (right.top()){
+	  case Operand(_): case Cart(_): case PredicateOperand(_):
+	    left.push(right.pop());
+	    rightCnt--;
+	    continue;
+	  default:
+	    retract(i);
+	    return false;
+	  }
+	case Keyword(Name name):
+	  switch (right.top()){
+	  case Keyword(Name name1, _):
+	    if (!name.equals(name1)){
+	      retract(i);
+	      return false;
+	    }
+	    left.push(right.pop());
+	    rightCnt--;
+	    continue;
+	  default:
+	    retract(i);
+	    return false;
+	  }
+	case OperandList(Name lname, Name rname):
+	  switch (right.top()){
+	  case OperandList(Name lname1, Name rname1, Expr expr):
+	    if (!lname.equals(lname1) || !rname.equals(rname1)) {
+	      retract(i);
+	      return false; 
+	    }
+	    left.push(right.pop());
+	    rightCnt--;
+	    continue;
+	  default:
+	    retract(i);
+	    return false;
+	  }
+	}
+      }
+      // success, reduce
+      Seq<Tree> operands = new BufferSeq();
+      Locator rightOrig = left.top().getLocator();
+      Locator leftOrig = null;
+      for (int i = comps.length; i > 0; i--){
+	Tree tree = left.pop();
+	if (i == 1) leftOrig = tree.getLocator();
+	switch (tree){
+	case Operand(_): case PredicateOperand(_): case Cart(_):
+	  operands = operands.prepend(tree);
+	  break;
+	case OperandList(_, _, Expr expr):
+	  operands = operands.prepend(Tree.Operand(expr));
+	}
+      }
+      right.push(fixity.reducer(fixity,
+				ItemParser.upto(leftOrig, rightOrig),
+				operands));
+      rightCnt++;
+      // System.out.println("success: >>>>>>");
+      // dumpStack(right);
+      return true;
+    }
+
+    private void retract(int i){
+      rightCnt += i;
+      while (i-- > 0) right.push(left.pop());
+    }
+
+	
+  }
+
+  /**
+   * For debugging.
+   */
+  static void dumpStack(Stack<Tree> stack){
+    if (!stack.isEmpty()){
+      Tree t = stack.pop();
+      System.out.println(t);
+      dumpStack(stack);
+      stack.push(t);
+    }
+  }
+
+      
+  /**
+   * The standard function reducer.
+   */
+  private static 
+  Tree funReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    Expr res;
+    if (fixity.isGeneric){
+      NameAppl nap = new NameAppl(fixity.name, toExprArray(operands));
+      Locator.put(nap.an, locator);
+      res = new Expr.Variable(nap);
+      Locator.put(res.an, locator);
+    } else {
+      NameAppl nap = new NameAppl(fixity.name, new Expr[0]);
+      Locator.put(nap.an, locator);
+      Expr var = new Expr.Variable(nap);
+      Locator.put(var.an, locator);
+      Expr[] elems = toExprArray(operands);
+      if (elems.length == 0)
+	res = var;
+      else {
+	Expr oper;
+	if (elems.length == 1) {
+	  oper = elems[0];
+	} else {
+	  // CHECKME: no opers?
+	  oper = Expr.Tuple(elems);
+	  Locator.put(oper.an, locator);
+	} 
+	res = Expr.Binary(Expr.BinaryKind.Apply, var, oper);
+	Locator.put(res.an, locator);
+      }
+    }
+    return Tree.Operand(res);
+  }
+
+
+  /**
+   * The standard relation reducer.
+   */
+  private static 
+  Tree relReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    NameAppl nap = new NameAppl(fixity.name, new Expr[0]);
+    Locator.put(nap.an, locator);
+    Expr var = new Expr.Variable(nap);
+    Locator.put(var.an, locator);
+    Expr[] elems = toExprArray(operands);
+    Expr oper;
+    if (elems.length == 1){
+      oper = elems[0];
+    } else {
+      // CHECKME: no opers?
+      oper = Expr.Tuple(elems);
+      Locator.put(oper.an, locator);
+    } 
+    Predicate res = Predicate.Test(oper, var);
+    Locator.put(res.an, locator);
+    return new Tree.PredicateOperand(res);
+  }
+
+  /**
+   * The binary relation reducer.
+   */
+  private static 
+  Tree binRelReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    NameAppl nap = new NameAppl(fixity.name, new Expr[0]);
+    Locator.put(nap.an, locator);
+    Expr var = new Expr.Variable(nap);
+    Locator.put(var.an, locator);
+    Expr rightOper;
+    Predicate rightPred;
+    switch (operands.at(operands.size()-1)){
+    case PredicateOperand(Predicate pred):
+      // _ R1 (_ R2 _ ...)
+      rightOper = getLeftOperand(pred);
+      if (rightOper == null) return null;
+      rightPred = pred;
+      break;
+    case Operand(Expr expr):
+      rightOper = expr;
+      rightPred = null;
+      break;
+    default:
+      throw FatalError.unexpectedCase();
+    }
+    Expr[] elems = toExprArray(operands.subseq(0,operands.size()-1)
+				       .append(Tree.Operand(rightOper)));
+    Locator loc = ItemParser.upto(Locator.get(elems[0].an),
+			       Locator.get(elems[elems.length-1].an));
+    Expr oper = Expr.Tuple(elems);
+    Locator.put(oper.an, loc);
+    Predicate pred = Predicate.Test(oper, var);
+    Locator.put(pred.an, loc);
+    if (rightPred != null){
+      loc = ItemParser.upto(Locator.get(pred.an),
+			  Locator.get(rightPred.an));
+      pred = Predicate.Binary(Predicate.BinaryKind.And,
+			      pred, rightPred);
+      Locator.put(pred.an, loc);
+    }
+    return Tree.PredicateOperand(pred);
+  }
+
+  private static Expr getLeftOperand(Predicate pred){
+    switch (pred){
+    case Binary(Predicate.BinaryKind.And, Predicate left, _):
+      return getLeftOperand(left);
+    case Test(Tuple(Expr[] elems), _):
+      return elems[0];
+    default:
+      return null;
+    }
+  }
+		
+  /**
+   * The reducer for powerset-construction.
+   */
+  private static 
+  Tree powerReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    Expr res = Expr.Unary(Expr.UnaryKind.Power, 
+			  toExprArray(operands)[0]);
+    Locator.put(res.an, locator);
+    return new Tree.Operand(res);
+  }
+
+  /**
+   * The reducer for cartesian product.
+   */
+  private static 
+  Tree cartReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    switch (operands.at(1)){
+    case Cart(Seq<Expr> opers):
+      return Tree.Cart(opers.prepend(operands.at(0).getExpr()));
+    default:
+      return Tree.Cart(new ArraySeq(operands.at(0).getExpr(),
+				    operands.at(1).getExpr()));
+    }
+  }
+
+  /**
+   * The reducer for juxtaposed application.
+   */
+  private static 
+  Tree juxtaposedReducer(CFixity fixity, Locator locator, Seq<Tree> operands){
+    Expr[] elems = toExprArray(operands);
+    Expr res = Expr.Binary(Expr.BinaryKind.Apply, elems[0], elems[1]);
+    Locator.put(res.an, locator);
+    return new Tree.Operand(res);
+  }
+
+  /** 
+   * Convert sequence of supposed operands to array of expressions.
+   */
+  private static Expr[] toExprArray(Seq<Tree> operands){
+    Expr[] exprs = new Expr[operands.size()];
+    for (int i = 0; i < operands.size(); i++){
+      exprs[i] = operands.at(i).getExpr();
+      if (exprs[i] == null) throw FatalError.unexpectedCase();
+    }
+    return exprs;
+  }
+
+  /** 
+   * Exception thrown in case of ambigious parse. 
+   */
+  private static class AmbigiousException extends Exception {
+    Seq<Pair<CFixity, Pair<Tree,Seq<Tree>>>> cands;
+    AmbigiousException(Seq<Pair<CFixity, Pair<Tree,Seq<Tree>>>> cands){
+      this.cands = cands;
+    }
+  }
+	
+  /** 
+   * Show the given forest for diagnostics.
+   */
+  private static Format showForest(Seq<Tree> forest){
+    return 
+      Format.block(
+	forest.map(fun (Tree t)->Format {
+		     return Format.literal(t.toString() + " ");
+		   }
+		  )
+      );
+  }
+
+  /** 
+   * Show the given fixity for diagnostics.
+   */
+  private static Format showFixity(CFixity fixity){
+    return Format.literal(fixity.name.getRepr());
+  }
+			     
+  /** 
+   * Construct locator form start to end tree.
+   */
+  private static Locator locator(Tree start, Tree end){
+    return ItemParser.upto(start.getLocator(), end.getLocator());
+  }
+
+  /** 
+   * Construct locator from non-empty forest.
+   */
+  static Locator locator(Seq<Tree> forest){
+    if (forest.size() == 1) 
+      return forest.head().getLocator();
+    else
+      return locator(forest.head(), forest.at(forest.size()-1));
+  }
+
+  /** 
+   * Construct locator from non-empty forest.
+   */
+  static Locator locator(Tree[] forest){
+    return locator(new ArraySeq(forest));
+  }
+}
+
+

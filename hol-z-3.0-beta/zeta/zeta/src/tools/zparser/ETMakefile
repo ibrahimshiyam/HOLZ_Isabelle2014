@@ -1,0 +1,11 @@
+AUTOSUBNODES	= 
+JAVACC_FILES	= ItemParser.jj
+JAVACC_USER_TOKEN_MANAGER = yes
+PIZZA_FILES	= ParserAux.pizza TextToken.pizza TextTokenManager.pizza \
+                  Preprocessor.pizza MixfixParser.pizza UnitParser.pizza \
+		  ParserAdaptor.pizza
+JAVA_FILES	=
+JAVAFLAGS	= -nowarn
+NODEKIND	= javacc
+
+

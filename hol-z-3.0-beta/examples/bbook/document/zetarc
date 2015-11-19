@@ -1,0 +1,4 @@
+plugin HOLZAdaptor
+load bbook.tex
+holz -u LTX:BBSpec#bbook
+quit

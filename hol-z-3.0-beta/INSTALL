@@ -1,0 +1,116 @@
+Prerequistes:
+=============
+0) Download the following programs:
+- Install a LaTeX distribution.
+- ZeTa:  http://uebb.cs.tu-berlin.de/zeta/zetadist1_5.class
+- Isabelle 05: see http://isabelle.in.tum.de/download.html
+- PolyML: http://www.polyml.org/download.html
+  or 
+  Standard ML of New Jersey, Version 110.42 or later
+  http://www.smlnj.org/NEWS/110-README.html
+- we assume java, jar, tar, gunzip to be installed on your system.
+   
+1) Install ZeTa and your SML system (PolyML or SML of New Jersey) as described 
+   in their documentation.
+   2a) In particular, make sure that latex will find the zeta.sty-file. 
+   2b) Further, make sure that the zeta shell script (which is executed if you
+   zype "zeta" does not overwrite the class path in the zeta shell script. 
+   You have to adjust the script <ZETADIST>/bin/zeta by exchanging the line:
+
+       CLASSPATH="$ZETABASE/lib/classes.jar"
+   by 
+       CLASSPATH="$ZETABASE/lib/classes.jar":$CLASSPATH
+
+   (see additionally doc/holz-adaptor.html)
+
+2) Install Standard ML of New Jersey, or PolyML
+
+3) Install Isabelle 2005 as described in its documentation. An example
+   settings for PolyML can be found in "etc/settings.new".
+
+4) Proceed with the HOL-Z installation.
+
+HOL-Z Installation:
+===================
+
+1) After unpacking the HOL-Z 3.0 (which you must have done in order to 
+   get this file, go to the HOL-Z directory, and edit the file make.config for your specific
+   settings, especially the path of ZeTa and Isabelle.
+
+2) Compile HOL-Z. Just go to src and type "isatool make".
+   In case of LaTeX-errors, reconsider item 2a).
+
+3) Compile the HOL-Z adaptor. This is a java-written component which is plugged
+   into zeta providing an export-facility (i.e. this is the component that technically
+   generates a .holz-file) 
+
+4) Start HOL-Z by:
+
+         Isabelle -L HOL-Z
+
+
+
+
+HOL-Z Installation Test:
+========================
+Goto examples/bbook.
+You can either type:
+
+	isatool make bbook
+
+or even:
+
+        isatool make
+
+In the previous case, if correctly installed, HOL-Z
+should respond with:
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+touch document/session.tex
+cd document && zeta --batch
+ZETA 1.5, (c) 1997-2000 Wolfgang Grieskamp, Robert Buessow
++ installed Z LaTeX adaptor v1.4
++ installed Z parser v1.5
++ installed Z type checker v1.5
++ installed pretty printer v1.0
++ installed Z-to-MicroZ reducer v2.0
+! WARNING[<ZAM>]: 
+!   cannot load ZAM library: java.lang.UnsatisfiedLinkError: no ZAM in java.library.path
++ installed ZAP/ZAM v2.1
++ installed Emacs adaptor v1.0
++ installed HOL-Z adaptor v1.0
++ scanning bbook.tex
+###  Exporting all parent sections.
+
++ scanning /usr/local/zeta.1.5/lib/ztoolkits/Toolkit.tex
++ parsing section LTX:Toolkit#Toolkit
++ parsing section LTX:BBSpec#bbook
++ type checking section LTX:Toolkit#Toolkit
++ type checking section LTX:BBSpec#bbook
+Exporting unit: BBSpec
+= good bye.
+mv document/*.holz holz
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+That is, isatool starts ZETA, which extracts from the
+specification document under document/session.tex the
+Z sources, type-chacks it and exports the exchange
+files .holz which were copied to the holz directory.
+(Currently, we are not supporting the ZAP and ZAM
+animators any more ... sorry).
+
+In the latter case, isatool starts performs additionally
+"Running HOL-Z-bbook" which starts Isabelle, engages in a 
+proof check of BB.thy and finally generates a .pdf of
+the generated LaTeX:
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Browser info at /Users/bu/isabelle/browser_info/HOL/HOL-Z/bbook
+Document at /Users/bu/isabelle/browser_info/HOL/HOL-Z/bbook/document.pdf
+Document at /Users/bu/isabelle/browser_info/HOL/HOL-Z/bbook/outline.pdf
+Finished HOL-Z-bbook (0:02:31 elapsed time)
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+The third-last line indicates to where the generated document.pdf
+is actually copied - usually inside some place in the isabelle
+user space.
+
+Have fun !
+

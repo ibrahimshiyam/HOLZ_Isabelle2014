@@ -1,0 +1,16 @@
+plugin HOLZAdaptor
+load arch.tex
+#holz -u LTX:Basics#arch
+#holz -u LTX:AbstractState#arch
+#holz -u LTX:AbsOperations#arch
+#holz -u LTX:FileSystem#arch
+#holz -u LTX:CVSServer#arch
+#holz -u LTX:Refinement#arch
+holz -u LTX:SysArchSec#arch
+#holz -u LTX:SysArchConsistency#arch
+#c -u LTX:SysArchConsistency#arch
+#holz -u LTX:ImplArchConsistency#arch
+#holz -u LTX:CombinedSec#arch
+#holz -u LTX:ImplArchSec#arch
+#holz -u LTX:all#arch
+quit

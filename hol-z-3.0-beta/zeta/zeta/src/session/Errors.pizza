@@ -1,0 +1,40 @@
+package zeta.session;
+
+/**
+ * Errors thrown by the session system. These exceptions need not
+ * to be declared in the throws class of method, and represent unexpected 
+ * behavior. 
+ *
+ * @version $Id: Errors.pizza,v 1.3 1998/11/22 15:18:41 buessow Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.io.IOException;
+
+import zeta.util.Name;
+
+public abstract class Errors extends RuntimeException {
+
+  /**
+   * A physical error of the underlying system layers, which
+   * does not represent an expected failure.
+   */
+  public case PhysicalError(final Exception exception);
+
+  /**
+   * A consistency error of the underlying data model.
+   */
+  public case DataInconsistency(final String message);
+  
+  /**
+   * An assertion failed: a method of the session systems is called
+   * with arguments violating the specification, or a tool adaptor
+   * does not behave has expected.
+   */
+  public case AssertionFailed(final String message);
+
+  /**
+   * Remote Exception occured during RMI.
+   */
+  public case RemoteMethodInvocationFailed();
+}

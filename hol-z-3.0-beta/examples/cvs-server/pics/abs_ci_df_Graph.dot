@@ -1,0 +1,128 @@
+digraph "abs_ci_df" {                graph [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                label = "abs_ci_df"
+                center = "true"
+                color = "black"
+               rankdir = "LR"
+        ]
+        node [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                shape = "ellipse"
+                color = "black"
+        ]
+        edge [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                color = "black"
+        ]
+        "abs_ci_df" [
+                label = "abs_ci_df"
+        ]
+        "subgoal_1" [
+                label = "Subgoal 1"
+        ]
+        "domRepSubsdomRepD" [
+                label = "DomRepSubsdomRepD"
+        ]
+        "subgoal_2" [
+                label = "Subgoal 2"
+        ]
+        "oplDomUn" [
+                label = "OplDomUn"
+                style = "bold"
+                shape = "box"
+        ]
+        "oplDomUnMultiple" [
+                label = "OplDomUnMultiple"
+        ]
+        "DomUnMultipleKomm" [
+                label = "DomUnMultipleKomm"
+        ]
+        "eqWithUnion" [
+                label = "EqWithUnion"
+        ]
+        "UnKomm" [
+                label = "UnKomm"
+                style = "bold"
+                shape = "box"
+        ]
+        "domRepUnDomRepOld_is_domRep" [
+                label = "domRepUnDomRepOld_is_domRep"
+        ]
+        "MeqMDash" [
+                label = "MeqMDash"
+        ]
+        "subgoal_3" [
+                label = "Subgoal 3"
+        ]
+        "applOpl" [
+                label = "ApplOpl"
+                style = "bold"
+                shape = "box"
+        ]
+        "abs_cvsauthNotInRepPermtabNeu" [
+                label = "abs_cvsauthNotInRepPermtabNeu"
+        ]
+        "setConstraint_1" [
+                label = "Setconstraint 1"
+        ]
+        "pfunOplDomSubst" [
+                label = "PfunOplDomSubst"
+                style = "bold"
+                shape = "box"
+        ]
+        "domRestrDistr" [
+                label = "DomRestrDistr"
+                style = "bold"
+                shape = "box"
+        ]
+        "setConstraint_2" [
+                label = "Setconstraint 2"
+        ]
+        "pfunOplDomSubst" [
+                label = "PfunOplDomSubst"
+                style = "bold"
+                shape = "box"
+        ]
+        "abs_ci_df" -> "subgoal_1" [
+        ]
+        "abs_ci_df" -> "subgoal_2" [
+        ]
+        "abs_ci_df" -> "subgoal_3" [
+        ]
+        "abs_ci_df" -> "setConstraint_1" [
+        ]
+        "abs_ci_df" -> "setConstraint_2" [
+        ]
+        "subgoal_1" -> "domRepSubsdomRepD" [
+        ]
+        "subgoal_2" -> "oplDomUn" [
+        ]
+        "subgoal_2" -> "oplDomUnMultiple" [
+        ]
+        "subgoal_2" -> "DomUnMultipleKomm" [
+        ]
+        "subgoal_2" -> "eqWithUnion" [
+        ]
+        "subgoal_2" -> "UnKomm" [
+        ]
+        "subgoal_2" -> "domRepUnDomRepOld_is_domRep" [
+        ]
+        "subgoal_2" -> "MeqMDash" [
+        ]
+        "subgoal_3" -> "applOpl" [
+        ]
+        "subgoal_3" -> "abs_cvsauthNotInRepPermtabNeu" [
+        ]
+        "setConstraint_1" -> "pfunOplDomSubst" [
+        ]
+        "setConstraint_1" -> "domRestrDistr" [
+        ]
+        "setConstraint_2" -> "pfunOplDomSubst" [
+        ]
+        }

@@ -1,0 +1,536 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>5. Special Definitions</TITLE>
+<META NAME="description" CONTENT="5. Special Definitions">
+<META NAME="keywords" CONTENT="zapnotes">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zapnotes.css">
+<LINK REL="next" HREF="zapnotes-node7.html">
+<LINK REL="previous" HREF="zapnotes-node5.html">
+<LINK REL="up" HREF="zapnotes.html">
+<LINK REL="next" HREF="zapnotes-node7.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html163"
+ HREF="zapnotes-node7.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html159"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html153"
+ HREF="zapnotes-node5.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html161"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html164"
+ HREF="zapnotes-node7.html">Bibliography</A>
+<B> Up:</B> <A NAME="tex2html160"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html154"
+ HREF="zapnotes-node5.html">4. Controlling Search</A>
+ &nbsp <B>  <A NAME="tex2html162"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html165"
+ HREF="zapnotes-node6.html#SECTION00061000000000000000">5.1 Debug Printing</A>
+<LI><A NAME="tex2html166"
+ HREF="zapnotes-node6.html#SECTION00062000000000000000">5.2 Forcing</A>
+<LI><A NAME="tex2html167"
+ HREF="zapnotes-node6.html#SECTION00063000000000000000">5.3 Assumptions</A>
+<LI><A NAME="tex2html168"
+ HREF="zapnotes-node6.html#SECTION00064000000000000000">5.4 Extensionalization</A>
+<LI><A NAME="tex2html169"
+ HREF="zapnotes-node6.html#SECTION00065000000000000000">5.5 Reduction Over Sets</A>
+<LI><A NAME="tex2html170"
+ HREF="zapnotes-node6.html#SECTION00066000000000000000">5.6 Reduction Over Sequences</A>
+<LI><A NAME="tex2html171"
+ HREF="zapnotes-node6.html#SECTION00067000000000000000">5.7 Extensional Powerset</A>
+<LI><A NAME="tex2html172"
+ HREF="zapnotes-node6.html#SECTION00068000000000000000">5.8 Reflection</A>
+<LI><A NAME="tex2html173"
+ HREF="zapnotes-node6.html#SECTION00069000000000000000">5.9 Data Input</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00060000000000000000">
+5. Special Definitions</A>
+</H1>
+
+<P>
+The mathematical toolkit which comes with Z<SMALL>E</SMALL>T<SMALL>A</SMALL> contains
+some special definitions which are tailored for working with Z<SMALL>A</SMALL>P
+and are documented below.
+
+<P>
+
+<H2><A NAME="SECTION00061000000000000000">
+5.1 Debug Printing</A>
+</H2>
+
+<P>
+The function <IMG
+ WIDTH="42" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img73.gif"
+ ALT="$\TRACE~x$">
+(<code>\TRACE</code>) can be used to print the value
+of <I>x</I> to the session log. It just returns <I>x</I>. The function
+<IMG
+ WIDTH="61" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img74.gif"
+ ALT="$\PRINT(x,y)$">
+(<code>\PRINT</code>) prints the value of <I>x</I> and returns <I>y</I>.
+The semantic definition, apart of these side-effects, is as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img75.gif"
+ ALT="\begin{zedgroup}
+\begin{axdef}[X]
+\TRACE == \lambda x:X @ x
+\end{axdef}\begin{axdef}[X,Y]
+\PRINT == \lambda x:X; y:Y @ y
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00062000000000000000">
+5.2 Forcing</A>
+</H2>
+
+<P>
+The function <IMG
+ WIDTH="42" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img76.gif"
+ ALT="$\FORCE~x$">
+(<code>\FORCE</code>) residuates the executing
+constraint until <I>x</I> is bound (if <I>x</I> is not a variable, it immediately
+returns). The function <IMG
+ WIDTH="69" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img77.gif"
+ ALT="$\DEEPFORCE~x$">
+(<code>\DEEPFORCE</code>) does so
+until <I>all</I> free variables in <I>x</I> are bound. Semantically,
+both are identity:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img78.gif"
+ ALT="\begin{zedgroup}
+\begin{axdef}[X]
+\FORCE == \lambda x:X @ x
+\end{axdef}\begin{axdef}[X]
+\DEEPFORCE == \lambda x:X @ x
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00063000000000000000">
+5.3 Assumptions</A>
+</H2>
+
+<P>
+The generic constant <IMG
+ WIDTH="64" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img79.gif"
+ ALT="$\assumed X$">
+(<code>\assumed</code>) takes a set and
+converts it into a unversal set. Semantically, it is identity: 
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img80.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zgeneric{1 (\assumed \_)}
+\end{zdirectives}\begin{axdef}[X]
+\assumed \_ == X
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+However, the compiler treats <IMG
+ WIDTH="64" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img79.gif"
+ ALT="$\assumed X$">
+as {x:<I>X</I>}, discarding
+any constraints involved by the instance of <I>X</I>.
+
+<P>
+This allows a usage as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="59" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img81.gif"
+ ALT="\begin{schema}{S}
+x: \num
+\where
+\assumed [\vert x&gt;0] \\
+\end{schema}">
+<BR>
+
+<P>
+The constraint <I>x</I>&gt;0 is not checked at execution time.
+
+<P>
+There is also a Z<SMALL>E</SMALL>T<SMALL>A</SMALL> macro which supports the
+above usage in a more natural notation:
+
+<P>
+ 
+<PRE>
+%%macro \assert 1 [|#1]
+</PRE>
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="59" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img82.gif"
+ ALT="\begin{schema}{S}
+x: \num
+\where
+\assert{x&gt;0}
+\end{schema}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00064000000000000000">
+5.4 Extensionalization</A>
+</H2>
+
+<P>
+The function <IMG
+ WIDTH="30" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img83.gif"
+ ALT="$\EXT~x$">
+(<code>\EXT</code>) enforces the enumeration
+of the set <I>x</I>, denotating its extensional internal representation.
+It is undefined for sets which cannot be enumerated. The semantic
+definition is identity:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="509" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img84.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zfunction{90 (\EXT \_)}
+\end{zdirectives}\begin{axdef}[X]
+\EXT \_ == \lambda S: \power X @ S
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00065000000000000000">
+5.5 Reduction Over Sets</A>
+</H2>
+
+<P>
+The function <I>setreduce</I> implements homomorphisms over sets:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="511" HEIGHT="81" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img85.gif"
+ ALT="\begin{axdef}[X,Y]
+setreduce : (X \cross Y \pfun Y) \cross Y \cross \power X \p...
+...Y \vert
+\forall x: X @ y' = setreduce(f,f(x,y),S \setminus \{x\}))
+\end{axdef}">
+<BR>
+
+<P>
+Semantically, it is thus only defined for functions <I>f</I> which are
+commutative in the first argument (
+<!-- MATH
+ $f(x,f(x',y)) =
+f(x',f(x,y))$
+ -->
+<I>f</I>(<I>x</I>,<I>f</I>(<I>x</I>',<I>y</I>)) =
+<I>f</I>(<I>x</I>',<I>f</I>(<I>x</I>,<I>y</I>)). However, this condition is not checked in the actual
+implementation.
+
+<P>
+
+<H2><A NAME="SECTION00066000000000000000">
+5.6 Reduction Over Sequences</A>
+</H2>
+
+<P>
+Folding on sequences, as well-known from functional
+programming, is provided:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="619" HEIGHT="64" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img86.gif"
+ ALT="\begin{axdef}[X,Y]
+foldr : (X \cross Y \pfun Y) \cross Y \fun \seq X \pfun Y
+\w...
+... \IF s = \langle\rangle \THEN y
+\ELSE f(head~s,foldr(f,y)(tail~s))
+\end{axdef}">
+<BR>
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="615" HEIGHT="64" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img87.gif"
+ ALT="\begin{axdef}[X,Y]
+foldl : Y \cross (Y \cross X \pfun Y) \fun \seq X \pfun Y
+\w...
+... \IF s = \langle\rangle \THEN y
+\ELSE foldl(f(y,head~s),f)(tail~s)
+\end{axdef}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00067000000000000000">
+5.7 Extensional Powerset</A>
+</H2>
+
+<P>
+The function <IMG
+ WIDTH="29" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img88.gif"
+ ALT="$\efinset X$">
+(<code>\efinset</code>) constructs the
+extensional powerset of the set <I>X</I>, which must be enumerable.
+Semantically, it is the same as <IMG
+ WIDTH="22" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img89.gif"
+ ALT="$\finset X$">:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="509" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img90.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zfunction{90 (\efinset \_)}
+\end{zdirecti...
+...ef}[X]
+\efinset \_ == \lambda S: \power X @ \finset X
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+We do not define <IMG
+ WIDTH="7" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img91.gif"
+ ALT="$\finset$">
+itself to deliver an extension since for
+even small domains powersets easily explode - 
+<!-- MATH
+ $\efinset
+(1 \upto 16)$
+ -->
+<IMG
+ WIDTH="64" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img92.gif"
+ ALT="$\efinset
+(1 \upto 16)$">
+contains 65536 elements.
+
+<P>
+
+<H2><A NAME="SECTION00068000000000000000">
+5.8 Reflection</A>
+</H2>
+
+<P>
+A simple concept of reflection is provided, which is currently only
+used for type-safe conversion of data given in a denotation or a file
+into a runtime value (next section).
+
+<P>
+The function <IMG
+ WIDTH="62" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img93.gif"
+ ALT="$\typeinfo T$">
+results a value representing
+information of the base type of the set <I>T</I>. The function
+
+<!-- MATH
+ $\giventypeinfo T$
+ -->
+<IMG
+ WIDTH="93" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img94.gif"
+ ALT="$\giventypeinfo T$">
+results information about a free type
+definition associated with the base type of <I>T</I>, which must
+be a simple type name. These functions can only be used
+if <I>T</I> does not contains generic types.
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="172" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img95.gif"
+ ALT="\begin{zedgroup}
+\begin{zed}[TYPEINFO[A]]
+\end{zed}\begin{zed}[GIVENTYPEINFO[A]]...
+...\begin{axdef}[A]
+\giventypeinfo \_ : GIVENTYPEINFO[A]
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00069000000000000000">
+5.9 Data Input</A>
+</H2>
+
+<P>
+For the purpose of e.g.&nbsp;test evaluation, Z<SMALL>A</SMALL>P provides
+a type-safe conversion of data found in a file or in a denotation
+into values. This is achieved by the following functions:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="509" HEIGHT="144" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img96.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zfunction{9 (\_ \fromfile \_)} \\
+\zfun...
+...mdeno \_ : TYPEINFO[A] \cross \denotation \pfun \seq A
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+These functions parse the denotation or the contents of the file
+according to the following grammar, parameterized over types,
+with <IMG
+ WIDTH="16" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img97.gif"
+ ALT="$P_{\tau}$">
+the start symbol, reading a sequence of values,
+and <IMG
+ WIDTH="15" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img98.gif"
+ ALT="$V_{\tau}$">
+the non-terminal reading a single value:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="342" HEIGHT="105" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img99.gif"
+ ALT="\begin{zdirectives}
+P_{\tau} &amp; \rightarrow &amp; \epsilon \vert P_{\tau} ~ V_{\tau}...
+...}_1 V_{\tau_1} \vert \ldots \vert
+\mathtt{cons}_n V_{\tau_n}
+\end{zdirectives}">
+<BR>
+
+<P>
+Tokens are numbers, constructor names, and braces.  Arbitrary white
+space is allowed between tokens. Here is an example:
+
+<P>
+<BR>
+<IMG
+ WIDTH="473" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img100.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{DataInput}
+\end{zdirectives}\beg...
+...Seq[A] ::= nil \vert cons \ldata A \cross Seq[A] \rdata
+\end{zed}\end{zedgroup}">
+<BR>
+
+<P>
+<BR>
+<IMG
+ WIDTH="575" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img101.gif"
+ ALT="\begin{zexecexpr}
+\typeinfo Seq[\power [x: \num; y: \num]] ~ \fromdeno
+\ZD{co...
+...{&lt;x==1,y==2&gt;},cons({},cons({&lt;x==5,y==6&gt;,&lt;x==7,y==8&gt;},nil))),nil&gt;
+\end{zexecexpr}">
+<BR>
+
+<P>
+
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html163"
+ HREF="zapnotes-node7.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html159"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html153"
+ HREF="zapnotes-node5.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html161"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html164"
+ HREF="zapnotes-node7.html">Bibliography</A>
+<B> Up:</B> <A NAME="tex2html160"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html154"
+ HREF="zapnotes-node5.html">4. Controlling Search</A>
+ &nbsp <B>  <A NAME="tex2html162"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

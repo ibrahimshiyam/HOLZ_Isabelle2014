@@ -1,0 +1,62 @@
+package zeta.content.zirp;
+
+/** Declaration attribute annotation slots.
+  *
+  * This slot may be provided at <code>NameDecl</code> terms,
+  * and defines additional attributes for these names, as 
+  * for instance the role of an mSZ schema. 
+  *
+  * @version $Id: DeclAttr.pizza,v 1.2 1998/09/09 18:04:19 buessow Exp $ */
+
+import zeta.util.*;
+
+public class DeclAttr extends Term {
+  
+  /** The slot object. */
+  public static final Slot slot = Slot.register(DeclAttr.class.getName(),
+						DeclAttr.class);
+
+  /** Set value of annotation slot.
+    * @param an    the annotation
+    * @param attr  the name attribute
+    */
+  public static void put(Annotation an, DeclAttr attr){
+    slot.put(an, attr);
+  }
+
+  /** Get value of annotation slot.
+    * @param an    the annotation
+    * @return the name attribute, or null, if no one is provided.
+    */
+  public static DeclAttr get(Annotation an){
+    return (DeclAttr)slot.get(an);
+  }
+
+  /** Test wether annotation slot is provided. 
+    * @param an    the annotation
+    * @return true if the annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+  /** Attribute of MSZ Plain schema definition. */
+  public case Plain;
+
+  /** Attribute of MSZ Data schema definition. */
+  public case Data;
+
+  /** Attribute of MSZ Port schema definition. */
+  public case Port;
+
+  /** Attribute of MSZ Initialization schema definition. */
+  public case Init;
+
+  /** Attribute of MSZ Property schema definition. */
+  public case Property;
+
+  /** Attribute of MSZ Alias for a basic role. */
+  public case Alias(DeclAttr baseAttr, String symbol);
+
+}
+

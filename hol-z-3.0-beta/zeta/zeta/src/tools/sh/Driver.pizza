@@ -1,0 +1,92 @@
+package zeta.tools.sh;
+
+/**
+ * The driver.
+ *
+ * @version $Id: Driver.pizza,v 1.9 2000/07/26 16:00:38 wg Exp $
+ */
+
+
+import java.io.*;
+import java.lang.reflect.Method;
+import java.util.Properties;
+
+
+public class Driver {
+
+
+  public static void main(String[] argv){
+
+    System.out.println(
+    "ZETA 1.5, (c) 1997-2000 Wolfgang Grieskamp, Robert Buessow"
+    );
+
+    String home = System.getProperty("zeta.home");
+    String fsep = System.getProperty("file.separator");
+
+    if (home == null) {
+      System.err.println("ZETA initialization error: property `zeta.home' not defined.");
+      System.exit(1);
+      return;
+    }
+
+    try {
+      Properties props = new Properties(System.getProperties());
+      props.load(new FileInputStream(
+		       new File(home + fsep + "etc" + fsep + "defaults.props")
+		     ));
+      
+      System.setProperties(props);
+    }
+    catch (IOException e){
+      System.err.println("ZETA property file not found: " + e);
+      System.exit(1);
+      return;
+    }
+      
+
+    String ui = "zeta.tools.sh.GuiCommander"; 
+
+    int argc = 0;
+    while (argc < argv.length){
+      if (argv[argc].equals("-h") || argv[argc].equals("--help")){
+	System.err.println("usage: zeta { -b|--batch | -g|--gui | -h|--help } { <source> }");
+	System.exit(1);
+      } else if (argv[argc].equals("-b") || argv[argc].equals("--batch")){
+	ui = "zeta.tools.sh.BatchCommander"; 
+	argc++;
+      } else if (argv[argc].equals("-g") || argv[argc].equals("--gui")){
+	ui = "zeta.tools.sh.GuiCommander"; 
+	argc++;
+      } else {
+	break;
+      }
+    }
+    String[] files = new String[argv.length - argc];
+    System.arraycopy(argv, argc, files, 0, argv.length - argc);
+
+    // actually obsolete since we don't keep session data persistent
+    File dir = new File("ZETA");
+    /*
+    if (!dir.isDirectory() && !dir.mkdir()){
+      System.err.println("Cannot create project folder `" + dir + "'");
+      System.exit(1);
+    }
+    */
+
+    // branch to the main function of the according ui
+    try {
+      Class uiClass = Class.forName(ui);
+      Method mainMethod = uiClass.getMethod("main",
+					    new Class[]{ String[].class });
+      mainMethod.invoke(null,
+			new Object[]{files});
+    }
+    catch (Exception e){
+      System.err.println("Cannot invoke commander `" + ui + "':\n " + e);
+      System.exit(1);
+    }
+  }
+
+}
+      

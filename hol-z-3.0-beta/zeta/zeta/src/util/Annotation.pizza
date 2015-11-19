@@ -1,0 +1,252 @@
+package zeta.util;
+
+/** An annotation is a mutable collection of attributes which may be attached
+  * to terms. For each attribute kind, a so-called annotation slot is
+  * allocated. The class which defines an annotation slot 
+  * provides customized interfaces to retrieve and update the
+  * attribute in the slot of an annotation. The user of annotations
+  * usually only needs to know these interfaces. <p>
+  *
+  * A user can define arbitrarily new annotation slots; see class
+  * <code>Slot</code>.
+  *
+  * @see zeta.util.AnnotatedTerm
+  * @see zeta.util.Slot
+  * @see zeta.formats.zirp.Locator
+  * @see zeta.formats.zirp.Type
+  * @see zeta.formats.zirp.Act
+  *
+  * @version $Id: Annotation.pizza,v 1.1.1.1 1998/09/01 10:51:12 wg Exp $
+  * @author wg@cs.tu-berlin.de
+  * */
+
+import zeta.format.*;
+import zeta.format.impl.*; // FIXME: remove dependencies
+
+import java.io.*;
+import java.util.Hashtable;
+
+
+public class Annotation implements Serializable, Formattable {
+
+  private Store store = null;
+
+  public Annotation(){ 
+  }
+
+  private Annotation(Store s){ 
+    store = s; 
+  }
+
+  /** Get value associated with given slot index. 
+    * @param index  the slot index
+    * @return the value associated with slot, or null if no one
+    *   is provided. */
+  public Object get(int index){
+    Store s = store;
+    for (;;) {
+      if (s == null || index < s.index) 
+	return null;
+      if (index == s.index) return s.val;
+      s = s.next;
+    }
+  }
+
+  /** Test whether value is provided for slot index.
+    * @param index  the slot index
+    * @return true if a value is provided
+    */
+  public boolean isProvided(int index){
+    return get(index) != null;
+  }
+
+
+  /** Put value associated with given slot index.
+    * @param index  the slot index
+    * @param obj   the value to store. May be null in order to clear
+    *              the slot
+    */
+  public void put(int index, Object val){
+    if (store == null || store.index > index){
+      if (val != null)
+	store = new Store(index, val, store);
+    } 
+    else if (store.index == index){
+      if (val == null)
+	store = store.next;
+      else
+	store.val = val;
+    } else {
+      Store prev = store;
+      while (prev.next != null && prev.next.index < index)
+	prev = prev.next;
+      if (prev.next == null){
+	if (val != null)
+	  prev.next = new Store(index, val, null);
+      }
+      else if (prev.next.index == index){
+	if (val == null)
+	  prev.next = prev.next.next;
+	else
+	  prev.next.val = val;
+      }
+      else if (val != null) {
+	prev.next = new Store(index, val, prev.next);
+      }
+    }
+  }
+
+  /** Make a shallow copy of the given annotation. The stored
+      values themself will not be copied. */
+  public Annotation copy(){
+    Annotation an = new Annotation();
+    copyInto(an);
+    return an;
+  }
+
+  /** Copy the values of this annotation into other annotation,
+      completely replacing the others content. */
+  public void copyInto(Annotation other){
+    if (store != null){
+      Store ns = new Store(store.index, store.val, null);
+      Store prev = ns;
+      Store s = store.next;
+      while (s != null){
+	prev.next = new Store(s.index, s.val, null);
+	prev = prev.next;
+	s = s.next;
+      }
+      other.store = ns;
+    } else
+      other.store = null;
+  }
+      
+  /** Add the values of this annotation to other annotation,
+      overwriting possible older definitions. */
+  public void putInto(Annotation other){
+    Store s = store;
+    while (s != null){
+      other.put(s.index, s.val);
+      s = s.next;
+    }
+  }
+    
+  /** Return array of slots which are provided . */
+  public Slot[] getProvidedSlots(){
+    Store s = store;
+    int cnt = 0;
+    while (s != null){
+      if (s.val != null){
+	cnt++;
+      }
+      s = s.next;
+    }
+    Slot[] slots = new Slot[cnt];
+    int i = 0;
+    s = store;
+    while (s != null){
+      if (s.val != null){
+	slots[i++] = Slot.forIndex(s.index);
+      }
+      s = s.next;
+    }
+    return slots;
+  }    
+
+
+  /** A boolean flag which indicates to suppress formats for
+    * annotations. */
+  public static boolean dontFormat = false;
+
+  /** Format annotation. */
+  public Format toFormat(FormatInfo info){
+    if (dontFormat){
+      return new FormatText("<...>");
+    }
+    int ref;
+    if (info.visited(this)) {
+      return new FormatText("<"+info.visitNumber(this)+">");
+    } else { // never visited before
+      ref = info.visit(this);
+    }
+    Hashtable slots = new Hashtable();
+    Store s = store;
+    while (s != null){
+      Slot slot = Slot.forIndex(s.index);
+      if (!slot.hideInFormat) {
+	Class type = slot.getType();
+	info.addGeneralType(s.val, type);
+	slots.put(new FormatLine(new Format[]{
+		    new FormatText(FormatPrinter.buildTypeString(type)),
+		    new FormatSpace(),
+		    new FormatText(1, slot.getName())
+		  }),
+		  Format.buildFormat(info, s.val)
+		  );
+      }
+      s = s.next;
+    }
+    Format body = new FormatLine(new Format[] {
+      new FormatLine(new Format[]{new FormatText("Annotation"),
+				  new FormatSpace(),
+				  new FormatText("{")
+				    }),
+      new FormatSpace(),
+      ((NestedFormat)FormatPrinter.buildHashtableFormat(info,slots)).nested(2),
+      new FormatText("}")
+    });
+    return
+      new FormatLine(new Format[] {
+        new FormatText("<"+ref+">"),
+        new FormatSpace(),
+        body
+      });
+  }
+
+  /** Serialize annotation. */
+  private void writeObject(ObjectOutputStream out)
+    throws IOException {
+      Store s = store;
+      int cnt = 0;
+      while (s != null){
+	if (s.val != null){
+	  cnt++;
+	}
+	s = s.next;
+      }
+      out.writeInt(cnt);
+      s = store;
+      while (s != null){
+	if (s.val != null){
+	  Slot slot = Slot.forIndex(s.index);
+	  out.writeObject(slot);
+	  out.writeObject(s.val);
+	}
+	s = s.next;
+      }
+  }
+
+  /** Unserialize annotation. */
+  private void readObject(ObjectInputStream in)
+    throws IOException, ClassNotFoundException {
+      int cnt = in.readInt();
+      // System.out.println("reading " + cnt + " slots");
+      if (cnt > 0){
+	Slot slot = (Slot)in.readObject();
+	Object val = in.readObject();
+	store = new Store(slot.getIndex(), val, null);
+	Store prev = store;
+	while (--cnt > 0){
+	  slot = (Slot)in.readObject();
+	  val = in.readObject();
+	  prev.next = new Store(slot.getIndex(), val, null);
+	  prev = prev.next;
+	}
+      }
+  }
+
+}
+
+class Store {
+  public case Store(int index, Object val, Store next);
+}

@@ -1,0 +1,9 @@
+
+AUTOSUBNODES	= 
+JAVACC_FILES	:= Parser.jj
+JAVACC_UNICODE_ESCAPE := yes
+PIZZA_FILES 	:= GenLexis.pizza
+JAVA_FILES	:= 
+JAVAFLAGS	= -nowarn
+NODEKIND	= javacc
+

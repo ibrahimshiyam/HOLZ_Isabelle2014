@@ -1,0 +1,62 @@
+\documentclass{article}
+
+\usepackage{a4}
+\usepackage{zeta}
+\usepackage{url}
+
+\parindent0pt
+\parskip3pt
+
+\newenvironment{remark}
+{\begin{small}\begin{quote}\emph{Remark}: }{\end{quote}\end{small}}
+  
+\begin{document}
+\author{Wolfgang Grieskamp \and Markus Lepper}
+\title{Example: Use Cases in Executable Z}
+\maketitle
+\begin{abstract}
+  Use cases are a wide-spread \emph{informal} method for specifying
+  the requirements of a technical system in the early development
+  phase. In this example, we present an example of using
+  use cases
+  in Executable Z\footnote{A full version of this work
+    can be found at 
+    \url{http://uebb.cs.tu-berlin.de/~wg/papers/ucases.ps.gz}}.
+\end{abstract}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% include \LaTeX macros for use cases
+
+\input{ucmacros}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% some useful own definitions
+
+% a macro to open an array inside of Z text
+\newcommand{\zblock}[2][2pt]{
+  {\arraycolsep#1\begin{array}[t]{lcll}#2\end{array}}}
+
+% this directive lets ESZ ignore the macro:
+%% \zsection{UseCases}
+%%macro \zblock 1 #1
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% input the introduction and the cash dispenser example
+
+\input{intro}
+\input{dispenser}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% input the use-case definitions
+
+\input{ucspec}
+\input{ucdef}
+
+% NOTE: in order to omit these definitions for LaTeX but let
+% them still be visible for ZETA write
+%         %% \input{ucdef}
+
+
+\end{document}

@@ -1,0 +1,3 @@
+zeta.prog.gnudoit=/usr/bin/gnudoit
+zeta.prog.latex=/usr/bin/latex
+zeta.prog.viewer=/usr/bin/xdvi

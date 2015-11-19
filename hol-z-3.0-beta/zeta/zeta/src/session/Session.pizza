@@ -1,0 +1,319 @@
+package zeta.session;
+
+/**
+ * The type of sessions.<p>
+ *
+ * A session is opened by methods provided by the class 
+ * <code>SessionManager</code>. A session works on persistent
+ * data stored in a `project' which is named when opening
+ * a session with the session manager. All access to the persistent
+ * project data is done via a session object, or objects derived
+ * from a session object, such as units. <p>
+ *
+ * For the realization of tool adaptors, a session provides a model
+ * to manage tool-internal persistent data. <p>
+ *
+ * @see SessionManager
+ * @see Unit
+ * @see Adaptor
+ *
+ * @version $Id: Session.pizza,v 1.15 2000/07/26 16:00:38 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.io.File;
+import java.io.Serializable;
+import zeta.util.Name;
+import zeta.util.FatalError;
+import zeta.form.TopLevelForm;
+
+public interface Session {
+
+  // INITIALIZING SESSION
+
+  /**
+   * Initialize the session, loading adaptors and units
+   * belonging to the session. Before initialization, a
+   * message listener should have been installed to 
+   * monitor messages of tool adaptor startup.
+   *
+   * @see registerListener
+   */
+  public void initialize();
+  
+
+  // UNITS
+
+  /**
+   * Lookup a unit by a (partial) unit name. The partial
+   * name has the syntax
+   *
+
+   * <pre>
+   *  [TOOL:]toolspecificname
+   * </pre>
+   *
+   * Hence it is possible to omit the name of tool. For the
+   * <code>toolspecificname</code>, further components may be missing
+   * -- which these are is defined by the individual tools. <p>
+   *
+   * If the <code>TOOL</code> qualifier is missing, then the session
+   * system queries all registered tool adaptors whether they can
+   * lookup a unit of this partial name. If it is given, then
+   * the session system queries exactly the designated adaptor. In
+   * any case, the given name is passed as is to the tool adaptors.
+   *
+   * @exception Failures.UnresolvableName  the <code>TOOL</code> -- if
+   * given -- does not exists, or no queried tool adaptor can lookup the
+   * name.
+   * @exception Failures.AmbigiousName  querying one or more tool adaptors
+   * lead to an ambiguous resolution of this name
+   *
+   * @see Adaptor#lookupUnit 
+   * */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName, Failures.AmbigiousName;
+
+  /**
+   * Get a unit by its unit name. If the unit exists, it will
+   * be returned, otherwise an exception will be thrown.
+   */
+  public Unit getUnit(Name unitName)
+  throws Failures.NoSuchEntity;
+
+  /**
+   * Get or create a unit by its unit name. If the unit exists, it will
+   * be returned. Otherwise a new empty unit of the given name is
+   * returned.  This method is mainly used by source adaptors to create
+   * a unit.
+   */
+  public Unit getOrCreateUnit(Name unitName);
+
+  /**
+   * Get all units in the sessions project.
+   */
+  public Unit[] getUnits();
+
+
+  /**
+   * Get a locator which can be used to visit this unit.
+   * @seee Adaptor.unitLocator
+   */
+  public Locator unitLocator(Unit unit);
+
+
+  // TOOL ADAPTORS
+
+  /** 
+   * Lookup a tool adaptor by its name. 
+   */
+  public Adaptor lookupAdaptor(Name name)
+  throws Failures.NoSuchEntity;
+
+
+  /** 
+   * Register a tool adaptor. An instance of the given class will be
+   * created, and registered under the name it defines by its method
+   * <code>getName</code>. It is an error to register an adaptor which
+   * uses a name already in use. <p>
+   *
+   * Adaptor registration keeps persistent during sessions. It is
+   * not possible to remove a once registered adaptor.  */
+  public void registerAdaptor(Class adaptorClass)
+  throws Failures.EntityExists;
+
+
+  /** 
+   * Return the tool adaptors present in this session.
+   */
+  public Adaptor[] getAdaptors();
+
+
+  // /**
+  //  * Get an (existing) directory where the named tool adaptor may store 
+  //  * its auxiliary files. The name-space of this directory has to be managed 
+  //  * by the tool adaptor.
+  //  * @deprecated
+  //  */
+  // public File getToolDir(Name name);
+
+  /**
+   * Create a new unique, empty temporary file which persists as long as this
+   * session. The file is automatically deleted as the session closes.
+   */
+  public File newTempFile(String suffix);
+
+
+  /**
+   * Get library directory.  Get the directory were Zeta auxiliary
+   * executables, scripts, shared libraries, etc. reside.  Usually,
+   * the return directory is <pre>$ZETABASE/lib</pre>.
+   */
+  public File getLibDir();
+
+
+  /**
+   * Get class directory.  Get directory of Zeta classes.  Usually this
+   * directory is <pre>$ZETABASE/classes</pre>
+   */
+  public File getClassDir();
+
+
+  // UPDATING SOURCES
+
+  /**
+   * Let all tool adaptors update their assumptions about external data.
+   * @see Adaptor#checkExternalData
+   */
+  public void checkExternalData();
+
+
+
+  // MANAGING AUXILIARY PERSISTENT STORAGE
+
+  /** 
+   * Allocate persistent storage.
+   */
+  public StorageHandle allocate();
+
+  /** 
+   * Free persistent storage.
+   */
+  public void free(StorageHandle handle);
+
+  /** 
+   * Store serializable object into persistent storage.
+   */
+  public void store(StorageHandle handle, Serializable object);
+
+  /** 
+   * Load serializable object from persistent storage. Returns null
+   * if an object was never stored under handle.
+   */
+  public Serializable load(StorageHandle handle);
+
+
+
+  // MESSAGE DISPATCHING
+
+  /**
+   * Dispatch the given message to all registered listeners. The
+   * given name should be the name of the tool adaptor where this
+   * message originates from.
+   */
+  public void send(Name sender, Message message);
+
+  /**
+   * Register the given listener object to receive messages which
+   * are instances of given classes. If <code>classes</code> is null,
+   * all messages will be received.<p>
+   * 
+   * Note that listener registration is not persistent; tool adaptors
+   * have to (re-)register their listeners at initialization time.  
+   */
+  public void registerListener(Class[] classes, Listener listener);
+
+  /**
+   * Unregister the given listener (identified by reference).
+   */
+  public void unregisterListener(Listener listener);
+
+
+
+  // COMMANDS
+
+  /**
+   * Register the given top-level form. <p>
+   *
+   * Note that form registration is not persistent; tool adaptors
+   * have to (re-)register their forms at initialization time.  
+   */
+  public void registerForm(TopLevelForm form);
+
+
+  /**
+   * Unregister the given form (by object identity).
+   */
+  public void unregisterForm(TopLevelForm form);
+
+  /**
+   * Modal execute the given form by the shell of this session.
+   * Throws a failure if no shell is registered.
+   */
+  public void execForm(String prompt, TopLevelForm form)
+  throws Failures.FormFailed;
+
+  /**
+   * Return the top-level forms of the session.
+   */
+  public TopLevelForm[] getForms();
+
+  /**
+   * Set the given shell to be responsible for form execution in
+   * this session. Shell registration is not persistent, and should
+   * be done by the startup code of a session.
+   */
+  public void registerShell(Shell shell);
+
+  /**
+   * Set the given text editor to be responsible for visiting locators
+   * and editing files.
+   */
+  public void registerTextEditor(TextEditor editor);
+
+  /**
+   * Get the current text editor, or null if none has registered.
+   */
+  public TextEditor getTextEditor();
+
+
+
+  // CONTENT TYPE REGISTRATION
+
+  /**
+   * Register the given content type for this session. <p>
+   *
+   * Note that content type registration is not persistent; tool
+   * adaptors have to (re-)register the content types they serve at
+   * initialization time.  
+   */
+  public void registerContentType(ContentType type);
+
+  /**
+   * Lookup a content type by name.
+   */
+  public ContentType lookupContentType(Name name)
+  throws Failures.NoSuchEntity;
+  
+
+  /**
+   * Return the content types registered for this session.
+   */
+  public ContentType[] getContentTypes();
+
+
+
+
+  // EXITING
+
+  /**
+   * Exit a session and the running JVM. Makes actions to perform
+   * necessary saves of the sessions data.
+   */
+  public void exit();
+
+  /**
+   * Abort a session and the running JVM. Changes on the sessions data
+   * are not saved.  
+   */
+  public void abort();
+
+  /**
+   * Report about a runtime exeception, and let the session die,
+   * exiting the running JVM. Changes on the sessions data are not saved.
+   */
+  public void abort(Throwable e);
+
+
+
+}

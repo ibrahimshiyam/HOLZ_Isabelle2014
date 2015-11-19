@@ -1,0 +1,13 @@
+# Compiling Zeta requires the following environment:
+# - ZETABASE should point to the top-level Zeta directory, i.e, 
+#   the directory containing this file: 
+    export ZETABASE=`pwd`  
+# - JAVA_HOME should point to your Java 1.4 installation, e.g., 
+    export JAVA_HOME=/usr/lib/fjsdk/
+# - finally, your PATH should contain the Zeta bin directory:
+    export PATH=$ZETABASE/bin:$JAVA_HOME/bin:$PATH
+#
+# Zeta can be compiled and installed as follows:
+# cd src
+# etmake boostrap
+# etmake install

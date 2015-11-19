@@ -1,0 +1,47 @@
+(*  ******************************************************************* *)
+(*  									*)
+(*   	This theory	: README for CVSServer case study               *)
+(*  	Last Update  	: 1.12.2003					*)
+(*  	Release  	: HOL-Z 2.1				        *)
+(*  									*)
+(*  ******************************************************************* *)
+
+This is the home of the CVS-Server case study, an analysis
+in applied system security (see [1] for an overview). It
+consists of an abstract system architecture model for CVS 
+(including an role-based-access control model), an 
+implementation architecture model (based on the "real"
+posix-descretionary access control mechanism), a refinement
+established between these two and a behavioral security
+analysis based on inductive techniques.
+
+So far, no attempt has been undertaken to port these proofs
+to HOL-Z 3.0.
+
+This directory contains:
+- the specification (also called the "Technical Report" [2])
+- the holz-subdirectory with the generated
+  .holz files (extracted from the specification via the zeta-
+  plugin) and the .ML-proofscripts
+- the usual make-infrastructure for HOL-Z projects
+  based on the zeta-frontend
+
+The current ROOT.ML is empty, when loading specific proofs,
+go into the holz directory and load specific theories
+directly (e.g. by ´use_holz "SysArchSec"´).
+
+Acknowledgement:
+Most of the proofs in holz have been developped by
+Harald Hiss as part of his Studien- and Diplomarbeit.
+
+
+Bibliography:
+[1]  Achim D. Brucker and Burkhart Wolff.
+     A Case Study of a Formalized Security Architecture.
+     In Electronic Notes in Theoretical Computer Science. 
+     Elsevier Science Publishers, 80, 2003.
+
+[2]  Achim D. Brucker and Frank Rittinger and Burkhart Wolff.
+     A CVS-Server Security Architecture - Concepts and Formal Analysis.
+     Albert-Ludwigs-Universität Freiburg, Technical Report 182, pages 100, 
+     2002.

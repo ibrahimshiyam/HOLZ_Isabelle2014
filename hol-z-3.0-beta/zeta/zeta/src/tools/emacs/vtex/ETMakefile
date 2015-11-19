@@ -1,0 +1,40 @@
+
+AUTOSUBNODES	= $(SUBNODES)
+
+FONTS		= symb12.pcf symb14.pcf zsymb12.bdf fonts.dir
+ELISPFILES	= vtex-base vtex-custom vtex-faces vtex-tmpl vtex-parse \
+                  vtex-input vtex-mode 
+
+ELISPINSTALL	= $(ELISPFILES:%=%.el) $(ELISPFILES:%=%.elc)
+
+this:
+	@echo "Nothing to be done for VTeX"
+
+bcompile: .etstate.elisp
+
+.etstate.elisp: $(ELISPFILES:%=%.el)
+	rm -f *.elc
+	$(EMACS) -batch -l vtex-compile.el
+	touch .etstate.elisp
+
+inst:	bcompile
+	$(ET_INSTALL) lib/fonts $(FONTS)
+	$(ET_INSTALL) lib/emacs $(ELISPINSTALL) vtexrc.dot
+	$(ET_INSTALL) bin instzsymb
+
+inst0:	bcompile
+	[ -f $(ET)/bin/instzsymb ] || ln -s `pwd`/instzsymb $(ET)/bin
+	mkdirhier $(ET)/lib/fonts >/dev/null || true
+	for font in $(FONTS); do \
+	  [ -f $(ET)/lib/fonts/$$font ] || \
+	     ln -s `pwd`/$$font $(ET)/lib/fonts; \
+        done
+	mkdirhier $(ET)/lib/emacs >/dev/null || true
+	for el in $(ELISPFILES); do \
+	  [ -f $(ET)/lib/emacs/$$el.el ] || \
+	     ln -s `pwd`/$$el.el $(ET)/lib/emacs; \
+          [ ! -f $$el.elc ] || cp $$el.elc $(ET)/lib/emacs; \
+        done
+	[ -f $(ET)/lib/emacs/vtexrc.dot ] || \
+	     ln -s `pwd`/vtexrc.dot $(ET)/lib/emacs
+

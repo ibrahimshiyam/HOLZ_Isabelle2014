@@ -1,0 +1,78 @@
+
+\documentclass{article}
+
+\usepackage{a4,zeta}
+
+\parindent0pt
+\parskip3pt
+
+\begin{document}
+
+A tiny example illustrating execution of relational image,
+domain and such.
+
+\bigskip
+
+Let a node be represented by a denotation, and a graph by
+a relation between nodes:
+
+\begin{zed}
+  Node == \denotation \\ 
+  Graph == Node \rel Node 
+\end{zed}
+
+The nodes of a graph are the union of the domain and range of
+its relation:
+
+\begin{axdef}
+  nodes == \lambda G: Graph @ \dom G \cup \ran G
+\end{axdef}
+
+The shortest distances are calculated by the following function:
+
+\begin{axdef}
+  shortest: Graph \cross Node \fun Node \ffun \nat
+\where
+  shortest = \lambda G: Graph; node: Node @ \\\t1
+   \LET Step == \\\t2 \lambda W: Node \ffun \nat @ \\\t3 W \cup 
+    \{ \< n: Node; prev: \power \nat | n \in nodes~G \setminus \dom W\\
+            prev = (W \circ G\inv) \limg \{n\} \rimg \neq \emptyset
+            @ n \mapsto min (succ \limg prev \rimg) \} \>
+   \\\t1
+   @
+   (fix~Step)\{node \mapsto 0\}
+\end{axdef}
+
+The function $fix$ computes the fixed-point of a function:
+
+\begin{axdef}[X]
+  fix : (X \pfun X) \fun (X \pfun X)
+\where
+  fix = \lambda f: X \pfun X @ 
+           \lambda x: X @
+              \LET x' == f~x @
+              \IF x = x' \THEN x \ELSE fix~f~x'
+\end{axdef}
+
+
+Here is an example query:
+
+\begin{zed}
+  G == \{ \ZD{A} \mapsto \ZD{B}, \ZD{A} \mapsto \ZD{C},
+          \ZD{C} \mapsto \ZD{D}, \ZD{D} \mapsto \ZD{E},
+          \ZD{B} \mapsto \ZD{E}, \ZD{B} \mapsto \ZD{A} \}
+\end{zed}
+
+\begin{zexecexpr}
+  shortest(G,\ZD{A})
+\yields
+{("A",0),("B",1),("C",1),("D",2),("E",2)} 
+\end{zexecexpr}
+
+
+
+
+
+
+
+\end{document}

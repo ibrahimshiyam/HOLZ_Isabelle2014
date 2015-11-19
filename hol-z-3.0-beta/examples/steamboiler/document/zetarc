@@ -1,0 +1,5 @@
+plugin HOLZAdaptor
+load steamboiler.tex
+holz -u LTX:SteamDat#steamboiler
+holz -u LTX:SteamBoiler#steamboiler
+quit

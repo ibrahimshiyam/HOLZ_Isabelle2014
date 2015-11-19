@@ -1,0 +1,2729 @@
+options {
+DEBUG_PARSER = false;
+DEBUG_TOKEN_MANAGER = false;
+USER_TOKEN_MANAGER = true;
+USER_CHAR_STREAM = true;
+STATIC = false;
+}
+
+PARSER_BEGIN(ItemParser)
+
+package zeta.tools.zparser;
+
+/** The Z/DZ/mSZ JavaCC grammar. 
+*
+* @version $Id: ItemParser.jj,v 1.17 2000/07/06 09:18:24 wg Exp $
+* @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+*/
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import java.util.Vector;
+
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.content.zirp.*;
+import zeta.content.text.*;
+import zeta.session.*;
+import zeta.format.*;
+import zeta.format.impl.*;
+
+
+
+// FIXME: Substitution, Conjecture
+
+// FIXME: replace a lot of semantic and syntactic
+// LOOKAHEADS which are just there to implement longest-left
+// as soon as JavaCC allows to
+
+public class ItemParser {
+
+/** 
+ * The unit environment.
+ */
+private UnitEnv unitEnv;
+
+/** 
+ * The mixfix parser. 
+ */
+private MixfixParser mixfixParser;
+
+/** 
+ * The accumulated diagnostics. 
+ */
+private Diag diag = new Diag();
+
+/** 
+ * Create a new parser object. 
+ */
+ItemParser(UnitEnv unitEnv){
+  this.unitEnv = unitEnv;
+  this.mixfixParser = new MixfixParser(unitEnv.getFixities());
+}
+
+/** Preprocess and parse the given Z tokens directly as an expression. */
+public static ParseResult parseExpr(Config config,
+				    UnitEnv env, Text.ZedToken[] tokens){
+  Preprocessor prepro = new Preprocessor(config, env);
+  ItemParser itemParser = new ItemParser(env);
+  tokens = prepro.run(tokens);
+  Diag diag = prepro.getAndClearDiag();
+  if (diag.contains(Diag.Category.Error))
+    return new ParseResult(diag, null);
+  itemParser.setup(tokens);
+  Expr expr;
+  try {
+    expr = itemParser.Expr();
+    itemParser.checkEnd();
+  }
+  catch (ParseException e){
+    itemParser.putDiag(e);
+    expr = null;
+  }
+  return new ParseResult(diag.combine(itemParser.getAndClearDiag()), expr);
+}
+
+/** Preprocess and parse the given Z tokens directly as a predicate. */
+public static ParseResult parsePredicate(
+			    Config config,
+			    UnitEnv env, Text.ZedToken[] tokens){
+  Preprocessor prepro = new Preprocessor(config, env);
+  ItemParser itemParser = new ItemParser(env);
+  tokens = prepro.run(tokens);
+  Diag diag = prepro.getAndClearDiag();
+  if (diag.contains(Diag.Category.Error))
+    return new ParseResult(diag, null);
+  itemParser.setup(tokens);
+  Predicate pred;
+  try {
+    pred = itemParser.Predicate();
+    itemParser.checkEnd();
+  }
+  catch (ParseException e){
+    itemParser.putDiag(e);
+    pred = null;
+  }
+  return new ParseResult(diag.combine(itemParser.getAndClearDiag()), pred);
+}
+
+/** Result returned by directly parsing. */
+public static class ParseResult {
+  /** The diagnostics. */
+  public final Diag diag;
+  /** The parsed term. Determined only if no errors are in diagnostics. */
+  public final Term term;
+  /** Private constructor. */
+  private ParseResult(Diag diag, Term term){
+    this.diag = diag; this.term = term;
+  }
+}
+
+
+/** Get and clear diagnostics associated with last parse. */
+public Diag getAndClearDiag() {
+  Diag d = diag;
+  diag = new Diag();
+  return d;
+}
+
+/** Parse an unboxed Z group. */
+public Item[] parseUnboxedItems(Text.ZedToken[] tokens) {
+  setup(tokens);
+  try { 
+    Item[] items = UnboxedItems();
+    checkEnd();
+    return items;
+  } 
+  catch (ParseException e){
+    putDiag(e);
+    return new Item[]{};
+  }
+}
+
+/** Parse a schema box. */
+public Item parseSchemaBox(Locator locator,
+			   Text.ZedToken[] headerTokens,
+			   Text.ZedToken[] declsTokens,
+			   Text.ZedToken[] propsTokens) {
+
+  Lhs header;
+  setup(headerTokens);
+  try { 
+    header = SchemaBoxHeader();
+    checkEnd();
+  } 
+  catch (ParseException e){
+    header = null;
+    putDiag(e);
+  }
+
+  Expr.Decl[] decls;
+  setup(declsTokens);
+  try {
+    decls = Decls();
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+    decls = null;
+  }
+
+  Predicate[] prop;
+  setup(propsTokens);
+  try {
+    prop = Property();
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+    prop = null;
+  }
+
+  if (header != null && decls != null && prop != null)
+    return 
+      setOrig(
+	locator,
+	Item.AxiomaticDef(
+	  header.formals,
+	  setOrig(
+	    locator,
+	    Expr.Text(
+	      new Expr.Decl[]{
+		setOrig(
+		  locator,
+		  Expr.Decl.Eqn(header.name,
+				setOrig(
+				  locator,
+				  Expr.Text(decls, prop)
+				)
+			       )
+		)
+	      },
+	      new Predicate[0]
+	    )
+	  )
+	)
+      );  
+  else 
+    return null;
+}
+
+/** Parse an axiomatic box. */
+public Item parseAxiomaticBox(Locator locator,
+			      Text.ZedToken[] headerTokens,
+			      Text.ZedToken[] declsTokens,
+			      Text.ZedToken[] propsTokens) {
+
+  NameDecl[] formals;
+  Expr.Decl[] decls;
+  setup(declsTokens);
+  try {
+    Term[][] res = AxiomaticBoxDecls();
+    checkEnd();
+    formals = (NameDecl[])res[0];
+    decls = (Expr.Decl[])res[1];
+  }
+  catch (ParseException e){
+    putDiag(e);
+    formals = null;
+    decls = null;
+  }
+
+  Predicate[] prop;
+  setup(propsTokens);
+  try {
+    prop = Property();
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+    prop = null;
+  }
+
+  if (formals != null && decls != null && prop != null){
+    return
+      setOrig(
+	locator,
+	Item.AxiomaticDef(
+	  formals,
+	  setOrig(
+	    locator,
+	    Expr.Text(decls, prop)
+	  )
+	)
+      );
+  } else 
+    return null;
+}
+
+/** Parse a state box. */
+public Item parseStateBox(State.StateKind kind,
+			  Locator locator,
+			  Text.ZedToken[] headerTokens,
+			  Text.ZedToken[] declsTokens,
+			  Text.ZedToken[] propsTokens) {
+  NameDecl ndecl;
+  setup(headerTokens);
+  try { 
+    ndecl = StateNameOpt();
+    checkEnd();
+  } 
+  catch (ParseException e){
+    ndecl = null;
+    putDiag(e);
+  }
+
+  Vector substates = new Vector();
+  Vector connectors = new Vector();
+  setup(declsTokens);
+  try {
+    StateDecls(substates, connectors);
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+  }
+
+  Vector transitions = new Vector();
+  setup(propsTokens);
+  try {
+    Transitions(transitions);
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+  }
+
+  if (ndecl == null){
+    ndecl = new NameDecl(MSZNames.root);
+    Locator.put(ndecl.an, locator);
+  }
+  State[] aSubstates = new State[substates.size()];
+  substates.copyInto(aSubstates);
+  NameDecl[] aConnectors = new NameDecl[connectors.size()];
+  connectors.copyInto(aConnectors);
+  Transition[] aTransitions = new Transition[transitions.size()];
+  transitions.copyInto(aTransitions);
+  return 
+    setOrig(
+      locator,
+      Item.StatechartDef(
+	(State)
+	setOrig(locator,
+		State.SuperState(ndecl,
+				 kind,
+				 aSubstates,
+				 aConnectors,
+				 aTransitions))
+      )
+    );
+}
+
+
+/** Parse a reaction box. */
+public Item parseReactionBox(Locator locator,
+			     Text.ZedToken[] headerTokens,
+			     Text.ZedToken[] declsTokens,
+			     Text.ZedToken[] propsTokens) {
+  NameDecl ndecl;
+  setup(headerTokens);
+  try { 
+    ndecl = StateNameOpt();
+    checkEnd();
+  } 
+  catch (ParseException e){
+    ndecl = null;
+    putDiag(e);
+  }
+
+  Vector labelExprs = new Vector();
+  setup(declsTokens);
+  try {
+    LabelExprs(labelExprs);
+    checkEnd();
+  }
+  catch (ParseException e){
+    putDiag(e);
+  }
+
+  if (ndecl == null){
+    ndecl = new NameDecl(MSZNames.root);
+    Locator.put(ndecl.an, locator);
+  }
+  LabelExpr[] aLabelExprs = new LabelExpr[labelExprs.size()];
+  labelExprs.copyInto(aLabelExprs);
+  return 
+    setOrig(
+      locator,
+      Item.StaticReactionDef(
+	ndecl,
+	aLabelExprs
+      )
+    );
+}
+
+
+/** Set up the parser object to read from given sequence of Z tokens. */
+private void setup(Text.ZedToken[] tokens){
+  ReInit(new TextTokenManager(tokens));
+}
+
+/** Check if all tokens have been consumed. */
+private void checkEnd(){
+  Token t = getToken(1);
+  if (t.kind == EOF) 
+    return;
+  else {
+    diag = diag.add(locator(t),
+		    Diag.Category.Error,
+		    Format.describe(
+		      "don't know how to parse on here",
+		      "looking at ", Format.literal(tokenImage[t.kind])
+		    )
+		   );
+  }
+}
+
+/** Generate a diagnostic from parse exception. */
+private void putDiag(ParseException e){
+  Format[] expectedFmts = new Format[e.expectedTokenSequences.length];
+  int maxk = 0;
+  for (int i = 0; i < expectedFmts.length; i++){
+    Format[] sFmts = new Format[e.expectedTokenSequences[i].length];
+    if (sFmts.length > maxk) maxk = sFmts.length;
+    for (int j = 0; j < sFmts.length; j++){
+      sFmts[j] = 
+	new FormatText((j > 0 ? " " : "") +
+		       e.tokenImage[e.expectedTokenSequences[i][j]]);
+    }
+    if (i < expectedFmts.length-1)
+      sFmts[sFmts.length-1] = Format.append(sFmts[sFmts.length-1],
+					    Format.literal(", "));
+    expectedFmts[i] = new FormatBlock(sFmts);
+  }
+  String atStr = "";
+  Token tok = e.currentToken.next;
+  Locator loc = ((TextToken)tok).locator;
+  for (int i = 0; i < maxk && tok != null; i++, tok = tok.next){
+    if (i > 0) {
+      atStr += " ";
+      loc = upto(loc, ((TextToken)tok).locator);
+    }
+    atStr += e.tokenImage[tok.kind];
+  }
+  diag = diag.add(loc,
+		  Diag.Category.Error,
+		  Format.describe(
+		    "unexpected input",
+		    "looking at", Format.literal(atStr),
+		    "expected one of", new FormatBlock(expectedFmts)
+		  )
+		 );
+}	
+
+/** Create an array of items. */
+private static Item[] newItems(Vector v){
+  Item[] arr = new Item[v.size()];
+  v.copyInto(arr);
+  return arr;
+}
+
+/** Create an array of expressions. */
+private static Expr[] newExprs(Vector v){
+  Expr[] arr = new Expr[v.size()];
+  v.copyInto(arr);
+  return arr;
+}
+
+/** Create an array of predicates. */
+private static Predicate[] newPredicates(Vector v){
+  Predicate[] arr = new Predicate[v.size()];
+  v.copyInto(arr);
+  return arr;
+}
+
+/** Combine two locators which are known to be singleton, sequential text,
+    and in the same file. */
+static Locator upto(Locator o1, Locator o2){
+  return o1.extend(o2);
+}
+
+/** Several variants of making locators. */
+private static Locator locator(Token t){
+  return ((TextToken)t).locator;
+}
+private static Locator locator(AnnotatedTerm t){
+  return Locator.get(t.an);
+}
+private static Locator locator(Token start, Token end){
+  return upto(((TextToken)start).locator, ((TextToken)end).locator);
+}
+private static Locator locator(Token start, AnnotatedTerm end){
+  return upto(((TextToken)start).locator, Locator.get(end.an));
+}
+private static Locator locator(AnnotatedTerm start, Token end){
+  return upto(Locator.get(start.an), ((TextToken)end).locator);
+}
+private static Locator locator(AnnotatedTerm start, AnnotatedTerm end){
+  return upto(Locator.get(start.an), Locator.get(end.an));
+}
+
+/** Setting locator annotation of term. Overloaded in several
+  * variants to avoid need of casts. */
+private static AnnotatedTerm setOrig(Locator loc, AnnotatedTerm term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static Item setOrig(Locator loc, Item term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static Expr setOrig(Locator loc, Expr term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static Predicate setOrig(Locator loc, Predicate term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static NameDecl setOrig(Locator loc, NameDecl term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static NameAppl setOrig(Locator loc, NameAppl term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static Expr.Decl setOrig(Locator loc, Expr.Decl term){
+  Locator.put(term.an, loc);
+  return term;
+}
+private static Expr.Rename setOrig(Locator loc, Expr.Rename term){
+  Locator.put(term.an, loc);
+  return term;
+}
+
+/** Convert NameDecl to NameAppl. */
+private static NameAppl toNameAppl(NameDecl n){
+  NameAppl a = new NameAppl(n.name, new Expr[]{});
+  Locator.put(a.an, Locator.get(n.an));
+  return a;
+}
+
+/** Convert array of NameDecls to array of NameAppls. */
+private static NameAppl[] toNameAppls(NameDecl[] ns){
+  NameAppl[] as = new NameAppl[ns.length];
+  for (int i = 0; i < as.length; i++){
+    as[i] = toNameAppl(ns[i]);
+  }
+  return as;
+}
+
+/** Try to convert expression to NameAppl, or return null, if not
+    possible. */
+private static NameAppl toNameAppl(Expr e){
+  if (e instanceof Expr.Variable)
+    return ((Expr.Variable)e).name;
+  else
+    return null;
+}
+
+/** A name to be insert at error positions. */
+private static final Name errorName = new Name("*error*");
+
+
+// TOKEN TESTING
+
+// this stuff is unfortunately required since we often
+// have to perform semantic lookheads for tokens to resolve
+// ambigiuities where syntactic lookahead should do -- but JavaCC
+// doesn't works correct t.t.r.
+
+/** Build a token set (boolean array) for token-kind testing. */
+private static boolean[] makeTokenSet(int[] kinds){
+  int max = -1;
+  for (int i = 0; i < kinds.length; i++){
+    if (max == -1 || kinds[i] > max)
+      max = kinds[i];
+  }
+  boolean[] set = new boolean[max+1];
+  for (int i = 0; i < kinds.length; i++){
+    set[kinds[i]] = true;
+  }
+  return set;
+}
+
+/** Union of two token sets. */
+private static boolean[] union(boolean[] set1, boolean[] set2){
+  boolean[] set = new boolean[set1.length > set2.length ? set1.length
+							: set2.length];
+  System.arraycopy(set1, 0, set, 0, set1.length);
+  for (int i = 0; i < set2.length; i++){
+    if (set2[i]) set[i] = true;
+  }
+  return set;
+}
+
+/** Union of two token sets. */
+private static boolean[] union(boolean[] set, int[] kinds){
+  return union(set, makeTokenSet(kinds));
+}
+
+
+/** Test if the next token is in set. */
+private boolean lookingAt(boolean[] set){
+  int kind = getToken(1).kind;
+  return kind < set.length && set[kind];
+}
+
+/** Test if the next token is the given one. */
+private boolean lookingAt(int kind){
+  return kind == getToken(1).kind;
+}
+
+/** Lookahead for a token. */
+private boolean isAhead(int start, boolean[] set, boolean[] stop){
+  int i = 1+start;
+  do {
+    int k = getToken(i).kind;
+    if (k < set.length && set[k]) return true;
+    else if (k == EOF || k < stop.length && stop[k]) return false;
+    i++;
+  } while (true);
+}
+
+/** Lookahead for a token after a fixed set of tokens.  */
+private boolean isAheadAfter(int start, boolean[] set, boolean[] skip){
+  int i = 1+start;
+  do {
+    int k = getToken(i).kind;
+    if (k < set.length && set[k]) return true;
+    else if (k == EOF || !(k < skip.length && skip[k])) return false;
+    i++;
+  } while (true);
+}
+
+/** Lookahead for a token after a fixed set of tokens.  */
+private boolean isAheadAfter(int start, int kind, boolean[] skip){
+  int i = 1+start;
+  do {
+    int k = getToken(i).kind;
+    if (k == kind) return true;
+    else if (k == EOF || !(k < skip.length && skip[k])) return false;
+    i++;
+  } while (true);
+}
+
+/** Lookahead for tokens, skiping parenth groups. */
+private boolean isAheadSkipGroups(int start, boolean[] set, boolean stop[]){
+  int i = 1+start;
+  int nest = 0;
+  do {
+    int k = getToken(i).kind;
+    if (nest > 0){
+      switch (k){
+      case EOF:
+	return false;
+      case LPARENTH: case LBRACK: case LSET: case LBIND:
+	nest++;
+	break;
+      case RPARENTH: case RBRACK: case RSET: case RBIND:
+	nest--;
+      }
+    } else {
+      switch (k){
+      case EOF:
+	return false;
+      case LPARENTH: case LBRACK: case LSET: case LBIND:
+	nest++;
+	break;
+      default:
+	if (k < set.length && set[k]) return true;
+	else if (k < stop.length && stop[k]) return false;
+      }
+    }
+    i++;
+  } while (true);
+}
+
+/** Token set which contains all keywords of mixfixes. */
+private static final boolean[] mixfixKeys = 
+  makeTokenSet(new int[]{ KEYWORD, PKEYWORD, LKEYWORD, RKEYWORD,
+			  CROSS, POWER, LGROUP, RGROUP });
+
+/** Token set which contains all keywords of mixfixes and
+ * additionally argument placeholders. */
+private static final boolean[] mixfixKeysAndArgs = 
+  union(mixfixKeys, new int[]{ ARG, LISTARG });
+
+/** Token set which contains all tokens which are members of a compound 
+    name. */
+private static final boolean[] nameTokens = 
+  union(mixfixKeysAndArgs, new int[]{ SIMPLENAME });
+
+/** Token set which contains all tokens which may appear on the lhs of
+ * global equation. */
+private static final boolean[] defLhsTokens = 
+  union(nameTokens, new int[]{ LPARENTH, RPARENTH, LBRACK, RBRACK, COMMA });
+
+/** Token set which contains all tokens in declaration name list. */
+private static final boolean[] declListTokens =
+  union(nameTokens, new int[]{ COMMA });
+
+/** Token set which contains expression mixfix keywords. */
+private static final boolean[] exprMixfixKeywords =
+  makeTokenSet(new int[]{ KEYWORD, POWER, CROSS });
+
+/** First set of expression primarys. */
+private static final boolean[] exprPrimaryFirst =
+  makeTokenSet(new int[]{ LPARENTH, LBRACK, LBIND, LSET, NUMBER, DENOTATION,
+			  SIMPLENAME });
+
+/** Token set which determines schema text. */
+private static final boolean[] schemaTextTokens =
+  makeTokenSet(new int[]{ MID, SPOT, COLON, DEFEQ });
+
+/** Token set which stops test for schema text. */
+private static final boolean[] schemaTextStopTokens =
+  makeTokenSet(new int[]{ RSET, RBRACK, LINESEP });
+
+
+/** Token set which determines renaming. */
+private static final boolean[] renamingTokens =
+  makeTokenSet(new int[]{ SLASH});
+
+/** Token set which stops test for renaming. */
+private static final boolean[] renamingStopTokens =
+  makeTokenSet(new int[]{ COMMA, RBRACK, LINESEP });
+
+
+
+// LOCAL STRUCTURES USED AS RETURNED TYPES
+
+/** A class for holding the result of definition lhs parsing. */
+private static class Lhs {
+  NameDecl name;
+  NameDecl[] formals;
+  Lhs(NameDecl name, NameDecl[] formals){
+    this.name = name; this.formals = formals;
+  }
+}
+
+/** A class for holding a token and a term. */
+private static class TokenAndTerm {
+  Token token;
+  Term term;
+  TokenAndTerm(Token token, Term term){
+    this.token = token; this.term = term;
+  }
+}
+
+/** A class for holding a token and a term array. */
+private static class TokenAndTermArray {
+  Token token;
+  Term[] array;
+  TokenAndTermArray(Token token, Term[] array){
+    this.token = token; this.array = array;
+  }
+}
+
+/** A class for holding two term term arrays. */
+private static class TermArrayPair {
+  Term[] array1;
+  Term[] array2;
+  TermArrayPair(Term[] array1, Term[] array2){
+    this.array1 = array1; this.array2 = array2;
+  }
+}
+
+}
+
+PARSER_END(ItemParser)
+
+
+// ---------------------------------------------------------------------------
+// For debugging
+
+// JavaCC throws when trying to print an ambiguity with USER_TOKEN_MANAGER
+// set. So the below declarations need to be included for debugging the
+// parser.
+
+// taken from LatexScanner.jj
+
+/*
+TOKEN : {
+<#LATEXLETTER : ["a"-"z","A"-"Z"]>
+|
+<#LATEXSPECIAL : "\\" | "\"" | "'" | "`" | "|" | 
+		  "{" | "}" | "(" | ")" | "[" | "]" | "<" | ">" |
+		  "=" | "+" | "-" | "*" | "#" | "%" | "@" | "$" | "&" |
+		  "/" | "!" | " " | "_" | "~" | "," | ";" | "." | ":" | 
+		  "?" | "^" | " " | "\n" >
+|
+<#LETTER: ["a"-"z","A"-"Z"]> // FIXME: ISO-LATIN
+| 
+<#DIGIT: ["0"-"9"]>
+|
+<#SPECIAL: ["+","-","*","=","<",">","~","\""]>
+|
+<#LATEXCMD : "\\" (<LATEXSPECIAL> | (<LATEXLETTER>)+)> 
+|
+<#LATEXIDPART : <LETTER> (<LETTER> | <DIGIT>)*>
+|
+<#LATEXID : <LATEXIDPART> ( "\\_" (<LATEXIDPART>)?
+			  | "::"  (<LATEXIDPART>)?
+			  | "_{"  (<LATEXIDPART> "}")?
+			  | "^{"  (<LATEXIDPART> "}")?
+			  )*>
+|
+<#LATEXSPECIALID : (<SPECIAL>)+ >
+|
+<#LATEXWORD : <LATEXCMD> <LATEXDECORE> | <LATEXID> <LATEXDECORE> 
+				       | <LATEXSPECIALID> <LATEXDECORE>>
+|
+<#LATEXNUMBER : (<DIGIT>)+>
+|
+<#LATEXSTROKEINDEX : "_" ( <DIGIT> | "{" (<DIGIT>)+ "}" )>
+|
+<#LATEXDECORE : (["'","!","?"] | <LATEXSTROKEINDEX>)+>
+|
+<#LATEXMACROARG : "#" <DIGIT>>
+|
+<NEWLINE : "\n">
+|
+<ZENV_END : "\\end">
+|
+<WHERE : "\\where">
+|
+// @@TOKEN LaTeX,Z,DZ,MSZ,LEX
+// generated by genlexis:
+<AGGREG : "\\Aggreg">|
+<AND : "\\land">|
+<ANDSTATE : "\\AndState">|
+<ARG : "\\_">|
+<ASSOC : "\\Assoc">|
+<AWAIT : "\\dawait">|
+<BASICSTATE : "\\BasicState">|
+<CHOICE : "\\dchoice">|
+<CHOP : "\\dchop">|
+<COLON : ":">|
+<COMMA : ",">|
+<COMPOSE : "\\semi">|
+<COMPUTE : "\\dcompute">|
+<CONNECTOR : "\\Connector">|
+<CROSS : "\\cross">|
+<DATA : "\\Data">|
+<DEFEQ : "==" | "\\defs">|
+<DEFSYN : "::=">|
+<DELTA : "\\Delta">|
+<DERIVED : "\\Derived">|
+<DOT : ".">|
+<DURATION : "\\dDuration">|
+<DYN : "\\Dyn">|
+<ELSE : "\\ELSE">|
+<ENRICH : "\\Enrich">|
+<EVERYWHERE : "\\deverywhere">|
+<EXISTS : "\\exists">|
+<EXISTS1 : "\\exists_1">|
+<FALSE : "false">|
+<FLOW : "\\Flow">|
+<FOLLOWEDBY : "\\dseq">|
+<FORALL : "\\forall">|
+<GOTO : "\\Goto">|
+<HIDE : "\\hide">|
+<IF : "\\IF">|
+<IFF : "\\iff">|
+<IMPLIES : "\\implies">|
+<INIT : "\\Init">|
+<INTERNFLOW : "\\InternFlow">|
+<INPUT : "\\Input">|
+<LAMBDA : "\\lambda">|
+<LBIND : "\\lblot" | "\\lbind">|
+<LEFTASSOC : "\\leftassoc">|
+<LGLUE : "@_@" "@@lglue@@">|
+<LBRACK : "[">|
+<LDATA : "\\ldata">|
+<LEADSTO : "\\dleadsto">|
+<LENGTH : "\\dLength">|
+<LET : "\\LET">|
+<LGROUP : "{">|
+<LINESEP : "\\\\">|
+<LISTARG : ",,">|
+<LPARENTH : "(">|
+<LSET : "\\{">|
+<LSTATE : "\\dlstate">|
+<LTRANS : "\\dltrans">|
+<MID : "|" | "\\mid">|
+<MU : "\\mu">|
+<NOT : "\\lnot">|
+<OR : "\\lor">|
+<PIPE : "\\pipe">|
+<PRE : "\\pre">|
+<PREEMPT : "\\dpreempt">|
+<PORT : "\\Port">|
+<POWER : "\\power">|
+<PROPERTY : "\\Property">|
+<PREFIX : "\\dprefix">|
+<PROJECT : "\\project">|
+<RBIND : "\\rblot" | "\\rbind">|
+<RBRACK : "]">|
+<RDATA : "\\rdata">|
+<REFSTATE : "\\RefState">|
+<REPEAT : "\\drepeat">|
+<RGLUE : "@_@" "@@rglue@@">|
+<RGROUP : "}">|
+<RIGHTASSOC : "\\rightassoc">|
+<RPARENTH : ")">|
+<RSET : "\\}">|
+<RSTATE : "\\drstate">|
+<RTRANS : "\\drtrans">|
+<SEMI : ";">|
+<SLASH : "/">|
+<SOMEWHERE : "\\dsomewhere">|
+<SPOT : "@" | "\\spot">|
+<STROKEIN : "?">|
+<STROKEOUT : "!">|
+<STROKEPRIME : "'">|
+<THEN : "\\THEN">|
+<THETA : "\\theta">|
+<TO : "\\To">|
+<TRANS : "\\dtr">|
+<TRANSLABEL : "\\tr">|
+<TRUE : "true">|
+<WHEN : "\\When">|
+<XI : "\\Xi">|
+<XORSTATE : "\\XorState">|
+<NUMBER : <LATEXNUMBER>>|
+<DENOTATION : <LATEXDENOTATION>>|
+<STROKEINDEX : <LATEXSTROKEINDEX>>|
+<WORD : <LATEXWORD>>|
+<KEYWORD : "@_@" "@@keyword@@">|
+<LKEYWORD : "@_@" "@@lkeyword@@">|
+<RKEYWORD : "@_@" "@@rkeyword@@">|
+<PKEYWORD : "@_@" "@@pkeyword@@">|
+<SIMPLENAME : "@_@" "@@simplename@@">|
+<MACROARG : <LATEXMACROARG>>
+
+// @@ENDTOKEN
+}
+*/
+
+
+// ---------------------------------------------------------------------------
+// Unboxed items
+
+/**
+* Unboxed items.
+*/
+Item[] UnboxedItems() :
+{
+Vector v = new Vector();
+}
+{
+[ UnboxedItem(v) 
+  ( Separator()
+    [ UnboxedItem(v) ]
+  )*
+]
+<EOF>
+{ return newItems(v); }
+}
+
+/**
+* Unboxed item.
+*/
+void UnboxedItem(Vector v) : {}
+{
+
+// DEFINITIONS
+LOOKAHEAD({ isAheadAfter(0, DEFEQ, defLhsTokens) })
+{ Lhs lhs; Expr rhs; }
+lhs=EqnLhs() <DEFEQ> rhs=Expr()
+{ Locator loc = locator(lhs.name, rhs);
+  v.addElement(
+    setOrig(loc,
+	    Item.AxiomaticDef(
+	      lhs.formals,
+	      setOrig(
+		loc, 
+		Expr.Text(new Expr.Decl[]{
+			    setOrig(loc, Expr.Decl.Eqn(lhs.name, rhs))
+			  },
+			  new Predicate[0]
+			 )
+	      )
+	    )
+	   )
+  );
+}
+|
+
+// FREE TYPES
+LOOKAHEAD({ isAheadAfter(0, DEFSYN, defLhsTokens) })
+{ NameDecl name; NameDecl[] formals; Expr.Branch[] branches; }
+name=SimpleName() formals=GenFormals() <DEFSYN> branches=Branches()
+{ Locator loc = locator(name, branches[branches.length-1]);
+  v.addElement(
+    setOrig(loc,
+	    Item.AxiomaticDef(
+	      formals,
+	      setOrig(loc, 
+		      Expr.FreeType(name, branches))))
+  );
+}
+|
+
+// GIVEN TYPES
+// lookahead required because of SchemaText in predicate
+LOOKAHEAD( <LBRACK> NameList() GenFormals() <RBRACK> )
+{ Token beg, end; NameDecl[] names; NameDecl[] formals; }
+beg=<LBRACK> names=NameList() formals=GenFormals() end=<RBRACK>
+{ Locator loc = locator(beg, end);  
+  for (int i = 0; i < names.length; i++){
+    v.addElement(
+      setOrig(loc,
+	      Item.AxiomaticDef(formals,
+				setOrig(loc,
+					Expr.GivenType(names[i]))))
+    );
+  }
+}
+|
+
+// MSZ ENRICH
+{ Token beg; NameDecl name; TokenAndTermArray actuals; }
+beg=<ENRICH>
+name=SimpleName()
+actuals=GenActuals()
+{
+  Locator loc;
+  if (actuals.token != null) 
+    loc = locator(beg, actuals.token);
+  else 
+    loc = locator(beg, name);
+  v.addElement(
+    setOrig(loc,
+	    Item.EnrichDef(
+	      setOrig(loc, new NameAppl(name.name, 
+					 (Expr[])actuals.array))
+	    )
+	   )
+  );
+}
+|
+
+// MSZ ATTRIBUTES
+
+{ Token beg; NameDecl[] names; }
+beg=<INPUT> names=NameList()
+{
+  v.addElement(
+    setOrig(locator(beg, names[names.length-1]),
+	    Item.AttributeDef(Item.AttributeKind.Input,
+			      toNameAppls(names))
+	   )
+  );
+}
+
+|
+{ Token beg; NameDecl[] names; }
+beg=<DERIVED> names=NameList()
+{
+  v.addElement(
+    setOrig(locator(beg, names[names.length-1]),
+	    Item.AttributeDef(Item.AttributeKind.Derived,
+			      toNameAppls(names))
+	   )
+  );
+}
+
+|
+
+// PREDICATES
+{ Predicate pred; }
+pred=Predicate()
+{ v.addElement(
+  setOrig(locator(pred),
+	  Item.AxiomaticDef(
+	    new NameDecl[0],
+	    Expr.Text(new Expr.Decl[0],
+		      new Predicate[]{pred})
+	  )
+	 )
+  );
+}
+}
+
+/**
+* Left-hand-side of an unboxed equation.
+*/
+Lhs EqnLhs(): {
+DeclAttr attr = null;
+Expr expr;
+}{
+[
+  attr=SchemaRole()
+]
+// parse lhs as mixfix expression
+expr=ExprMixfix()
+{ NameAppl appl = toNameAppl(expr);
+  if (appl != null){
+    NameDecl[] formals = new NameDecl[appl.actuals.length];
+    for (int i = 0; i < appl.actuals.length; i++){
+      NameAppl act = toNameAppl(appl.actuals[i]);
+      if (act != null && act.actuals.length == 0){
+	formals[i] = setOrig(locator(act), new NameDecl(act.name));
+      } else {
+	diag = diag.add(locator(expr),
+			Diag.Category.Error,
+			"illegal left-hand-side of defining equation");
+      }
+    }
+    NameDecl name = new NameDecl(appl.name);
+    Locator.put(name.an, Locator.get(appl.an));
+    if (attr != null)
+      DeclAttr.put(name.an, attr);
+    return new Lhs(name, formals);
+  } else {
+    diag = diag.add(locator(expr),
+		    Diag.Category.Error,
+		    "illegal left-hand-side of defining equation");
+    return new Lhs(setOrig(locator(expr), new NameDecl(errorName)), 
+		   new NameDecl[0]);
+  }
+}
+}
+
+/**
+* Schema role.
+*/
+DeclAttr SchemaRole():{
+}{
+// FIXME: user-defined roles?
+<DATA>     { return DeclAttr.Data; }
+|
+<PORT>     { return DeclAttr.Port; }
+|
+<PROPERTY> { return DeclAttr.Property; } 
+|
+<INIT>     { return DeclAttr.Init; } 
+}
+
+/**
+* Separtor (newline or semicolon).
+*/
+void Separator(): {}
+{
+<LINESEP> | <SEMI>
+}
+
+/** 
+* Formal parameters.
+*/
+NameDecl[] GenFormals():{
+}{
+( <LBRACK>
+  { NameDecl[] names; }
+  names=NameList()
+  <RBRACK>
+  { return names; }
+|
+  { return new NameDecl[0]; }
+)
+}
+
+/**
+* Name lists.
+*/
+NameDecl[] NameList():{
+Vector v = new Vector();
+NameDecl n;
+}{
+n=Name() { v.addElement(n); }
+( <COMMA> n=Name() { v.addElement(n); } )*
+{ NameDecl[] res = new NameDecl[v.size()];
+  v.copyInto(res);
+  return res;
+}
+}
+
+
+// ---------------------------------------------------------------------------
+// Free type branches
+
+/**
+* Branches of a free type.
+*/
+Expr.Branch[] Branches():{
+Vector v = new Vector();
+Expr.Branch b;
+Expr type;
+}{
+b=Branch() { v.addElement(b); }
+( <MID> b=Branch() { v.addElement(b); } )*
+{ Expr.Branch[] res = new Expr.Branch[v.size()];
+  v.copyInto(res);
+  return res;
+}
+}
+
+/**
+* Branche of a free type.
+*/
+Expr.Branch Branch():{
+Token beg, end;
+NameDecl name;
+Expr type;
+}{
+name=SimpleName() 
+(
+  <LDATA> type=Expr() end=<RDATA>
+  { return (Expr.Branch)
+	   setOrig(locator(name, end),
+		  new Expr.Branch.Function(name, type)); }
+
+|
+  { return (Expr.Branch)
+	   setOrig(locator(name),
+		  new Expr.Branch.Constant(name)); }
+)
+|		    
+beg=<LPARENTH> name=Name() end=<RPARENTH>
+(
+  <LDATA> type=Expr() end=<RDATA>
+  { return (Expr.Branch)
+	   setOrig(locator(beg, end),
+		  new Expr.Branch.Function(name, type)); }
+
+|
+  { return (Expr.Branch)
+	   setOrig(locator(beg, end),
+		  new Expr.Branch.Constant(name)); }
+)
+}
+
+// ---------------------------------------------------------------------------
+// Schema Boxes
+
+/**
+* Header of schema box.
+*/
+Lhs SchemaBoxHeader():{
+NameDecl name;
+DeclAttr attr = null;
+NameDecl[] formals;
+}{
+[ attr=SchemaRole() ]
+name=SimpleName()
+formals=GenFormals()
+{
+  if (attr != null)
+    DeclAttr.put(name.an, attr);
+  return new Lhs(name, formals);
+}
+}
+
+// ---------------------------------------------------------------------------
+// Axiomatic Boxes
+
+/**
+* Declarations of axiomatic box (including generics).
+*/
+Term[][] AxiomaticBoxDecls():{
+NameDecl[] formals;
+Expr.Decl[] decls;
+}
+{
+formals=GenFormals()
+decls=Decls()
+{ return new Term[][]{formals, decls}; }
+}
+
+
+// ---------------------------------------------------------------------------
+// Declarations
+
+/**
+* Declaration list.
+*/
+Expr.Decl[] Decls():{
+Vector v = new Vector();
+Expr.Decl d;
+}{
+[ d=Decl() { v.addElement(d); }
+  ( Separator() [ d=Decl() { v.addElement(d); } ] )* ]
+{ Expr.Decl[] res = new Expr.Decl[v.size()];
+  v.copyInto(res);
+  return res;
+}
+}
+
+/**
+* Single declaration
+*/
+Expr.Decl Decl():{
+}{
+LOOKAHEAD({ isAheadAfter(0, COLON, declListTokens) })
+{ NameDecl[] names; Expr type; }
+names=NameList()
+<COLON>
+type=Expr()
+{ return setOrig(
+	   locator(names[0], type),
+	   Expr.Decl.Direct(names, type)
+	 );
+}
+|
+LOOKAHEAD({ isAheadAfter(0, DEFEQ, nameTokens) })
+{ NameDecl name; Expr def; }
+name=Name()
+<DEFEQ>
+def=Expr()
+{ return setOrig(
+	   locator(name, def),
+	   Expr.Decl.Eqn(name, def)
+	 );
+}
+|
+{ Expr schema; }
+schema=Expr()
+{ return setOrig(locator(schema),
+		 Expr.Decl.Inclusion(schema)); 
+}
+}		  
+
+// ---------------------------------------------------------------------------
+// Properties & Predicates
+
+/**
+* Property part of schema text.
+*/
+Predicate[] Property():{
+Vector v = new Vector();
+Predicate p;
+}{
+[ p=Predicate() { v.addElement(p); }
+  ( Separator() [ p=Predicate() { v.addElement(p); } ] )* ]
+{ return newPredicates(v); }
+}
+
+
+/**
+* Predicate (Quantors and Iff).
+*/
+Predicate Predicate() : {
+}
+{
+{ TokenAndTerm qkind; Expr matrix; Predicate range; }
+qkind=PredicateQuantorKind()
+matrix=TextOrExpr(qkind.token)
+<SPOT>
+range=Predicate()
+{
+  return setOrig(locator(qkind.token, range),
+		 Predicate.Quantor((Predicate.QuantorKind)qkind.term,
+				   matrix,
+				   range));
+}
+|
+{ Predicate pred, cont; }
+pred=PredicateImplies()
+( <IFF>
+  cont=PredicateImplies()
+  { pred = setOrig(locator(pred, cont),
+		   Predicate.Binary(Predicate.BinaryKind.Iff,
+				    pred,
+				    cont)); }
+)*
+{ return pred; }
+}
+
+/**
+* Predicate quantor kind.
+*/
+TokenAndTerm PredicateQuantorKind() : {
+Token tok;
+}{
+tok=<FORALL>
+{ return new TokenAndTerm(tok, Predicate.QuantorKind.Forall); }
+|
+tok=<EXISTS>
+{ return new TokenAndTerm(tok, Predicate.QuantorKind.Exists); }
+|
+tok=<EXISTS1>
+{ return new TokenAndTerm(tok, Predicate.QuantorKind.Exists1); }
+}
+
+
+/**
+* Predicate (Implies).
+*/
+Predicate PredicateImplies() : {
+Predicate pred, cont; 
+}
+{
+pred=PredicateOr()
+( <IMPLIES>
+  cont=PredicateImplies() // right associative!
+  { return setOrig(locator(pred, cont),
+		   Predicate.Binary(Predicate.BinaryKind.Implies,
+				    pred,
+				    cont)); }
+|
+  { return pred; }
+)
+}
+
+/**
+* Predicate (Or).
+*/
+Predicate PredicateOr() : {
+Predicate pred, cont; 
+}
+{
+pred=PredicateAnd()
+( <OR>
+  cont=PredicateAnd()
+  { pred = setOrig(locator(pred, cont),
+		   Predicate.Binary(Predicate.BinaryKind.Or,
+				    pred,
+				    cont)); }
+)*
+{ return pred; }
+}
+
+/**
+* Predicate (And).
+*/
+Predicate PredicateAnd() : {
+Predicate pred, cont; 
+}
+{
+pred=PredicateLeadsto()
+( <AND>
+    cont=PredicateLeadsto()
+    { pred = setOrig(locator(pred, cont),
+		     Predicate.Binary(Predicate.BinaryKind.And,
+				      pred,
+				      cont)); }
+  )*
+  { return pred; }
+}
+
+/**
+ * Predicate (Leadsto).
+ */
+Predicate PredicateLeadsto() : {
+  Predicate pred, cont; 
+}
+{
+  pred=PredicateTrans()
+  ( <LEADSTO>
+    cont=PredicateTrans()
+    { pred = setOrig(locator(pred, cont),
+		     Predicate.Binary(Predicate.BinaryKind.Leadsto,
+				      pred,
+				      cont)); }
+  )*
+  { return pred; }
+}
+
+/**
+ * Predicate (Transition).
+ */
+Predicate PredicateTrans() : {
+  Predicate pred, cont; 
+}
+{
+  pred=PredicateSeq()
+  ( <TRANS>
+    cont=PredicateSeq()
+    { pred = setOrig(locator(pred, cont),
+		     Predicate.Binary(Predicate.BinaryKind.Trans,
+				      pred,
+				      cont)); }
+  )*
+  { return pred; }
+}
+
+/**
+ * Predicate (Overlapping chop).
+ */
+Predicate PredicateSeq() : {
+  Predicate pred, cont; 
+}
+{
+  pred=PredicateChop()
+  ( <FOLLOWEDBY>
+    cont=PredicateChop()
+    { pred = setOrig(locator(pred, cont),
+		     Predicate.Binary(Predicate.BinaryKind.Compose,
+				      pred,
+				      cont)); }
+  )*
+  { return pred; }
+}
+
+/**
+ * Predicate (Chop).
+ */
+Predicate PredicateChop() : {
+  Predicate pred, cont; 
+}
+{
+  pred=PredicatePrimary()
+  ( <CHOP>
+    cont=PredicatePrimary()
+    { pred = setOrig(locator(pred, cont),
+		     Predicate.Binary(Predicate.BinaryKind.Chop,
+				      pred,
+				      cont)); }
+  )*
+  { return pred; }
+}
+
+
+
+/**
+ * Predicate (Primary).
+ */
+Predicate PredicatePrimary() : {
+  Token tok; Predicate pred; 
+}
+{
+  tok=<NOT> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Not,
+				   pred)); }
+|
+  tok=<EVERYWHERE> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Everywhere,
+				   pred)); }
+|
+  tok=<SOMEWHERE> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Somewhere,
+				   pred)); }
+|
+  tok=<AWAIT> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Await,
+				   pred)); }
+
+|
+  tok=<REPEAT> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Repeat,
+				   pred)); }
+|
+  tok=<PREFIX> 
+  pred=PredicatePrimary()
+  { return setOrig(locator(tok, pred),
+		   Predicate.Unary(Predicate.UnaryKind.Prefix,
+				   pred)); }
+
+|
+  pred=PredicateConstr()
+  { return pred; }
+}
+
+/**
+ * Predicate (Constraints).
+ */
+Predicate PredicateConstr() : {
+  Token tok; Predicate pred; NameDecl rel; Expr expr;
+}
+{
+  pred=PredicateAtomic()
+  (
+    <DURATION> 
+    <LGROUP> rel=Name() <RGROUP> <LGROUP> expr=Expr() tok=<RGROUP>
+    {
+      pred = setOrig(locator(pred, tok),
+		     Predicate.Unary(
+		       Predicate.UnaryKind.TimeConstr(
+			 Predicate.ConstrRef.Length,
+			 toNameAppl(rel),
+			 expr
+		       ),
+		       pred
+		     ));
+    }
+  |
+    <LENGTH> 
+    <LGROUP> rel=Name() <RGROUP> <LGROUP> expr=Expr() tok=<RGROUP>
+    {
+      pred = setOrig(locator(pred, tok),
+		     Predicate.Unary(
+		       Predicate.UnaryKind.StepConstr(
+			 Predicate.ConstrRef.Length,
+			 toNameAppl(rel),
+			 expr
+		       ),
+		       pred
+		     ));
+    }
+  )*
+  { return pred; }
+}
+
+
+
+/**
+ * Predicate (Atomic).
+ */
+Predicate PredicateAtomic() : {
+  Token tok, endTok; Predicate pred;
+}{
+  tok=<TRUE>
+  { return setOrig(locator(tok), Predicate.Fact(Predicate.FactKind.True)); }
+|
+  tok=<FALSE>
+  { return setOrig(locator(tok), Predicate.Fact(Predicate.FactKind.False)); }
+|
+  tok=<LSTATE> pred=Predicate() endTok=<RSTATE>
+  { return setOrig(locator(tok, endTok),
+		   Predicate.Unary(Predicate.UnaryKind.StateLift,
+				   pred)); }
+
+|
+  tok=<LTRANS> pred=Predicate() endTok=<RTRANS>
+  { return setOrig(locator(tok, endTok),
+		   Predicate.Unary(Predicate.UnaryKind.TransLift,
+				   pred)); }
+
+|
+  LOOKAHEAD(<LPARENTH> Predicate() <RPARENTH> // FIXME: very problematic!
+            (<LINESEP> | <EOF> | <SPOT> | <IFF> | <IMPLIES> |
+	     <OR> | <AND> | <LEADSTO> | <TRANS> | <FOLLOWEDBY> |
+	     <CHOP> | <RPARENTH> | <RSET> | <RBRACK> | <THEN> |
+	    // Fri Dec 18 13:30:25 MET 1998, buessow
+	    // added <TRANSLABEl> and <GOTO> for for LabelExpr
+	    <TRANSLABEL> | <GOTO>)) 
+  <LPARENTH> pred=Predicate() <RPARENTH> 
+  { return pred; }
+|
+  { Vector v = new Vector(); }
+  RelationForest(v)
+  {
+    MixfixParser.Tree[] forest = new MixfixParser.Tree[v.size()];
+    v.copyInto(forest);
+    Predicate res = mixfixParser.predicate(forest);
+    diag = diag.combine(mixfixParser.getAndClearDiag());
+    if (res != null)
+      return res;
+    else 
+      return setOrig(MixfixParser.locator(forest), 
+		     Predicate.Fact(Predicate.FactKind.False));
+  }
+}
+		     
+/**
+ * Relation forests.
+ */
+void RelationForest(Vector v) : {
+  Expr expr;
+}{
+  ( RelationKeyword(v)
+  | LOOKAHEAD(<LGROUP>) MixfixGroups(v)
+// | LOOKAHEAD(<LKEYWORD>) MixfixList(v) FIXME: a = \langle 1 \rangle \cat y
+  | expr=ExprLambdaMuCond() 
+    { v.addElement(MixfixParser.Tree.Operand(expr)); } 
+  )+
+}
+
+
+/** 
+ * Relation keywords. 
+ */
+void RelationKeyword(Vector v):{
+  Token t;
+}{
+  t=<PKEYWORD> 
+  { TextToken tt = (TextToken)t;
+    v.addElement(MixfixParser.Tree.Keyword(new Name(tt.lexem.toString()),
+					   tt.locator)); }
+}
+
+
+
+// ---------------------------------------------------------------------------
+// Expressions
+
+
+/** 
+ * Expressions (Quantors and Iff). 
+ */
+Expr Expr() : {
+}
+{
+  { TokenAndTerm qkind; Expr matrix; Expr range; }
+  qkind=ExprQuantorKind()
+  matrix=TextOrExpr(qkind.token)
+  <SPOT>
+  range=Expr()
+  {
+    return setOrig(locator(qkind.token, range),
+		   Expr.Quantor((Expr.QuantorKind)qkind.term,
+				matrix,
+				range));
+  }
+| 
+  { Expr expr, cont; }
+  expr=ExprImplies()
+  ( LOOKAHEAD(<IFF>) <IFF>
+    cont=ExprImplies()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Iff,
+				 expr,
+				 cont)); }
+  )*
+  { return expr; }
+}
+
+/**
+ * Expression quantor kind.
+ */
+TokenAndTerm ExprQuantorKind() : {
+  Token tok;
+}{
+  tok=<FORALL>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Forall); }
+|
+  tok=<EXISTS>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Exists); }
+|
+  tok=<EXISTS1>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Exists1); }
+}
+
+
+/**
+ * Expression (Implies).
+ */
+Expr ExprImplies() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprOr()
+  ( <IMPLIES>
+    cont=ExprImplies() // right associative!
+    { return setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Implies,
+				      expr,
+				      cont)); }
+  |
+    { return expr; }
+  )
+}
+
+/**
+ * Expr (Or).
+ */
+Expr ExprOr() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprAnd()
+  ( LOOKAHEAD(<OR>) <OR>
+    cont=ExprAnd()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Or,
+				      expr,
+				      cont)); }
+  )*
+  { return expr; }
+}
+
+/**
+ * Expr (And).
+ */
+Expr ExprAnd() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprNot()
+  ( LOOKAHEAD(<AND>) <AND>
+    cont=ExprNot()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.And,
+				      expr,
+				      cont)); }
+  )*
+  { return expr; }
+}
+
+/**
+ * Expr (Not).
+ */
+Expr ExprNot() : {
+  Token tok; Expr expr; 
+}
+{
+  tok=<NOT> 
+  expr=ExprNot()
+  { return setOrig(locator(tok, expr),
+		   Expr.Unary(Expr.UnaryKind.Not,
+			      expr)); }
+|
+  expr=ExprLambdaMuCond()
+  { return expr; }
+}
+
+/** 
+ * Expressions (Lambda and Mu and Cond). 
+ */
+Expr ExprLambdaMuCond() : {
+}
+{
+  { TokenAndTerm qkind; Expr matrix; Expr range; }
+  qkind=ExprBinderKind()
+  matrix=TextOrExpr(qkind.token)
+  <SPOT>
+  range=ExprLambdaMuCond()
+  {
+    return setOrig(locator(qkind.token, range),
+		   Expr.Quantor((Expr.QuantorKind)qkind.term,
+				matrix,
+				range));
+  }
+|
+  { Token tok; Predicate cond; Expr thenExpr,elseExpr; }
+  tok=<IF>
+  cond=Predicate()
+  <THEN>
+  thenExpr=ExprLambdaMuCond()
+  <ELSE>
+  elseExpr=ExprLambdaMuCond()
+  {
+    return setOrig(locator(tok, elseExpr),
+		   Expr.Cond(cond, thenExpr, elseExpr));
+  }
+| 
+  { Expr expr; }
+  expr=ExprPipe()
+  { return expr; }
+}
+
+/**
+ * Expression binder kind.
+ */
+TokenAndTerm ExprBinderKind() : {
+  Token tok;
+}{
+  tok=<LAMBDA>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Lambda); }
+|
+  tok=<MU>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Mu); }
+|
+  tok=<LET>
+  { return new TokenAndTerm(tok, Expr.QuantorKind.Let); }
+}
+
+
+/**
+ * Expr (Pipe).
+ */
+Expr ExprPipe() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprCompose()
+  ( LOOKAHEAD(<PIPE>) <PIPE>
+    cont=ExprCompose()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Pipe,
+				      expr,
+				      cont)); }
+  )*
+  { return expr; }
+}
+
+/**
+ * Expr (Compose).
+ */
+Expr ExprCompose() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprHide()
+  ( LOOKAHEAD(<COMPOSE>) <COMPOSE>
+    cont=ExprHide()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Compose,
+				      expr,
+				      cont)); }
+  )*
+  { return expr; }
+}
+
+/**
+ * Expr (Hide).
+ */
+Expr ExprHide() : {
+  Expr expr; 
+  NameDecl[] names;
+  Token tok;
+}
+{
+  expr=ExprProject()
+  ( <HIDE>
+    <LPARENTH>
+    names=NameList()
+    tok=<RPARENTH>
+    { NameAppl[] anames = new NameAppl[names.length];
+      for (int i = 0; i < names.length; i++){
+	anames[i] = toNameAppl(names[i]);
+      }
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Hide(anames), expr)); 
+      return expr;
+    }
+  |
+    { return expr; }
+  )
+}
+
+/**
+ * Expr (Project).
+ */
+Expr ExprProject() : {
+  Expr expr, cont; 
+}
+{
+  expr=ExprPre()
+  ( LOOKAHEAD(<PROJECT>) <PROJECT>
+    cont=ExprPre()
+    { expr = setOrig(locator(expr, cont),
+		     Expr.Binary(Expr.BinaryKind.Project,
+				      expr,
+				      cont)); }
+  )*
+  { return expr; }
+}
+
+
+/**
+ * Expr (Precondition).
+ */
+Expr ExprPre() : {
+  Token tok;
+  Expr expr; 
+}{
+  tok=<PRE>
+  expr=ExprPre()
+  { return setOrig(locator(tok, expr),
+		   Expr.Unary(Expr.UnaryKind.Pre, expr));
+  }
+|
+  tok=<THETA> expr=ExprPre()
+  {
+    return setOrig(locator(tok, expr),
+		   Expr.Unary(Expr.UnaryKind.Theta,
+			      expr));
+  }
+|
+  tok=<XI> expr=ExprPre()
+  {
+    return setOrig(locator(tok, expr),
+		   Expr.Unary(Expr.UnaryKind.Xi,
+			      expr));
+  }
+|
+  tok=<DELTA> 
+  { NameDecl[] names = null; }
+  [ LOOKAHEAD(<LPARENTH> NameList()) <LPARENTH> names=NameList() <RPARENTH> ]
+  expr=ExprPre()
+  {
+    Expr.UnaryKind kind =
+      names == null ? Expr.UnaryKind.Delta : 
+                      Expr.UnaryKind.SelectiveDelta(toNameAppls(names));
+    return setOrig(locator(tok, expr), Expr.Unary(kind, expr));
+  }
+|
+  expr=ExprMixfix()
+  { return expr; }
+}
+
+
+/**
+ * Expr (Mixfixes).
+ */
+Expr ExprMixfix() : {
+  Vector v = new Vector();
+}{
+  ExprForest(v)
+  {
+    MixfixParser.Tree[] forest = new MixfixParser.Tree[v.size()];
+    v.copyInto(forest);
+    Expr res = mixfixParser.expr(forest);
+    diag = diag.combine(mixfixParser.getAndClearDiag());
+    if (res != null)
+      return res;
+    else 
+      return setOrig(MixfixParser.locator(forest), Expr.Number("0"));
+  }
+}
+
+
+/**
+ * Mixfix forests.
+ */
+void ExprForest(Vector v) : {
+  Expr expr; MixfixParser.Tree tree; Token t;
+}{
+  ( LOOKAHEAD({ lookingAt(LKEYWORD) })
+    MixfixList(v)
+  | LOOKAHEAD({ lookingAt(LGROUP) })
+    MixfixGroups(v)
+  | LOOKAHEAD({ lookingAt(exprMixfixKeywords) })
+    ExprKeyword(v)
+  | LOOKAHEAD({ lookingAt(exprPrimaryFirst) })
+    expr=ExprPrimary() 
+    { v.addElement(MixfixParser.Tree.Operand(expr)); } 
+  )+
+}
+
+/**
+ * Expression mixfix keywords.
+ */
+void ExprKeyword(Vector v):{
+  Token t;
+}{
+  ( t=<KEYWORD> | t=<POWER> | t=<CROSS> )
+  { TextToken tt = (TextToken)t;
+    v.addElement(MixfixParser.Tree.Keyword(new Name(tt.lexem.toString()),
+					   tt.locator)); }
+}
+
+
+/**
+ * Mixfix lists.
+ */
+void MixfixList(Vector v) : {
+  Token begTok; Expr[] exprs = null; Token endTok;
+}{
+  begTok=<LKEYWORD>
+  [ exprs=ExprList() ]
+  endTok=<RKEYWORD>
+  {
+    Name lname = ((Lexem.Lkeyword)((TextToken)begTok).lexem).image;
+    Name rname = ((Lexem.Rkeyword)((TextToken)endTok).lexem).image;
+    if (!rname.equals(unitEnv.getClosingKeyword(lname))){
+      rname = unitEnv.getClosingKeyword(lname);
+      diag = diag.add(locator(endTok),
+		      Diag.Category.Error,
+		      "expected `" + rname + "' to close `" + lname + "'");
+    }
+    // build sequence 
+    if (exprs != null){
+      for (int i = 0; i < exprs.length; i++){
+	Locator loc = locator(exprs[i]);
+	Expr index = Expr.Number(String.valueOf(i+1));
+	Locator.put(index.an, loc);
+	Expr pair = Expr.Tuple(new Expr[]{index, exprs[i]});
+	Locator.put(pair.an, loc);
+	exprs[i] = pair;
+      }
+    } else 
+      exprs = new Expr[0];
+    Expr display = Expr.Display(exprs);
+    Locator loc = locator(begTok, endTok);
+    Locator.put(display.an, loc);
+    v.addElement(new MixfixParser.Tree.OperandList(lname, rname, display));
+  }
+}
+
+/** 
+ * Mixfix markup groups. 
+ */
+void MixfixGroups(Vector v):{
+  Token t; Expr expr;
+}{
+  (
+    LOOKAHEAD({ lookingAt(LGROUP) })
+    t=<LGROUP>
+    { TextToken tt = (TextToken)t;
+      v.addElement(MixfixParser.Tree.Keyword(new Name(tt.lexem.toString()),
+					     tt.locator)); }
+    expr=ExprLambdaMuCond() 
+    { v.addElement(MixfixParser.Tree.Operand(expr)); } 
+    t=<RGROUP>
+    { tt = (TextToken)t;
+      v.addElement(MixfixParser.Tree.Keyword(new Name(tt.lexem.toString()),
+					     tt.locator)); }
+  )+
+}
+
+
+/**
+ * Expression primary.
+ */
+Expr ExprPrimary() : {
+  Expr expr;
+  Token tok;
+}{
+  expr=ExprAtomic()
+  (
+    tok=<STROKEIN>
+    {
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Decorate(Name.input+""),
+				expr));
+    }
+  |
+    tok=<STROKEOUT>
+    {
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Decorate(Name.output+""),
+				expr));
+    }
+  |
+    tok=<STROKEPRIME>
+    {
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Decorate(Name.prime+""),
+				expr));
+    }
+  |
+    tok=<STROKEINDEX>
+    {
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Decorate(Name.index(tok.image)),
+				expr));
+    }
+  |
+    <DOT>
+    ( 
+      tok=<NUMBER>
+      {
+	String val = ((Lexem.Number)((TextToken)tok).lexem).image;
+	expr = setOrig(locator(expr, tok),
+		       Expr.Select(expr,
+				   new NameAppl(new Name("#" + val),
+						new Expr[0])));
+      }
+    |
+      { NameDecl field; }
+      field=Name() // CHECKME: OpName ?
+      {
+	expr = setOrig(locator(expr, field),
+		       Expr.Select(expr, toNameAppl(field)));
+      }
+    )
+  | 
+    // LOOKAHEAD(<LBRACK> Name() <SLASH>, {true}) 
+    LOOKAHEAD(<LBRACK>, { isAhead(1, renamingTokens, renamingStopTokens) })
+    { Expr.Rename[] renames; }
+    <LBRACK> renames=RenameList() tok=<RBRACK>
+    {
+      expr = setOrig(locator(expr, tok),
+		     Expr.Unary(Expr.UnaryKind.Renaming(renames),
+				expr));
+    }
+  )* // repeat builtin postfixes
+  { return expr; }
+}
+
+
+/**
+ * Renaming list.
+ */
+Expr.Rename[] RenameList() : {
+  Vector v = new Vector();
+  Expr.Rename r;
+}{
+  r=Rename() { v.addElement(r); }
+  ( <COMMA>
+    r=Rename() { v.addElement(r); }
+  )*
+  {
+    Expr.Rename[] rs = new Expr.Rename[v.size()];
+    v.copyInto(rs);
+    return rs;
+  }
+}
+
+/**
+ * Renaming pair.
+ */
+Expr.Rename Rename() : {
+  NameDecl old, _new;
+}{
+  _new=Name()
+  <SLASH>
+  old=Name()
+  {
+    return setOrig(locator(_new, old), new Expr.Rename(toNameAppl(old), 
+						      _new));
+  }
+}
+
+/**
+ * Atomic expression.
+ */
+Expr ExprAtomic() : {
+}{
+  { Token tok; }
+  tok=<NUMBER>
+  {
+    String val = ((Lexem.Number)((TextToken)tok).lexem).image;
+    return setOrig(locator(tok), Expr.Number(val));
+  }
+| { Token tok; }
+  tok=<DENOTATION>
+  {
+    String val = ((Lexem.Denotation)((TextToken)tok).lexem).image;
+    return setOrig(locator(tok), Expr.Denotation(val));
+  }
+|
+ { Token begTok, endTok; 
+   Vector v = new Vector(); 
+  }
+  begTok=<LBIND> 
+  Bindings(v)
+  endTok=<RBIND>
+  {
+    Expr.Decl.Eqn[] bindings = new Expr.Decl.Eqn[v.size()];
+    v.copyInto(bindings);
+    return setOrig(locator(begTok, endTok),
+		   Expr.Binding(bindings));
+  }
+  
+|
+  { Token begTok, endTok; }
+  begTok=<LSET>
+  (
+    // look if this is definitely schema text. */
+    LOOKAHEAD( { isAheadSkipGroups(0, schemaTextTokens, 
+				   schemaTextStopTokens) })
+    { Expr text; Expr scope = null; }
+    text=TextOrExpr(begTok)
+    [ <SPOT> scope=Expr() ]
+    endTok=<RSET>
+    { 
+      if (scope == null) scope = ParserAux.characteristicTuple(text);
+      return setOrig(locator(begTok, endTok),
+		     Expr.Quantor(Expr.QuantorKind.Set, text, scope));
+    }
+  |
+    // interpret as set display
+    { Expr[] exprs = new Expr[0]; }
+    [ exprs=ExprList() ]
+    endTok=<RSET>
+    { return setOrig(locator(begTok, endTok), 
+		     Expr.Display(exprs)); }
+  )
+|
+  { Expr text; Token begTok; }
+  begTok=<LBRACK> text=TextOrExpr(begTok) <RBRACK> 
+  { return text; }
+
+| 
+  { NameDecl name; TokenAndTermArray actuals; }
+  name=SimpleName()
+  actuals=GenActuals()
+  {
+    Locator loc;
+    if (actuals.token != null) 
+      loc = locator(name, actuals.token);
+    else 
+      loc = locator(name);
+    return setOrig(loc,
+		   Expr.Variable(
+		     setOrig(loc, new NameAppl(name.name, 
+						(Expr[])actuals.array))
+		   ));
+  }
+|
+  { Expr pexpr; }
+  pexpr=ParenthExpr()
+  { return pexpr; }
+}
+
+/**
+ * Parenth expression. 
+ */
+Expr ParenthExpr() :{
+  Token begTok; 
+}{
+  begTok=<LPARENTH> 
+  (
+    // special treatment for "(\mu ...)" without a spot
+    LOOKAHEAD(<MU>)
+    { Token tok; Expr matrix; Expr range = null; }
+    tok=<MU> 
+    matrix=TextOrExpr(tok)
+    [ <SPOT> range=Expr() ]
+    <RPARENTH>
+    {
+      Locator loc;
+      if (range == null){
+	range = ParserAux.characteristicTuple(matrix);
+	loc = locator(tok, matrix);
+      } else
+	loc = locator(tok, range);
+      return setOrig(loc,
+		     Expr.Quantor(Expr.QuantorKind.Mu,
+				  matrix,
+				  range));
+    }
+  |
+    LOOKAHEAD( Name() <RPARENTH> )
+    { Token endTok; NameDecl name; TokenAndTermArray actuals; }
+    name=Name() endTok=<RPARENTH>
+    actuals=GenActuals()
+    {
+      Locator loc;
+      if (actuals.token != null) 
+	loc = locator(begTok, actuals.token);
+      else 
+	loc = locator(begTok, endTok);
+      return setOrig(loc,
+		     Expr.Variable(
+		       setOrig(loc, new NameAppl(name.name, 
+						  (Expr[])actuals.array))
+		     ));
+    }
+  |
+    { Expr[] exprs; Token endTok; }
+    exprs=ExprList() endTok=<RPARENTH>
+    {
+      if (exprs.length > 1)
+	return setOrig(locator(begTok, endTok),
+		       Expr.Tuple(exprs));
+      else
+	return exprs[0];
+    }
+  )
+}
+
+/**
+ * Generic actualization.
+ */
+TokenAndTermArray GenActuals(): {
+  Expr[] actuals; Token endTok;
+}{
+  // need to distinguish from schema construction 
+  // (the ambiguity [expr] is interpreted as an actualization)
+  LOOKAHEAD(<LBRACK>, 
+            { !isAheadAfter(1, SLASH, nameTokens) &&
+	      !isAheadSkipGroups(1, schemaTextTokens, schemaTextStopTokens) })
+  <LBRACK> actuals=ExprList() endTok=<RBRACK> 
+  { return new TokenAndTermArray(endTok, actuals); }
+|
+  { return new TokenAndTermArray(null, new Expr[0]); }
+}
+
+/**
+ * Bindings.
+ */
+void Bindings(Vector v): {
+}{
+  [ Binding(v) ( <COMMA> Binding(v) )* ]
+}
+
+/**
+ * Binding.
+ */
+void Binding(Vector v): {
+  NameDecl name; Expr def;
+}{
+  name=Name() <DEFEQ> def=Expr()
+  {
+    v.addElement(setOrig(locator(name, def), Expr.Decl.Eqn(name, def)));
+  }
+}
+
+
+/** 
+ * Schema text or expression. 
+ */
+Expr TextOrExpr(Token begTok): {
+  Expr.Decl[] decls; 
+  Predicate[] prop = null;
+}{
+  decls=Decls()
+  [ <MID> prop=Property() ]
+  {
+    if (prop == null && decls.length == 1 &&
+	decls[0] instanceof Expr.Decl.Inclusion){
+      // lift the included expression
+      return ((Expr.Decl.Inclusion)decls[0]).schema;
+    } 
+    else if (prop == null || prop.length == 0){
+      Locator loc = decls.length > 0 ? locator(decls[0], decls[decls.length-1])
+				     : locator(begTok);
+      return setOrig(loc, Expr.Text(decls, new Predicate[0]));
+    }
+    else {
+      Locator loc = decls.length > 0 ? locator(decls[0], prop[prop.length-1])
+				     : locator(begTok, prop[prop.length-1]);
+      return setOrig(loc, Expr.Text(decls, prop));
+    }
+  }
+}
+
+/**
+ * Expression list.
+ */
+Expr[] ExprList() : 
+{
+  Vector v = new Vector();
+  Expr e;
+}
+{
+  e=Expr() { v.addElement(e); }
+  ( <COMMA> e=Expr() { v.addElement(e); } )*
+  { return newExprs(v); }
+}
+
+
+// ---------------------------------------------------------------------------
+// mSZ States
+
+
+/**
+ * State box declaration part.
+ */
+void StateDecls(Vector substates, Vector connectors):{
+}{
+  [ StateDecl(substates,connectors) 
+    ( Separator() [ StateDecl(substates,connectors) ] )* ]
+}
+
+/**
+ * State box declaration.
+ */
+void StateDecl(Vector substates, Vector connectors):{
+  NameDecl[] ndecls;
+}{
+  ndecls=StateNameList()
+  <COLON>
+  ( <BASICSTATE> 
+    { 
+      for (int i = 0; i < ndecls.length; i++){
+	substates.addElement(
+	  setOrig(locator(ndecls[i]),
+		  State.BasicState(ndecls[i]))
+	);
+      }
+    }
+  | <REFSTATE> 
+    { 
+      for (int i = 0; i < ndecls.length; i++){
+	substates.addElement(
+	  setOrig(locator(ndecls[i]),
+		  State.RefState(ndecls[i]))
+	);
+      }
+    }
+  | <CONNECTOR>
+    { 
+      for (int i = 0; i < ndecls.length; i++){
+	connectors.addElement(ndecls[i]);
+      }
+    }
+  )
+}
+
+/**
+ * State box transition part.
+ */
+void Transitions(Vector transitions):{
+}{
+  [ Transition(transitions) 
+    ( Separator() [ Transition(transitions) ] )* ]
+}
+
+
+/**
+ * State box transition.
+ */
+void Transition(Vector transitions):{
+  NameDecl source; NameDecl target;
+  LabelExpr lexpr = null;
+}{
+  source=StateName()
+  [ <WHEN> lexpr=LabelExpr() ]
+  <GOTO>
+  target=StateName()
+  {
+    if (lexpr == null){
+      Locator loc = locator(source);
+      Predicate truth = setOrig(loc,
+				Predicate.Fact(Predicate.FactKind.True));
+      lexpr = (LabelExpr)setOrig(
+			   loc,
+			   LabelExpr.Guarded(truth, truth)
+			 );
+    }
+    transitions.addElement(
+      setOrig(locator(source, target),
+	      new Transition(toNameAppl(source), 
+			     toNameAppl(target), lexpr))
+    );
+  }
+}
+
+/**
+ * Static reaction label expression part.
+ */
+void LabelExprs(Vector labelExprs):{
+  LabelExpr lexpr;
+}{
+  [ lexpr=LabelExpr() { labelExprs.addElement(lexpr); }
+    ( Separator() [ lexpr=LabelExpr() { labelExprs.addElement(lexpr); } ] )*
+  ]
+}
+
+/**
+ * Label expression.
+ */
+LabelExpr LabelExpr():{
+  Predicate guard, action; 
+}{
+  guard=Predicate()
+  ( <TRANSLABEL>
+    action=Predicate()
+    {
+      return (LabelExpr)setOrig(locator(guard, action),
+				LabelExpr.Guarded(guard, action));
+    }
+  |
+    {
+      return (LabelExpr)setOrig(locator(guard),
+				LabelExpr.Temporal(guard));
+    }
+  )
+}
+  
+
+
+
+/**
+ * State name list.
+ */
+NameDecl[] StateNameList():{
+  Vector v = new Vector();
+  NameDecl n;
+}{
+  n=StateName() { v.addElement(n); }
+  ( <COMMA> n=StateName() { v.addElement(n); } )*
+  { NameDecl[] res = new NameDecl[v.size()];
+    v.copyInto(res);
+    return res;
+  }
+}
+
+/**
+ * State name.
+ */
+NameDecl StateName():{
+  NameDecl name;
+}{
+  name=SimpleName() { return name; }
+}
+
+/**
+ * State name option.
+ */
+NameDecl StateNameOpt():{
+  NameDecl name;
+}{
+  name=SimpleName() { return name; } | { return null; }
+}
+
+  
+// ---------------------------------------------------------------------------
+// Names
+
+/**
+ * Names.
+ */
+NameDecl Name():{
+  NameDecl name;
+}{
+  name=SimpleName() { return name; }
+  |
+  name=MixfixName() { return name; }
+}
+
+/**
+ * Simple names.
+ */
+NameDecl SimpleName() : {
+  Token t;
+}{
+  t=<SIMPLENAME>
+  { TextToken tt = (TextToken)t;
+    return setOrig(tt.locator,
+		   new NameDecl(((Lexem.SimpleName)tt.lexem).image));
+  }
+}
+
+/** 
+ * Mixfix names.
+ */
+NameDecl MixfixName() : {
+  Token begTok = null;
+  Token endTok;
+  StringBuffer buf = new StringBuffer();
+}{
+  (
+    endTok=<ARG> 
+    { buf.append("_"); 
+      if (begTok == null) begTok = endTok;
+    }
+  |
+    endTok=<LISTARG>  
+    { buf.append(",,"); 
+      if (begTok == null) begTok = endTok;
+    }
+  |
+    LOOKAHEAD({ lookingAt(mixfixKeys) })
+    ( endTok=<KEYWORD> |
+      endTok=<PKEYWORD> |
+      endTok=<LKEYWORD> |
+      endTok=<RKEYWORD> |
+      endTok=<CROSS> |
+      endTok=<POWER> |
+      endTok=<LGROUP> |
+      endTok=<RGROUP> 
+    )
+    { buf.append(((TextToken)endTok).lexem.toString());
+      if (begTok == null) begTok = endTok; 
+    }
+  )+
+  { return setOrig(locator(begTok, endTok), 
+		   new NameDecl(new Name(buf.toString()))); 
+  }
+}
+
+  
+// ---------------------------------------------------------------------------
+// Dummy rule filled out by genlexis, to let all tokens induced by
+// the LEXTABLE be referred in this grammar
+// Can be removed when the grammar is complete
+
+void dummyRule(): 
+{
+  Lexem lexem = null;
+  Token tok;
+}
+{
+<LGLUE> | <RGLUE> | <LGROUP> | <RGROUP> | <MACROARG> |
+// @@TOKENRULE lexem,zeta.content.text.Lexem,Z,DZ,MSZ
+// generated by genlexis:
+<AGGREG> { lexem = zeta.content.text.Lexem.Aggreg; }|
+<AND> { lexem = zeta.content.text.Lexem.And; }|
+<ANDSTATE> { lexem = zeta.content.text.Lexem.AndState; }|
+<ARG> { lexem = zeta.content.text.Lexem.Arg; }|
+<ASSOC> { lexem = zeta.content.text.Lexem.Assoc; }|
+<AWAIT> { lexem = zeta.content.text.Lexem.Await; }|
+<BASICSTATE> { lexem = zeta.content.text.Lexem.BasicState; }|
+<CHOICE> { lexem = zeta.content.text.Lexem.Choice; }|
+<CHOP> { lexem = zeta.content.text.Lexem.Chop; }|
+<COLON> { lexem = zeta.content.text.Lexem.Colon; }|
+<COMMA> { lexem = zeta.content.text.Lexem.Comma; }|
+<COMPOSE> { lexem = zeta.content.text.Lexem.Compose; }|
+<COMPUTE> { lexem = zeta.content.text.Lexem.Compute; }|
+<CONNECTOR> { lexem = zeta.content.text.Lexem.Connector; }|
+<CROSS> { lexem = zeta.content.text.Lexem.Cross; }|
+<DATA> { lexem = zeta.content.text.Lexem.Data; }|
+<DEFEQ> { lexem = zeta.content.text.Lexem.Defeq; }|
+<DEFSYN> { lexem = zeta.content.text.Lexem.Defsyn; }|
+<DELTA> { lexem = zeta.content.text.Lexem.Delta; }|
+<DERIVED> { lexem = zeta.content.text.Lexem.Derived; }|
+<DOT> { lexem = zeta.content.text.Lexem.Dot; }|
+<DURATION> { lexem = zeta.content.text.Lexem.Duration; }|
+<DYN> { lexem = zeta.content.text.Lexem.Dyn; }|
+<ELSE> { lexem = zeta.content.text.Lexem.Else; }|
+<ENRICH> { lexem = zeta.content.text.Lexem.Enrich; }|
+<EVERYWHERE> { lexem = zeta.content.text.Lexem.Everywhere; }|
+<EXISTS> { lexem = zeta.content.text.Lexem.Exists; }|
+<EXISTS1> { lexem = zeta.content.text.Lexem.Exists1; }|
+<FALSE> { lexem = zeta.content.text.Lexem.False; }|
+<FLOW> { lexem = zeta.content.text.Lexem.Flow; }|
+<FOLLOWEDBY> { lexem = zeta.content.text.Lexem.FollowedBy; }|
+<FORALL> { lexem = zeta.content.text.Lexem.Forall; }|
+<GOTO> { lexem = zeta.content.text.Lexem.Goto; }|
+<HIDE> { lexem = zeta.content.text.Lexem.Hide; }|
+<IF> { lexem = zeta.content.text.Lexem.If; }|
+<IFF> { lexem = zeta.content.text.Lexem.Iff; }|
+<IMPLIES> { lexem = zeta.content.text.Lexem.Implies; }|
+<INIT> { lexem = zeta.content.text.Lexem.Init; }|
+<INTERNFLOW> { lexem = zeta.content.text.Lexem.Internflow; }|
+<INPUT> { lexem = zeta.content.text.Lexem.Input; }|
+<LAMBDA> { lexem = zeta.content.text.Lexem.Lambda; }|
+<LBIND> { lexem = zeta.content.text.Lexem.Lbind; }|
+<LEFTASSOC> { lexem = zeta.content.text.Lexem.LeftAssoc; }|
+<LBRACK> { lexem = zeta.content.text.Lexem.Lbrack; }|
+<LDATA> { lexem = zeta.content.text.Lexem.Ldata; }|
+<LEADSTO> { lexem = zeta.content.text.Lexem.Leadsto; }|
+<LENGTH> { lexem = zeta.content.text.Lexem.Length; }|
+<LET> { lexem = zeta.content.text.Lexem.Let; }|
+<LINESEP> { lexem = zeta.content.text.Lexem.Linesep; }|
+<LISTARG> { lexem = zeta.content.text.Lexem.ListArg; }|
+<LPARENTH> { lexem = zeta.content.text.Lexem.Lparenth; }|
+<LSET> { lexem = zeta.content.text.Lexem.Lset; }|
+<LSTATE> { lexem = zeta.content.text.Lexem.Lstate; }|
+<LTRANS> { lexem = zeta.content.text.Lexem.Ltrans; }|
+<MID> { lexem = zeta.content.text.Lexem.Mid; }|
+<MU> { lexem = zeta.content.text.Lexem.Mu; }|
+<NOT> { lexem = zeta.content.text.Lexem.Not; }|
+<OR> { lexem = zeta.content.text.Lexem.Or; }|
+<PIPE> { lexem = zeta.content.text.Lexem.Pipe; }|
+<PRE> { lexem = zeta.content.text.Lexem.Pre; }|
+<PREEMPT> { lexem = zeta.content.text.Lexem.Preempt; }|
+<PORT> { lexem = zeta.content.text.Lexem.Port; }|
+<POWER> { lexem = zeta.content.text.Lexem.Power; }|
+<PROPERTY> { lexem = zeta.content.text.Lexem.Property; }|
+<PREFIX> { lexem = zeta.content.text.Lexem.Prefix; }|
+<PROJECT> { lexem = zeta.content.text.Lexem.Project; }|
+<RBIND> { lexem = zeta.content.text.Lexem.Rbind; }|
+<RBRACK> { lexem = zeta.content.text.Lexem.Rbrack; }|
+<RDATA> { lexem = zeta.content.text.Lexem.Rdata; }|
+<REFSTATE> { lexem = zeta.content.text.Lexem.RefState; }|
+<REPEAT> { lexem = zeta.content.text.Lexem.Repeat; }|
+<RIGHTASSOC> { lexem = zeta.content.text.Lexem.RightAssoc; }|
+<RPARENTH> { lexem = zeta.content.text.Lexem.Rparenth; }|
+<RSET> { lexem = zeta.content.text.Lexem.Rset; }|
+<RSTATE> { lexem = zeta.content.text.Lexem.Rstate; }|
+<RTRANS> { lexem = zeta.content.text.Lexem.Rtrans; }|
+<SEMI> { lexem = zeta.content.text.Lexem.Semi; }|
+<SLASH> { lexem = zeta.content.text.Lexem.Slash; }|
+<SOMEWHERE> { lexem = zeta.content.text.Lexem.Somewhere; }|
+<SPOT> { lexem = zeta.content.text.Lexem.Spot; }|
+<STROKEIN> { lexem = zeta.content.text.Lexem.StrokeIn; }|
+<STROKEOUT> { lexem = zeta.content.text.Lexem.StrokeOut; }|
+<STROKEPRIME> { lexem = zeta.content.text.Lexem.StrokePrime; }|
+<THEN> { lexem = zeta.content.text.Lexem.Then; }|
+<THETA> { lexem = zeta.content.text.Lexem.Theta; }|
+<TO> { lexem = zeta.content.text.Lexem.To; }|
+<TRANS> { lexem = zeta.content.text.Lexem.Trans; }|
+<TRANSLABEL> { lexem = zeta.content.text.Lexem.TransLabel; }|
+<TRUE> { lexem = zeta.content.text.Lexem.True; }|
+<WHEN> { lexem = zeta.content.text.Lexem.When; }|
+<XI> { lexem = zeta.content.text.Lexem.Xi; }|
+<XORSTATE> { lexem = zeta.content.text.Lexem.XorState; }|
+tok = <NUMBER> { lexem = new zeta.content.text.Lexem.Number(tok.image.toString()); }|
+tok = <DENOTATION> { lexem = new zeta.content.text.Lexem.Denotation(tok.image.toString()); }|
+tok = <STROKEINDEX> { lexem = new zeta.content.text.Lexem.StrokeIndex(tok.image.toString()); }|
+tok = <WORD> { lexem = new zeta.content.text.Lexem.Word(tok.image.toString()); }
+
+// @@ENDTOKENRULE
+}
+
+  
+
+

@@ -1,0 +1,21 @@
+plugin HOLZAdaptor
+load specification.tex
+load rbac.tex
+load concrete.tex
+#c -u ZSaccessDecision
+#c -u ZSrbacAdmin
+#c -u ZSspecification
+#holz -u LTX:ZSbasicTypes#specification holz/ZSbasicTypes.holz -s
+#holz -u LTX:ZSexceptions#specification holz/ZSexceptions.holz -s
+#holz -u LTX:ZSir#specification holz/ZSir.holz -s
+#holz -u LTX:ZSpolicies#specification holz/ZSpolicies.holz -s
+#holz -u LTX:ZSusers#specification holz/ZSusers.holz -s
+#holz -u LTX:ZSdomainsObjects#specification holz/ZSdomainsObjects.holz -s
+#holz -u LTX:ZScredentialsCurrent#specification holz/ZScredentialsCurrent.holz -s
+#holz -u LTX:ZSauthenticator#specification holz/ZSauthenticator.holz -s
+#holz -u LTX:ZSrequiredRights#specification holz/ZSrequiredRights.holz -s
+#holz -u LTX:ZSaccessDecision#specification holz/ZSaccessDecision.holz -s
+#holz -u LTX:ZSrbac#rbac holz/ZSrbac.holz -s
+#holz -u LTX:ZSrbacAdmin#rbac holz/ZSrbacAdmin.holz -s
+holz -u LTX:ZSspecification#concrete
+quit

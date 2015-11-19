@@ -1,0 +1,56 @@
+package zeta.content.zirp;
+
+/** The class and slot of layout annotations.
+  * 
+  * A layout slot is optionally provided at item terms. It  gives
+  * information about the external representation.
+  * 
+  *
+  * @version $Id: Layout.pizza,v 1.2 1998/09/01 17:34:12 wg Exp $ 
+  *
+  */
+
+import zeta.util.*;
+import zeta.content.zirp.*;
+
+import zeta.format.*;
+
+public class Layout extends Term {
+
+  /** The slot object. */
+  public static final Slot slot = Slot.register(Layout.class.getName(),
+						Layout.class);
+
+  /** Set value of layout annotation slot.
+    * @param an    the annotation
+    * @param type  the layout
+    * @return new annotation with the given layout 
+    *  in its slot.
+    */
+  public static void put(Annotation an , Layout layout){
+    slot.put(an, layout);
+  }
+
+  /** Get value of layout annotation slot.
+    * @param an    the annotation
+    * @return the type, or null, if no one is provided.
+    */
+  public static Layout get(Annotation an){
+    return (Layout)slot.get(an);
+  }
+
+  /** Test whether layout annotation slot is provided. 
+    * @param an   the annotation
+    * @return true if the layout annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+  /** Horizontal box layout. */
+  public case HorizontalBox;
+
+  /** Vertical box layout. */
+  public case VerticalBox;
+
+}

@@ -1,0 +1,199 @@
+package zeta.tools.util;
+
+/**
+ * A form for entering an expression.
+ *
+ * @version $Id: ExprForm.pizza,v 1.9 2000/05/14 17:43:32 wg Exp $
+ */
+
+import java.io.Serializable;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import java.io.File;
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.zirp.*;
+
+
+public class ExprForm extends TextForm {
+
+  private static SourceInfo sinfo = new SourceInfo("Z_Expression");
+
+  /**
+   * The class of expression form states. 
+   */
+  public static class State extends TextForm.State {
+    /** 
+     * @param unit  a UnitForm-state which holds the unit in which
+     *              context this expression is evaluated. Must be defined.
+     * @param text  the textual representation of the expression. May
+     *              be null.
+     * @param translator a translator which may augment the text before 
+                    it is checked as an expression. <code>null</code>
+		    if not translation is present.
+     * @param expr  the parsed expression, if any. May be null.
+     */
+    public case State(UnitForm.State unitState,
+		      String text,
+		      (String)->String translator,
+		      Expr expr);
+
+    /**
+     * Return the text in the state.
+     */
+    public String getText(Session session){
+      ExprForm.State estate = (ExprForm.State)this;
+      if (estate.text == null)
+	return "";
+      else
+	return estate.text;
+    }
+
+    /**
+     * Set the draft text.
+     */
+    public boolean setDraftText(Session session, String text){
+      ((ExprForm.State)this).text = text;
+      return true;
+    }
+
+    /**
+     * Confirm the draft text.
+     */
+    public void confirmText(Session session, Locator locator, Object source)
+    throws Failures.FormFailed {
+      ExprForm.State estate = (ExprForm.State)this;
+      if (estate.unitState.unit == null){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   "unit needed for expression input")
+	);
+	throw new Failures.FormFailed("ExprForm");
+      }
+      if (estate.text == null || estate.text.length() == 0){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   "text needed for expression input")
+	);
+	throw new Failures.FormFailed("ExprForm");
+      }
+      sinfo.makeInput(session, locator, estate.text);
+      if (estate.translator != null) {
+	sinfo.nextInput = estate.translator(sinfo.nextInput);
+      }
+
+      Expr expr = ZirpUtil.enterExpr(session, estate.unitState.unit,  
+				     locator.getTool(),
+				     sinfo.nextInputName,
+				     sinfo.nextInputLine,
+				     sinfo.nextInputColumn,
+				     sinfo.nextInput);
+      if (expr != null){
+	estate.expr = expr;
+	addToHistory(estate.text);
+      } else
+	throw new Failures.FormFailed("ExprForm");
+      estate.notifyChange(source);
+    }
+
+    /**
+     * We want a history.
+     */
+    public boolean hasHistory(Session s){
+      return true;
+    }
+
+    /**
+     * We want external editing.
+     */
+    public File getExternFile(Session s){
+      return new File("_Z_Expression_");
+    }
+
+  }
+
+  /**
+   * Construct an expression from from a state. 
+   */
+  public ExprForm(State state){
+    super(state);
+  }
+
+  /** 
+   * Get syntax.
+   */
+  public String getSyntax(){
+    return "<EXPR>";
+  }
+
+  /**
+   * Overwrite parse method to eat text until the end of command.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start) throws Failures.FormFailed {
+    if (start < words.length){
+      String cword = words[start];
+      while (++start < words.length){
+	cword += " " + words[start];
+      }
+      state.setDraftText(session, cword);
+      state.confirmText(session, locator, this);
+      return start;
+    } else
+      return -1;
+  }
+
+
+  /**
+   * Utility class for extracting source information. Shared with
+   * <code>PredicateForm</code>.
+   */
+  static class SourceInfo {
+    private int tempCounter = 1;
+    private String prefix;
+    Name nextInputName;
+    int nextInputLine;
+    int nextInputColumn;
+    String nextInput;
+    SourceInfo(String prefix){
+      this.prefix = prefix;
+    }
+    void makeInput(Session session, Locator locator, String input) {
+      int end;
+      if (input.startsWith("$") && (end = input.indexOf("$", 1)) > 0){
+	String spec = input.substring(1, end);
+	input = input.substring(end+1);
+	nextInputLine = 1;
+	nextInputColumn = 1;
+	int i = spec.indexOf("(");
+	int j = spec.indexOf(".", i+1);
+	int k = spec.indexOf(")", j+1);
+	if (i >= 0 && j >= 0 && k >= 0){
+	  try {
+	    nextInputLine = Integer.parseInt(spec.substring(i+1, j).trim());
+	    nextInputColumn = Integer.parseInt(spec.substring(j+1, k).trim());
+	    spec = spec.substring(0, i);
+	  }
+	  catch (NumberFormatException e){}
+	}
+	nextInputName = new Name(spec);
+	nextInput = input;
+      } else {
+	nextInputName = new Name("_" + prefix + "_");
+	nextInputLine = nextInputColumn = 1;
+	nextInput = input;
+      }
+    }
+  }
+}

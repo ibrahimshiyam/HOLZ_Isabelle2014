@@ -1,0 +1,522 @@
+\documentclass{article}
+
+\usepackage{a4wide}
+\usepackage{zeta}
+
+\parindent0pt
+\parskip3pt
+
+\newenvironment{remark}
+{\begin{small}\begin{quote}\emph{Remark}: }{\end{quote}\end{small}}
+  
+\begin{document}
+\author{Wolfgang Grieskamp}
+\title{Test-Case Evaluation for the Birthday Book Example}
+\maketitle
+\begin{abstract}
+
+Below, the well-known example of the \emph{birthday book}
+specification is used to illustrate the basic operation of \ZAP.
+Starting with the usual abstract specification of the birthday book,
+we refine it for the purpose of executability (mainly fixing given
+types in the specification), and add a framework for evaluating
+\emph{test-data} described by input/output behavior.
+The test-data is supposed to be be observed from an
+implementation of the birthday book. The example illustrates most
+of the capabilities of \ZAP{}: the ability to execute the schema
+calculus, to lift schemas to functions, and to define recursive
+higher-order functions and relations. 
+
+\end{abstract}
+
+
+
+
+\section{The Basic Specification}
+
+The specification is partitioned into several Standard Z sections. The
+first one, $BBSpec$, contains the basic, or ``abstract'' specification
+of the birthday book example, as usually found in the literature.
+
+The section $BBSpec$ is opened with the following declaration (all
+paragraphs following this declaration until the next section
+declaration will belong to $BBSpec$):
+
+\begin{zdirectives} % an environment which behaves for LaTeX like zed, 
+                    % but contains special Z paragraphs such as 
+                    % sections and operator template declarations.
+  \zsection{BBSpec}
+\end{zdirectives}
+
+We first define the given types $NAME$ and $DATE$, and the data
+state of the birthday book:
+
+\begin{zedgroup} % using this environment lets the LaTeX style
+                 % try to layout the enclosing definitions side-by-side
+                 % (if they fit)
+
+\begin{zed}
+  [NAME,DATE]
+\end{zed}
+
+\begin{schema}{BirthdayBook}
+  known: \power NAME \\
+  birthday: NAME \pfun DATE
+\where
+  known = \dom birthday
+\end{schema}
+
+\end{zedgroup}
+
+An \emph{initial state} of the birthday book is given by the following
+schema:
+
+\begin{axdef}
+ InitBirthdayBook == [BirthdayBook | birthday = \emptyset] 
+\end{axdef}
+
+The value of this schema can be evaluated:
+
+\begin{zexecexpr}
+ InitBirthdayBook
+\yields
+ {<birthday == {},known == {}>}
+\end{zexecexpr}
+
+\begin{remark}
+  In order to perform evaluation of $InitBirthdayBook$, either type in
+  the name in the \texttt{Execute} panel of the GUI commander, or in
+  the command line of the XEmacs commander. Under XEmacs, you may also
+  do the following: select the literal text \texttt{InitBirthdayBook}
+  in the source of this document (\texttt{bbook.tex}) using the mouse,
+  and then either choose \texttt{Region as Expression} from the
+  \Zeta{} menu, or, as a shortcut, click button 2 while pressing the
+  meta key.
+\end{remark}
+
+Further evaluation of birthday book values fails because the types
+$NAME$ and $DATE$ are still abstract -- we don't know yet how
+to denote values of these types. Abilities for doing so will be
+introduced in the next Section.
+
+For the basic birthday book specification, we define some operations:
+
+\begin{zedgroup}
+\begin{schema}{AddBirthday}
+  \Delta BirthdayBook \\
+  name?: NAME; date?: DATE
+\where
+  name? \notin known \\
+  birthday' = birthday \cup \{name? \mapsto date?\}
+\end{schema}
+\begin{schema}{FindBirthday}
+  \Xi BirthdayBook \\
+  name?: NAME; date!: DATE 
+\where
+  name? \in known \\
+  date! = birthday(name?)
+\end{schema}
+\begin{schema}{Remind}
+  \Xi BirthdayBook \\
+  today?: DATE; cards!: \power NAME
+\where
+  cards! = \{ n: NAME | n \in known; birthday(n) =   today? \}\\
+\end{schema}
+\begin{schema}{Remove}
+  \Delta  BirthdayBook \\
+  name?:  NAME
+\where
+  birthday' = \{ name?  \} \ndres birthday\\
+\end{schema}
+\end{zedgroup}
+
+The schema $AddBirthday$ adds a mapping $name? \mapsto date?$ to
+the birthday books state, the schema $FindBirthday$ lookups the
+birthday of a particular $name?$, and the schema $Remind$ yields
+the set of names whose birthday is $today?$. The schema $Remove$
+deletes the entry for $name?$ from the birthday book. 
+
+\section{Refinement for Execution}
+
+A refinement of the section $BBSpec$ for execution is defined by the
+section $BBExec$:
+
+\begin{zdirectives}
+  \zsection[BBSpec]{BBExec}
+\end{zdirectives}
+
+%%zap protected
+
+The purpose of the refinement is to fix the given types $NAME$ and
+$DATE$. The Z of \Zeta{} allows to refine given
+types by free types. Below, the type of dates is described by the
+schema ${}Date$:
+
+\begin{zedgroup}
+\begin{zed}
+  NAME ::= Werner | Barbara | Martin\\
+  DATE ::= date \ldata Date \rdata \\
+\end{zed} \\
+
+\begin{schema}{Date}
+  day : \nat;
+  month : \nat;
+  year : \nat
+\where
+  day \in 1 \upto 31 \\
+  month \in 1 \upto 12;
+  month = 2 \implies day \leq 29;
+  month \in \{4,6,7,9,11\} \implies day \leq 30 \\
+  year \geq 0
+\end{schema}
+\end{zedgroup}
+
+\begin{remark}
+  One may ask why, in the schema $Date: 2000/07/20 06:44:07 $, we put constraints such as
+  $day \in 1 \upto 31$ in the property part instead of in the
+  declaration part, declaring $date: 1 \upto 31$, as it is Z praxis.
+  The reason is that \ZAP{} ignores constraints imposed by
+  declarations $n:E$. In many cases, such constraints are not
+  executable. Consider e.g.~the declaration of a function to be total:
+  $f: \num \fun \num$. If $f$ is non-finitely defined, this constraint
+  can not be resolved.
+\end{remark}
+
+We can now evaluate expressions by applying the $date$ constructor
+to bindings:
+
+\begin{zexecexpr}
+  date \lbind day == 1, month == 1, year == 1999 \rbind   
+\yields
+date <day == 1,month == 1,year == 1999>
+\end{zexecexpr}
+
+The next application of the $date$ constructor is undefined,
+since the passed binding is not in its domain (the month $2$,
+February, has no $30$th day):
+
+\begin{zexecexpr}
+  date \lbind day == 30, month == 2, year == 1999 \rbind 
+\yields
+WARNING[<ZAM>]: 
+  undefined in toplevel goal {
+    resolving ZAPSCRATCHUNIT GLOBALS
+    unresolved constraints:
+     LTX:bbook.tex(199.3-199.56) undefined: 
+      mu-value undefined
+  }
+*unknown*
+\end{zexecexpr}
+
+Next we introduce some convenience functions for describing operations
+on birthday books in the schema calculus.  These functions make use of
+new features of the Standard regarding unification of schema
+expressions and plain expressions: they yield a set of bindings, that
+is a schema, which can be used in schema expressions:
+
+\begin{axdef}
+  add == 
+   \lambda name?: NAME;  date?:  DATE @ [\Delta BirthdayBook | AddBirthday] \\
+  find == 
+    \lambda name?: NAME @ [\Delta BirthdayBook; date!: DATE | FindBirthday ] \\
+  remind == 
+    \lambda today?: DATE @ 
+      [\Delta BirthdayBook; cards!: \power NAME  | Remind ] \\
+  remove == 
+    \lambda name?: NAME @ [\Delta BirthdayBook | Remove ]
+\end{axdef}
+
+We can now express computations on the birthday book, starting
+from the initial state:
+
+\begin{zexecexpr}
+  InitBirthdayBook \\\t1
+  \semi add(Werner, date \lbind   day == 7, month == 5, year == 1929 \rbind)
+\yields
+{<birthday == {},
+  birthday' == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  known == {},known' == {Werner}>}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ InitBirthdayBook   \\\t1
+ \semi add(Werner, date \lbind day==7,month==5,year==1929 \rbind) \\\t1
+ \semi add(Barbara,date \lbind day==18,month==11, year==1935 \rbind)\\\t1
+ \semi add(Martin,date \lbind day==18, month==11, year==1935 \rbind)\\\t1
+ \semi find(Werner)\\\t1
+ \semi remind(date \lbind day==18, month==11, year==1935 \rbind)\\\t1
+ \semi remove(Martin)
+\yields
+{<birthday == {},
+  birthday' ==
+   {(Barbara,date <day == 18,month == 11,year == 1935>),
+    (Werner,date <day == 7,month == 5,year == 1929>)},
+  cards! == {Barbara,Martin},
+  date! == date <day == 7,month == 5,year == 1929>,known == {},
+  known' == {Barbara,Werner}>}
+\end{zexecexpr}
+
+The last evaluation deserves some notes on the $\_ \semi \_$ schema
+operation. $Op_1 \semi Op_2$ binds primed names $x'$ from the
+signature of $Op_1$ to unprimed counterparts $x$ in the signature of
+$Op_2$. Variables not bound this way (such as $cards!$ and $date!$) 
+or kept as is. In the evaluation result, these variables represent the
+result of applying the $find$ and $remind$ operations, respectively.
+
+The application of a unique schema $InitBirthdaybook$ (given by a
+singleton binding set) to deterministic operations yields a singleton
+binding set. \ZAP{} is also capable of handling non-unique initial states
+and indeterministic operations. Consider the following definitions:
+
+\begin{zed}
+  InitBirthdayBook2 == \\\t1
+    \< InitBirthdayBook \lor \\
+       [ BirthdayBook | \\\t1
+           birthday = \{Werner \mapsto 
+                         date \lbind day==7,month==5,year==1929 \rbind\} ] \>
+\end{zed}
+
+Evaluations yield:
+
+\begin{zexecexpr}
+ InitBirthdayBook2
+\yields
+{<birthday == {},known == {}>,
+ <birthday == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  known == {Werner}>}
+\end{zexecexpr}
+\begin{zexecexpr}
+ InitBirthdayBook2 \\\t1
+ \semi (add(Barbara,date \lbind day==18,month==11, year==1935 \rbind)\\\t2
+    \lor add(Martin,date \lbind day==18, month==11, year==1935 \rbind))
+\yields
+{<birthday == {},
+  birthday' == {(Barbara,date <day == 18,month == 11,year == 1935>)},
+  known == {},known' == {Barbara}>,
+ <birthday == {},
+  birthday' == {(Martin,date <day == 18,month == 11,year == 1935>)},
+  known == {},known' == {Martin}>,
+ <birthday == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  birthday' ==
+   {(Barbara,date <day == 18,month == 11,year == 1935>),
+    (Werner,date <day == 7,month == 5,year == 1929>)},known == {Werner},
+  known' == {Barbara,Werner}>,
+ <birthday == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  birthday' ==
+   {(Martin,date <day == 18,month == 11,year == 1935>),
+    (Werner,date <day == 7,month == 5,year == 1929>)},known == {Werner},
+  known' == {Martin,Werner}>}
+\end{zexecexpr}
+
+Of course, such evaluations might easily lead to an explosion of
+possibilities. 
+
+\begin{remark}
+  To understand the principles behind the above evaluations, recall
+  that the schema calculus just works on \emph{sets} of bindings. The
+  schema operation $S_1 \land S_2$ is just a shortcut for the set
+  intersection $S_1\omega_1 \cap S_2\omega_2$, where $\omega_i$'s are
+  according morphisms which map the binding sets $S_i$ to their
+  smallest common signature. Similarly, $S_1 \lor S_2$ is
+  $S_1\omega_1 \cup S_2\omega_2$. The schema operation $S_1 \semi S_2$
+  is just a shortcut for $(S_1\omega_1 \land S_2\omega_2)\omega_3$, where
+  $\omega_1$ and $\omega_2$ are morphisms which identify the bound variables,
+  and $\omega_3$ is a morphism which forgets the bound variables. In fact,
+  the execution model of \ZAP{} is based mostly on set algebra
+  and morphisms on sets.
+\end{remark}
+
+
+\section{Refinement for Testing}
+
+A refinement of the section $BBExec$ for the purpose of evaluation of
+test-data with ZAP is given by the section $BBTest$:
+
+\begin{zdirectives}
+  \zsection[BBExec]{BBTest}
+\end{zdirectives}
+
+The test-data will be specified by sequences of input and
+output behavior of the birthday book. The original specification
+does not provide uniform input and output interfaces. Yet, we can
+lift the original specification without modifying it to such uniform
+interfaces.
+
+First, we define free types for describing the input and output behavior:
+
+\begin{zed}
+ INPUT ::= \\\t1
+  addI \ldata  NAME \cross DATE \rdata |\\\t1
+  findI \ldata NAME \rdata |\\\t1
+  remindI \ldata DATE \rdata |\\\t1
+  removeI \ldata NAME \rdata\\
+ OUTPUT ::= \\\t1
+  okayO |\\\t1
+  dateO \ldata DATE \rdata |\\\t1
+  namesO \ldata \power NAME \rdata\\
+\end{zed}
+
+Next, we lift the operations of the original specification to ones with
+uniform input/output interfaces:
+
+\begin{zed}
+ UniformAdd == \\\t1
+  [ \Delta BirthdayBook; in: INPUT; out: OUTPUT | \\\t2
+     \exists name?: NAME; date?: DATE @ \\\t3
+       (name?, date?) \mapsto in \in addI 
+       \land AddBirthday 
+       \land out = okayO ]  \\
+ UniformFind == \\\t1
+  [ \Delta BirthdayBook; in: INPUT; out: OUTPUT | \\\t2
+     \exists name?: NAME; date!: DATE @ \\\t3
+       name? \mapsto in \in findI 
+       \land FindBirthday 
+       \land date! \mapsto out \in dateO ]\\
+ UniformRemind == \\\t1
+  [ \Delta BirthdayBook; in: INPUT; out: OUTPUT | \\\t2
+     \exists today?: DATE; cards!: \power NAME @ \\\t3
+        today? \mapsto in \in remindI 
+        \land Remind 
+        \land cards! \mapsto out \in namesO ]\\
+ UniformRemove == \\\t1
+  [ \Delta BirthdayBook; in: INPUT; out: OUTPUT | \\\t2
+     \exists name?: NAME @  \\\t3
+       name? \mapsto in \in removeI 
+       \land Remove 
+       \land out = okayO ]\\
+\end{zed}
+
+\begin{remark}
+  Why do we write e.g.~$(name?,date?) \mapsto in \in addI$ instead of
+  $in = addI(name?,date?)$? The reason is that $addI$ is partial
+  function, and \ZAP{} is not allowed to perform backwards
+  computation (that is computing the inputs from the outputs) 
+  for such functions. Only if the domain of a constructor function
+  is total, the equality notation is allowed.
+\end{remark}
+
+\ZAP{} has no problems with the execution of such morphed operations.
+Instead of illustrating this we directly continue by defining a
+framework which tests if sequences of $INPUTS$ and $OUTPUTS$ do match
+the specification. The final evaluation of the test-data will proof
+our claim.
+
+On the level of the schema calculus, a ``state transition'' of the
+birthday book is defined as the disjunction of all the 
+operations with uniform I/O interface:
+
+\begin{zed}
+  UniformOps == UniformAdd \lor UniformFind \lor UniformRemind \lor UniformRemove
+\end{zed}
+
+Next we define a function which, given a pair of input and
+output states, yields a relation between admissible pre and post states
+of the birthday book w.r.t.~this I/O behavior:
+
+\begin{axdef}
+  step == \lambda in: INPUT; out: OUTPUT @ \\\t3
+\{ \Delta BirthdayBook | UniformOps @ (\theta BirthdayBook, \theta BirthdayBook ') \}
+\end{axdef}
+
+
+Finally, a recursive ``test''-function is defined which computes the
+post-states resulting from a sequence of input and output traces. The
+function takes as a parameter a set of initial states -- the condition
+to let it be executable is that this set is finitely enumeratable:
+
+\begin{axdef}
+  test : \power BirthdayBook \fun 
+             \seq INPUT \cross \seq OUTPUT \fun  \power  BirthdayBook\\
+\where
+  test = \lambda  init: \power BirthdayBook @ \\\t2
+          \lambda  is: \seq INPUT; os: \seq OUTPUT | \# is =  \# os @\\\t3
+           \IF \# is = 0 \THEN init \\\t3
+           \ELSE  step(last~is, last~os)\limg  test(init)( front~is, front~os) \rimg 
+\end{axdef}
+
+
+To test ``test'', some I/O traces representing test data are defined:
+
+\begin{axdef}
+ date1 == date \lbind   day == 7, month == 5, year == 1929 \rbind\\
+ date2 == date \lbind   day == 18, month == 11, year == 1935 \rbind\\
+\end{axdef}
+
+\begin{axdef}
+ in1  == \langle addI(Werner, date1) \rangle \\
+ out1 == \langle okayO \rangle 
+\end{axdef}
+
+\begin{axdef}
+ in2   ==  \langle addI(Werner, date1), findI(Werner) \rangle \\
+ out2  ==  \langle okayO, dateO(date1) \rangle\\
+ out2a ==  \langle okayO, dateO(date2) \rangle
+\end{axdef}
+
+\begin{axdef}
+ in3  == \langle addI(Werner, date1), addI(Barbara, date2), 
+                 addI(Martin, date2),\\\t3
+                 findI(Werner), remindI(date2) \rangle \\
+ in3a  ==  \langle addI(Werner, date1), addI(Werner, date2), 
+                 addI(Barbara, date2),\\\t3
+                 findI(Werner), remindI(date2) \rangle \\
+ out3 ==  \langle okayO, okayO, okayO, dateO(date1), 
+                  namesO(\{Barbara, Martin\}) \rangle \\
+ out3a ==  \langle okayO, okayO, okayO, dateO(date1), 
+                   namesO(\{Barbara\}) \rangle \\
+\end{axdef}
+
+Here are the evaluation results:
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in1, out1)
+\yields
+{<birthday == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  known == {Werner}>}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in2, out2)  
+\yields
+{<birthday == {(Werner,date <day == 7,month == 5,year == 1929>)},
+  known == {Werner}>}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in2, out2a) 
+\yields
+{}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in3, out3) 
+\yields
+{<birthday ==
+   {(Barbara,date <day == 18,month == 11,year == 1935>),
+    (Martin,date <day == 18,month == 11,year == 1935>),
+    (Werner,date <day == 7,month == 5,year == 1929>)},
+  known == {Barbara,Martin,Werner}>}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in3a, out3) 
+\yields
+{}
+\end{zexecexpr}
+
+\begin{zexecexpr}
+ test(InitBirthdayBook)(in3, out3a) 
+\yields
+{}
+\end{zexecexpr}
+
+Failing tests are indicated in that they yield an empty set as the
+post-state of an execution.
+
+
+\end{document}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

@@ -1,0 +1,620 @@
+package zeta.agl;
+
+/** An implementation variant of mappings based on object equality and
+  * hash code. <p>
+  *
+  * This variant is good suited for mappings which will become
+  * relative large. Its efficiency depends on a suitable
+  * implementation of the Object.hashCode() method for the domain
+  * type of the mapping. <p>
+  *
+  * The implementation supports single threadedness w.r.t. to defining
+  * and undefining entries, such that in a consecutive sequence of
+  * operations
+  *
+  * <pre>
+  *   map = map.define(x1,y1);
+  *   map = map.undefine(x2);
+  *   map = map.define(x3,y3);
+  *   ...
+  * </pre>
+  *
+  * no copies of the contents of the aggregate are necessary for the
+  * intermediate values; thus the complexity is in average
+  * O(1+hashCosts). <p>
+  *
+  * The implementation uses similar techniques such as
+  * <code>HashSet</code>; see there for additional information.
+  *
+  * @see zeta.agl.HashSet
+  *
+  * @version $Id: HashMap.pizza,v 1.1.1.1 1998/09/01 10:51:10 wg Exp $ */
+
+// FIXME: synchronous behaviour
+
+
+import net.sf.pizzacompiler.lang.Pair;
+import java.util.NoSuchElementException;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
+import java.io.IOException;
+
+public class HashMap<A,B> extends Map<A,B> {
+
+  /** Hashtable. */
+  HashMapTab<A,B> table;
+
+  /** The change performed on the hash table (null if none). */
+  Change<A,B> change;
+  
+  /** Representation of a change. */
+  static class Change<A,B> {
+    case Defined(A key, HashMap<A,B> descendant);
+    case Replaced(A key, B value, HashMap<A,B> descendant);
+    case Undefined(A elem, B value, HashMap<A,B> descendant);
+  }
+
+  /** Construct an empty hash map with the specified initial capacity
+    * and load factor. 
+    * @param initialCapacity the initial number of buckets
+    * @param loadFactor a number between 0.0 and 1.0, it defines
+    *		the threshold for rehashing the hashtable into
+    *		a bigger one.
+    * @exception IllegalArgumentException If the initial capacity
+    * is less than or equal to zero.
+    * @exception IllegalArgumentException If the load factor is
+    * less than or equal to zero. */
+  public HashMap(int initialCapacity, float loadFactor) {
+     initialize(initialCapacity, loadFactor);
+  }
+
+  private void initialize(int initialCapacity, float loadFactor){
+    if ((initialCapacity <= 0) || (loadFactor <= 0.0)) {
+      throw new IllegalArgumentException();
+    }
+    this.table = new HashMapTab(initialCapacity, loadFactor);
+    this.change = null;
+  }  
+
+  /** Construct an empty hash map. */
+  public HashMap(){
+    initialize(10,0.75f);
+  }
+
+  /** Construct a hash map which contains the enumerated elements of
+    * another aggregate. This static method is optimized according to
+    * the actual representation of the other aggregate.  In particular,
+    * if the other aggregate is a hash map again, it is simply returned. */
+  public static <A,B> Map<A,B> from (Aggregate<Pair<A,B>> other){
+    if (other instanceof HashMap){
+      return (HashMap)other;
+    } else {
+      HashMap<A,B> hmap = new HashMap((int)(other.size() * 0.75f)+1, 0.75f); 
+      for (Enum<Pair<A,B>> e = other.enumerate(); e.more(); e.advance()){
+	Pair<A,B> p = e.current();
+	hmap.table.define(p.fst,p.snd);
+      }
+      return hmap;
+    }
+  }  
+
+  /** Construct a hashmap which contains the enumerated elements
+    * of one aggregate mapped to the elements of another aggregate.
+    * @execption NoSuchElementException  if the both aggregates have
+    *  not the same size. */
+  public static HashMap<A,B> from(Aggregate<A> dom, Aggregate<B> ran){
+    HashMap<A,B> hmap = new HashMap((int)(dom.size() * 0.75f)+1, 0.75f); 
+    Enum<A> edom = dom.enumerate();
+    Enum<B> eran = ran.enumerate();
+    while (edom.more() || eran.more()){
+      hmap.table.define(edom.current(), eran.current());
+      edom.advance(); eran.advance();
+    }
+    return hmap;
+  }
+    
+  /** Construct a hash map which contains the given element mapping. */
+  public HashMap(A key, B value){
+    this();
+    table.define(key, value);
+  }
+
+  /** Construct a hash map from its internal representation. Only for
+    * members of this package. */
+  HashMap(HashMapTab<A,B> table, Change<A,B> change){
+    this.table = table;
+    this.change = change;
+  }
+
+  /** Compact this hash map, by evaluating the changes history. This method
+    * has no semantic effect, but if frees auxiliary memory requested
+    * for this map. */
+  public void compact(){
+    if (change != null) restore();
+  }
+
+  /* Restore changes in hashtable. */
+  private void restore(){
+    restore(change);
+    change = null;
+  }
+  
+  /** Depth-first restoring of changes. */
+  private void restore(Change<A,B> change){
+    // FIXME: remove recursion
+    switch (change){
+    case Defined(A key, HashMap<A,B> descendant):
+      if (descendant.change != null) {
+	descendant.restore();
+      }
+      table = descendant.table.copy();
+      table.undefine(key);
+      break;
+    case Replaced(A key, B value, HashMap<A,B> descendant):
+      if (descendant.change != null) {
+	descendant.restore();
+      }
+      table = descendant.table.copy();
+      table.define(key, value);
+      break;
+    case Undefined(A key, B value, HashMap<A,B> descendant):
+      if (descendant.change != null) {
+	descendant.restore();
+      }
+      table = descendant.table.copy();
+      table.define(key, value);
+      break;
+    }
+  }
+
+  /** Test for equality of this hash map with another object.  An hash
+    * map equals to another object if the other one is an instance
+    * of class <code>Map</code>, contains the same number of elements,
+    * and each domain element of the other map is mapped to the same
+    * value in this hash map. */
+  public boolean equals(Object other){
+    if (other instanceof Map){
+      return equalsMap((Map)other);
+    } else {
+      return false;
+    }
+  }
+
+  private <C,D> boolean equalsMap(Map<C,D> other){
+    if (change != null) restore();
+    if (other.size() == table.size()){
+      for (Enum<Pair<C,D>> e = other.enumerate(); e.more(); e.advance()){
+	Pair<C,D> p = e.current();
+	if (!table.definesObjectAs((Object)p.fst, (Object)p.snd))
+	  return false;
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /** */
+  public int hashCode(){
+    if (change != null) restore();
+    return table.hashCode(); 
+  }
+
+  /** Return an enumeration of elements of the mapping, as pairs
+    * of domain and codomain values. Each pair is returned
+    * exactly once, but the order of enumeration is
+    * not determined. As a result, the <code>compare</code> method
+    * will not coincides with equality on hashed mappings.  */
+  public Enum<Pair<A,B>> enumerate(){
+    if (change != null) restore();
+    return table.copy().enumerate(); // FIXME: copy
+  }
+    
+  /** */
+  public int size(){
+    if (change != null) restore();
+    return table.size();
+  }
+
+  /** */
+  public boolean defines(A key){
+    if (change != null) restore();
+    return table.defines(key);
+  }
+
+  /** */
+  public Map<A,B> define(A key, B value){
+    if (change != null) restore();
+    HashMap<A,B> descendant = new HashMap(table, null);
+    switch (table.define(key, value)){
+    case Option.Some(B oldValue):
+      this.change = new Change.Replaced(key, oldValue, descendant);
+      return descendant;
+    default:
+      this.change = new Change.Defined(key, descendant);
+      return descendant;
+    }
+  }
+
+
+  /** */
+  public Map<A,B> defineAll(Aggregate<Pair<A,B>> other){
+    // FIXME: perhaps use a specialized changes record
+    Map<A,B> res = this;
+    for (Enum<Pair<A,B>> e = other.enumerate(); e.more(); e.advance()){
+      Pair<A,B> p = e.current();
+      res = res.define(p.fst,p.snd);
+    } 
+    return res;
+  }
+
+  /** */
+  public Map<A,B> defineAll(Aggregate<A> elems, Aggregate<B> values)
+  throws NoSuchElementException {
+    // FIXME: perhaps use a specialized changes record
+    Map<A,B> res = this;
+    Enum<A> edom = elems.enumerate();
+    Enum<B> eran = values.enumerate();
+    while (edom.more() || eran.more()){
+      res = res.define(edom.current(), eran.current());
+      edom.advance(); eran.advance();
+    }
+    return res;
+  }
+
+  /** */
+  public Pair<Map<A,B>,B> replace(A key, B value) 
+  throws NoSuchElementException {
+    if (change != null) restore();
+    HashMap<A,B> descendant = new HashMap(table, null);
+    switch (table.define(key, value)){
+    case Option.Some(B oldValue):
+      this.change = new Change.Replaced(key, oldValue, descendant);
+      return new Pair((Map)descendant, oldValue);
+    default:
+      throw new NoSuchElementException();
+    }
+  }
+
+  /** */
+  public Map<A,B> undefine(A key){
+    if (change != null) restore();
+    switch (table.undefine(key)){
+    case Option.Some(B oldValue):
+      HashMap<A,B> descendant = new HashMap(table, null);
+      this.change = new Change.Undefined(key, oldValue, descendant);
+      return descendant;
+    default:
+      return this;
+    }
+  }
+
+  /** */
+  public Map<A,B> undefineAll(Aggregate<A> other){
+    // FIXME: perhaps use a specialized changes record
+    Map<A,B> res = this;
+    for (Enum<A> e = other.enumerate(); e.more(); e.advance()){
+      res = res.undefine(e.current());
+    } 
+    return res;
+  }
+
+
+  /** */
+  public B get(A key)
+  throws NoSuchElementException {
+    if (change != null) restore();
+    return table.get(key);
+  }
+
+  /** */
+  public <C> Map<A,C> mapWithDom((A,B)->C f){
+    if (change != null) restore();
+    return new HashMap(table.mapWithDom(f), null);
+  }
+
+}
+
+/** Auxiliary class for the implementation of hash-maps. */
+
+/*
+ * Copyright (c) 1994 Sun Microsystems, Inc. All Rights Reserved.
+ *
+ * Permission to use, copy, modify, and distribute this software
+ * and its documentation for NON-COMMERCIAL purposes and without
+ * fee is hereby granted provided that this copyright notice
+ * appears in all copies. Please refer to the file "copyright.html"
+ * for further important copyright and licensing information.
+ *
+ * SUN MAKES NO REPRESENTATIONS OR WARRANTIES ABOUT THE SUITABILITY OF
+ * THE SOFTWARE, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+ * TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+ * PARTICULAR PURPOSE, OR NON-INFRINGEMENT. SUN SHALL NOT BE LIABLE FOR
+ * ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR
+ * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES.
+ */
+
+final class HashMapTab<A,B> {
+
+  /** Collision list entry. */
+  static private class Entry<A,B> {
+
+    A key;
+    B elem;
+    int hash;
+    Entry<A,B> next;
+
+    Entry(A key, B elem, int hash, Entry<A,B> next) {
+      this.key = key;
+      this.elem = elem;
+      this.hash = hash;
+      this.next = next;
+    }
+
+    public Entry<A,B> copy() {
+      return new Entry(key, elem, hash,
+			   (next != null) ? next.copy() : null);
+    }
+
+    public <C> Entry<A,C> map((A,B)->C f){
+      return new Entry(key, f(key, elem), hash,
+			   (next != null) ? next.map(f) : null);
+    }
+
+  }
+
+  /** The hash table data. */
+  private Entry<A,B> table[];
+
+
+  /**
+    * The total number of entries in the hash table.
+    */
+  private int count;
+
+  /**
+    * Rehashes the table when count exceeds this threshold.
+    */
+  private int threshold;
+
+  /**
+    * The load factor for the hashtable.
+    */
+  float loadFactor;
+
+
+  /**
+    * Constructs a new, empty hashtable with the specified initial
+    * capacity and the specified load factor.
+    * @param initialCapacity the initial number of buckets
+    * @param loadFactor a number between 0.0 and 1.0, it defines
+    *		the threshold for rehashing the hashtable into
+    *		a bigger one.
+     * @exception IllegalArgumentException If the initial capacity
+     * is less than or equal to zero.
+     * @exception IllegalArgumentException If the load factor is
+     * less than or equal to zero.
+     */
+  HashMapTab(int initialCapacity, float loadFactor) {
+    if ((initialCapacity <= 0) || (loadFactor <= 0.0)) {
+      throw new IllegalArgumentException();
+    }
+    this.loadFactor = loadFactor;
+    table = new Entry[initialCapacity];
+    threshold = (int)(initialCapacity * loadFactor);
+  }
+
+  /** */
+  public int hashCode(){
+    int hash = count;
+    for (int i = 0; i < table.length; i++){
+      Entry<A,B> e = table[i];
+      while (e != null){
+	hash += e.hash;
+	e = e.next;
+      }
+    }
+    return hash;
+  }
+	
+  /**
+    * Returns the number of elements contained in the hash table
+    */
+  int size() {
+    return count;
+  }
+
+  /**
+    * Returns an enumeration of the elements. 
+    */
+  Enum<Pair<A,B>> enumerate() {
+    return new Enumerator(table);
+  }
+  
+  /** A hash table enumerator class. */
+  static private class Enumerator<A,B> implements Enum<Pair<A,B>> {
+    int index;
+    Entry<A,B> table[];
+    Entry<A,B> entry;
+
+    Enumerator(Entry<A,B> table[]) {
+      this.table = table;
+      this.index = table.length;
+      while (entry == null && index > 0){
+	index--;
+	entry = table[index];
+      }
+    }
+	
+    public boolean more() {
+      return entry != null;
+    }
+
+    public Pair<A,B> current() {
+      if (entry != null) {
+	return new Pair(entry.key, entry.elem);
+      } else {
+	throw new NoSuchElementException();
+      }
+    }
+
+    public void advance() {
+      if (entry != null) {
+	entry = entry.next;
+	while (entry == null && index > 0){
+	    index--;
+	    entry = table[index];
+	}
+      } else {
+	throw new NoSuchElementException();
+      }
+    }
+  }
+
+  /** Test if key is defined. */
+  synchronized boolean defines(A key){
+    Entry<A,B> tab[] = table;
+    int hash = ((Object)key).hashCode();
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    for (Entry<A,B> e = tab[index] ; e != null ; e = e.next) {
+      if ((e.hash == hash) && ((Object)key).equals((Object)e.key)) {
+	return true;
+      }
+    }
+    return false;
+  }
+
+  /** Test if key is defined. */
+  synchronized boolean definesObjectAs(Object key, Object val){
+    Entry<A,B> tab[] = table;
+    int hash = key.hashCode();
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    for (Entry<A,B> e = tab[index] ; e != null ; e = e.next) {
+      if ((e.hash == hash) && ((Object)e.key).equals(key)){
+	return ((Object)e.elem).equals(val);
+      }
+    }
+    return false;
+  }
+
+  /** Get element associated with key. */
+  synchronized B get(A key)
+  throws NoSuchElementException {
+    int hash = ((Object)key).hashCode();
+    int index = (hash & 0x7FFFFFFF) % table.length;
+    for (Entry<A,B> e = table[index] ; e != null ; e = e.next) {
+      if ((e.hash == hash) && ((Object)key).equals((Object)e.key)) {
+	return e.elem;
+      }
+    }
+    // if get is used expecting an exception, below treatment causes
+    // efficiency problems:
+    // throw new NoSuchElementException(((Object)key).toString());
+    throw new NoSuchElementException();
+  }
+
+    
+  /** Define the specified key/element assignment, return
+    * the old assignment, if any. 
+    */
+  synchronized Option<B> define(A key, B elem) {
+    int hash = ((Object)key).hashCode();
+    int index = (hash & 0x7FFFFFFF) % table.length;
+    for (Entry<A,B> e = table[index] ; e != null ; e = e.next) {
+      if ((e.hash == hash) && ((Object)key).equals((Object)e.key)) {
+	B old = e.elem;
+	e.elem = elem;
+	return new Option.Some(old);
+      }
+    }
+
+    if (count >= threshold) {
+      // Rehash the table if the threshold is exceeded
+      rehash();
+      index = (hash & 0x7FFFFFFF) % table.length;
+    }
+
+    // Creates the new entry.
+    table[index] = new Entry(key, elem, hash, table[index]);
+    count++;
+    return Option.None;
+  }
+
+  /**
+    * Undefine the specified key assignment, return old, if any.
+    */
+  synchronized Option<B> undefine(A key) {
+    int hash = ((Object)key).hashCode();
+    int index = (hash & 0x7FFFFFFF) % table.length;
+    for (Entry<A,B> e = table[index], prev = null ; e != null ; 
+	 prev = e, e = e.next) {
+      if ((e.hash == hash) && ((Object)key).equals((Object)e.key)){
+	if (prev != null) {
+	  prev.next = e.next;
+	} else {
+	  table[index] = e.next;
+	}
+	count--;
+	return new Option.Some(e.elem);
+      }
+    }
+    return Option.None;
+  }
+
+  /**
+    * Rehashes the content of the table into a bigger table.
+    * This method is called automatically when the hash table
+    * size exceeds the threshold.
+    */
+  private void rehash() {
+    int oldCapacity = table.length;
+    Entry<A,B> oldTable[] = table;
+
+    int newCapacity = oldCapacity * 2 + 1;
+    Entry<A,B> newTable[] = new Entry[newCapacity];
+
+    threshold = (int)(newCapacity * loadFactor);
+    table = newTable;
+
+    for (int i = oldCapacity ; i-- > 0 ;) {
+      for (Entry<A,B> old = oldTable[i] ; old != null ; ) {
+	Entry<A,B> e = old;
+	old = old.next;
+
+	int index = (e.hash & 0x7FFFFFFF) % newCapacity;
+	e.next = newTable[index];
+	newTable[index] = e;
+      }
+    }
+  }
+
+  /**
+    * Creates a copy of the hash table. A shallow copy is made,
+    * the elements themselves are NOT cloned. 
+    */
+  synchronized HashMapTab<A,B> copy() {
+    HashMapTab<A,B> t = new HashMapTab(table.length, loadFactor);
+    for (int i = table.length ; i-- > 0 ; ) {
+      if (table[i] != null) t.table[i] = table[i].copy();
+    }
+    t.count = count;
+    return t;
+  }
+
+  /** Creates a new empty hash table which inherits
+    * attributes such as capacity and loadFactor. */
+  synchronized <C,D> HashMapTab<C,D> deriveNew(){
+    return new HashMapTab(table.length, loadFactor);
+  }
+
+  /** Map the range value of a hash table. */
+  synchronized <C> HashMapTab<A,C> mapWithDom((A,B)->C f) {
+    HashMapTab<A,C> t = new HashMapTab(table.length, loadFactor);
+    for (int i = table.length ; i-- > 0 ; ) {
+      if (table[i] != null) t.table[i] = table[i].map(f);
+    }
+    t.count = count;
+    return t;
+  }
+
+}

@@ -1,0 +1,1916 @@
+\rcsInfo $Id: appendix.tex,v 1.25 2003/10/21 11:43:36 hiss Exp $
+
+\chapter{An Example CVS server setup}\label{cha:textsfs-repos}
+In this chapter, we give a short description of ``our'' CVS server
+setup (see Fig.~\ref{fig:mapping} for an overview) for the software 
+engineering group at the University
+Freiburg. We only describe the specific setup of the used tools, for a 
+comprehensive understanding one should also read the manuals~\cite{vogt:cvsauth:2001,cederqvist.ea:cvs:2000, miller:sudo:2002, frisch:administration:1995} of the used tools.
+\begin{figure}
+  \center
+    \scalebox{0.4}{\input{pics/mapping_overview}}
+    \caption{The general idea/overview for the mapping.\label{fig:mapping}}
+\end{figure}
+
+\section{Motivation}
+\subsection{Our Requirements}
+We needed a reliable CVS-server implementation\index{CVS-server!implementation},
+that fulfills our main needs, concerning
+\begin{description}
+\item[ease of administration:] Administration of the CVS-server should not rely
+  on system administrator (\texttt{root}) privileges. Ideally, it should be possible to 
+  administrate (add new users, revoke user rights, change module
+  permissions,  \ldots) the CVS-server
+  as a ``normal'' Unix user.
+\item[system security:] The CVS-Server should not introduce new security problems into
+  the existing system configuration. Especially passwords should not be
+  transmitted unencrypted. 
+\end{description}
+\subsection{Existing Solutions}
+Other approaches for securing the standard CVS client/server model (using the
+\texttt{pserver}-protocol) can roughly be divided into four classes:
+\begin{enumerate}
+\item Securing authentication and network traffic by providing SSL
+  support, e.g.\ via tunneling~\cite{berezin:tunnel:2001} or wrapping
+  the standard CVS server~\cite{vogt:cvsauth:2001},
+\item Protecting the local network by running the standard CVS server in a
+  sandbox (chrooted) environment~\cite{hess:anonymous:2001,idealx:chroot:2001},
+\item Re-engineering the implementation of the
+  \texttt{pserver}-protocol~\cite{nserver},
+\item Setting up large scale closed servers providing CVS functionality, together with
+  a project administration ~\cite{fsf:savannah:2001,osdn:sourceforge:2001}.
+\end{enumerate}
+These solutions mainly attempt to fix the known problems with the standard
+CVS implementation by either providing encryption or minimizing the harms of a
+intruder.  Whereas this is clearly one part of our problem, we also wanted to
+provide an access control model, which lead to our choice
+of~\cite{vogt:cvsauth:2001} as basis for our work, which solves the vital
+problem of authentication and encryption of data transmission. Our DAC based
+RBAC setup is an add-on on top of that, such that our setup can be used
+together with most of the other approaches listed above.
+
+\section{The System Configuration}
+\subsection{The Unix Groups}
+Our scenario requires five different CVS roles with the group
+hierarchy shown in Fig.\ref{fig:hierarchy}:
+\begin{description}
+\item[\cvscmd{admin}:] The CVS administrator.
+\item[\cvscmd{staff}:] The majority of users works within this
+  role, it is suited for members of the software engineering group Freiburg. 
+\item[\cvscmd{friend}:] This role is suited for joint work with
+  other research groups. It has a lower priority than the group 
+  \cvscmd{staff}.
+\item[\cvscmd{hiwi}:] This role is suited for student assistants
+  which are supervised by a member of the software engineering
+  group. It also has a lower priority than the group
+  \cvscmd{staff} and is placed on the same level as the group
+   \cvscmd{friend}.
+\item[\cvscmd{public}:] This is the lowest group in our hierarchy,
+  suited for public access.  
+\end{description}
+\begin{figure}
+    \centering
+      \scalebox{0.5}{\input{pics/hierarchy}}
+      \caption{Our example CVS roles hierarchy\label{fig:hierarchy}}
+  \end{figure}
+\begin{table}
+\centering
+\begin{tabular}{l|l}
+\textbf{user} & \textbf{groups the user is member of}\\
+\hline
+admin & admin, staff, hiwi, friend, public\\
+staff & staff, hiwi, friend, public\\
+hiwi & hiwi, public\\
+friend & friend, public\\
+public & public\\
+\end{tabular}
+\caption{The Unix group hierarchy (membership relation)\label{tab:unix_hierarchy}}
+\end{table}
+For mapping %(see Fig.~{}) 
+these roles (and implementing a hierarchic \rbac{} on top of them) onto the \unix{} DAC, 
+we need five users and five groups on the \unix{} host, where the group membership 
+relation of the users is shown in Tab.~\vref{tab:unix_hierarchy} (see
+Tab.~\vref{tab:groupfile} for the corresponding entries in the \unix{}
+system \unixcmd{/etc/groups} file). These implementation of an role-based access control 
+model on top of a filesystem providing only DAC follows the ideas described in~\cite{sandhu.ea:decentralized:1998}.
+\begin{table}
+\centering
+\begin{verbatim}
+admin: admin
+staff: staff, admin
+hiwi: hiwi, staff, admin
+friend: friend, staff, admin
+public: public, friend, hiwi, staff, admin
+\end{verbatim}
+\caption{Our \texttt{/etc/groups} file\label{tab:groupfile}}
+\end{table}
+
+\subsection{The Inetd Configuration}
+In our environment, the \texttt{cvsauth} daemon is started via \texttt{inetd} on 
+a server machine running Solaris 8. In this case
+\begin{itemize}
+ \item the file \verb|/etc/inetd.conf| should contain (in one line!) this line:
+ {\footnotesize
+ \begin{verbatim}
+ cvsauth stream  tcp     nowait  root 
+        /export/local/unix/cvs/CVS-1.11.auth/sbin/SunOS-sparc/cvsauth cvsauth -l
+ \end{verbatim}
+ }
+ \item the file \verb|/etc/services| should contain these lines:
+ {\footnotesize
+ \begin{verbatim}
+ cvsauth         2405/tcp        # CVS-Authentication-Service
+ cvsauth         2405/udp        # CVS-Authentication-Service
+ \end{verbatim}
+ } 
+ \end{itemize}
+
+%%%%%%%%%%%%
+\section{The cvsauth Configuration}\index{cvsauth}
+For the support of our \rbac{} model we do a little trick in the cvsauth configuration. For every 
+Unix-user (of our CVS group hierarchy) we provide a `cvsauth repository configuration' in the 
+\texttt{cvsauth} configuration (see Tab.~\ref{tab:cvsauth}). They only differ in the \texttt{WriterUID} and the list of (external) CVS users (with password). Note, that all configuration section share the same cvs repository root, namely \verb|/export/deposit/repository|.
+\begin{table}
+{\small
+\begin{verbatim}
+[softechadm]
+Path=/export/deposit/repository
+WriterUID=cvsadmin
+User=daisyadm:sorq05l7SIzg2:W
+User=donaldadm:SMppyM3hspXII:W
+
+[softechstaff]
+Path=/export/deposit/repository
+WriterUID=cvsststaff
+User=bert:mUO7E/IWhi17o:W
+User=ernie:3fCoyjYrgCPUk:W
+
+[softechhiwi]
+Path=/export/deposit/repository
+WriterUID=cvssthiwis
+User=trick:USVUD73ucjO2U:W
+User=tick:oRYdLGfNJ5e2s:W
+
+[softechfriends]
+Path=/export/deposit/repository
+WriterUID=cvsstfriends
+User=track:5uAho6c6qjOlk:W
+User=gustav:yFh34gaCS82TM:W
+\end{verbatim}
+}
+\caption{A sample cvsauth-config\label{tab:cvsauth}}
+\end{table}
+
+\section{The Sudo Configuration}
+Unfortunately, changing access rights for files or directories in the
+repository is not possible via cvs itself. One has do this via the
+normal Unix commands \unixcmd{chown} and \unixcmd{chgrp}. For
+simplifying the administrative work, we use a
+Sudo~\cite{miller:sudo:2002} setup (see Tab.~\ref{tab:sudo} for an
+excerpt of the used \verb|/etc/sudoers|) allowing the
+cvs-administrators (in our example, these are the Unix users
+\texttt{dagobert}, \texttt{donald}, and \texttt{daisy}) the rescaling
+of access rights.
+\begin{table}
+{\small
+\begin{verbatim}
+User_Alias CVS=dagobert,donald,daisy
+
+Cmnd_Alias CVSFILE1=/usr/bin/chown cvs* /export/deposit/repository/*
+Cmnd_Alias CVSFILE3=/usr/bin/chown -?* cvs* /export/deposit/repository/*
+Cmnd_Alias CVSFILE2=/usr/bin/chgrp cvs* /export/deposit/repository/*
+Cmnd_Alias CVSFILE4=/usr/bin/chgrp -?* cvs* /export/deposit/repository/*
+
+
+Cmnd_Alias SHELL1=/usr/bin/sh *,/usr/local/bin/bash *,/usr/bin/bash *
+Cmnd_Alias SHELL2=/usr/local/bin/tcsh *,/usr/bin/tcsh *
+
+CVS rivejern=(cvsadmin) SHELL1,(cvsadmin) SHELL2
+CVS rivejern=(root) CVSFILE1, (root) CVSFILE2, (root) CVSFILE3, (root) CVSFILE4
+
+SOFTECH  rivejern=(cvsststaff) SHELL1,(cvsststaff) SHELL2
+\end{verbatim}
+}
+\caption{Sample Sudo configuration\label{tab:sudo}}
+\end{table}
+
+\section{Example Administrative Usage}
+\subsection{Creating new users}
+Adding a new cvs account requires mainly two steps, generating a hash
+value of the password and adding the new account information to the
+cvsauth configuration. Assume, we want to add the user \texttt{joe}
+(in the group \texttt{softechhiwi}) with password \texttt{joespwd}:
+\begin{enumerate}
+\item First, we generate the desired hash of the password:
+\begin{verbatim}
+tcsh% ./cvsauth -e joespwd
+encrypt password:joespwd
+result is START --->UQ06r7PMnXm5A<--- END
+\end{verbatim}
+\item Now we add Joes information in the \texttt{softechhiwi} section of the
+      cvsauth configuration:
+\begin{verbatim}
+[softechhiwi]
+Path=/export/deposit/repository
+WriterUID=cvssthiwis
+User=trick:USVUD73ucjO2U:W
+User=tick:oRYdLGfNJ5e2s:W
+User=joe:UQ06r7PMnXm5A:W
+\end{verbatim}
+\end{enumerate}
+
+\subsection{Changing Access Rights}
+Assume we have the directory \texttt{src/sable} in our repository and we would like, that all members of group \texttt{softechhiwi} can access this directory. Therefore this directory must be
+owned by the Unix group \texttt{cvssthiwis} which also must have write, read, and execute rights (the Unix User can also be \texttt{cvssthiwis}, or any `higher' element of our hierarchy). 
+We can achieve this by issuing the following commands (based on our sudo configuration):
+\begin{verbatim}
+ sudo -u root chown -R cvsadmin:cvssthiwis /export/deposit/repository/src/sable
+\end{verbatim}
+In a similar way, one would assure that the \textsf{gw, gr, gx} bits of the directory 
+are set.
+\section{Extensions}
+For a more fine-granular write exclusion, we use the \texttt{cvs\_acls.pl} from David G. Grubbs
+script, which is implemented as commitinfo-hook. This script is part of the standard 
+CVS-distribution (in the \texttt{contrib} directory). 
+This is slightly orthogonal to our remaining architecture. We tolerate this in our situation,
+because our needs are mostly fulfilled with role based security. Thus we rarely need 
+write-exclusion within a group (which in any case, extends classical \rbac)
+
+\section{Our Experiences}
+The presented formalization of a CVS security architecture
+was developed in parallel to the underlying implementation, which serves
+approximately  $2.5$ Gigabyte of data for over $80$ users categorized in 
+five roles. We are using this setup since over a year on a daily basis, without 
+problems. 
+
+\chapter{Verification Conditions}\label{cha:verif-cond}
+\section{Consistency Conditions}
+\subsection{Definedness Conditions}
+
+The following definedness consistency proof-obligations 
+obey the following naming conventions:
+
+\begin{enumerate}
+\item consistency conditions on schemas are named after
+      the schema they belong to.
+ 
+\item consistency conditions arising in axiomatic definitions are named
+      after either 
+      \begin{itemize}
+      \item after the constant/function/relation name which contains the
+        critical application 
+      \item if there is none (e.g., the condition is caused by the predicate
+        part of axdef), the first name of a Name/function/relation names defined
+        in the same axdef.
+      \end{itemize}
+\item In front of each group of consistency conditions, we write [Schema] or
+      [Axiom], depending on what the group concerns.  So it should be easy to
+      review all schema or axiom -specific consistency conditions.
+
+\end{enumerate}
+
+The conditions are generated by the \LaTeX-style \verb|holz/src/latex/holz.dtx|.
+
+
+
+\zsection[AbsOperations, FileSystem,CVSServer]{SysArchConsistency}
+\vspace{1ex}\noindent
+
+%
+% CCs resulting from ZSection AbstractState
+%
+
+%
+% The following conditions result from the abscvsauth-axdef
+%
+
+The following definedness consistency conditions result from the ZSection AbstractState. 
+
+%
+\definednessAxiomsFun[
+     f={abs\_data\_of}, 
+     g={abs\_auth\_of}, 
+     display]
+     {abs\_cvsauth\_cc1}
+%
+
+%
+\definednessAxiomsVar[
+     f={abs\_auth\_of},
+     B={\dom  abs\_auth\_of}, 
+     display]
+     {abs\_cvsauth\_cc2}
+%
+
+%
+\definednessAxiomsFun[
+     f={abs\_auth\_of}, 
+     g={abs\_data\_of}, 
+     display]
+     {abs\_cvsauth\_cc3}
+%
+
+
+%
+\definednessAxiomsVar[
+     f={abs\_data\_of}, 
+     B={AUTH\_TAB}, 
+     display]
+     {abs\_cvsauth\_cc4}
+%
+
+%
+\definednessAxiomsVar[
+     f={authtab}, 
+     B={ABS\_DATATAB}, 
+     display]
+     {abs\_cvsauth\_cc5}
+%
+
+%
+\definednessAxiomsFunQuant[
+     f={abs\_auth\_of}, 
+     g={r}, 
+     quant={r:ABS\_DATATAB}, 
+     display]
+     {abs\_cvsauth\_cc6}
+%
+%
+
+
+%
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall x : ABS\_DATATAB @ 
+       (abs\_cvsauth \in \dom x)}, 
+     display]
+     {abs\_cvsauth\_cc7}
+%
+
+%
+% The following conditions result from the RepositoryState Schema
+%
+
+%[Schema]
+\definednessSchemas[
+     inhalt={rep : ABS\_DATATAB; rep\_permtab : ABS\_PERMTAB| 
+          abs\_cvsauth \in \dom rep} , 
+     nummer={1}, 
+     display]
+     {RepositoryState}
+%
+
+%
+\definednessSchemas[
+     inhalt={rep : ABS\_DATATAB; rep\_permtab : ABS\_PERMTAB| 
+          abs\_cvsauth \in \dom rep\_permtab} , 
+     nummer={2}, 
+     display]
+     {RepositoryState}
+%
+
+
+%
+% CCs resulting from ZSection AbsOperations
+%
+
+The following definedness consistency conditions result from the ZSection AbsOperations. 
+
+%
+%
+% The following conditions are results of the abs_login - schema.
+%
+%[Schema]
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Xi  RepositoryState; 
+       uid?: Cvs\_Uid;  passwd? : Cvs\_Passwd | 
+          rep \in \dom  authtab} , 
+     nummer={1}, 
+     display]
+     {abs\_login}
+%
+%
+
+%
+% The following conditions are results of the abs_ci - schema.
+%
+% [Schema]
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Delta  RepositoryState; 
+       files?: \power Abs\_Name | 
+       \forall  n :wfiles@ (n \in \dom  wc\_uidtab)
+       \implies (n \in \dom  wc\_uidtab)} , 
+     nummer={1}, 
+     display]
+     {abs\_ci}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Delta  RepositoryState; 
+       files?: \power Abs\_Name | 
+       \forall  n : wfiles @ (wc\_uidtab~n) \in \dom abs\_passwd} , 
+     nummer={2}, 
+     display]
+     {abs\_ci}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Delta  RepositoryState; 
+       files?: \power Abs\_Name | 
+       rep \in \dom  authtab} , 
+     nummer={3}, 
+     display]
+     {abs\_ci}
+%
+
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Delta  RepositoryState; 
+       files?: \power Abs\_Name | 
+       \forall  n :wfiles@ (n \in \dom  rep) 
+       \implies (n \in \dom  rep\_permtab)} , 
+     nummer={4}, 
+     display]
+     {abs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Delta  RepositoryState; 
+       files?: \power Abs\_Name | 
+       \forall  n :wfiles@ (wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) 
+       \in \dom(authtab~rep) 
+       \implies (wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) 
+       \in \dom(authtab~rep)} , 
+     nummer={5}, 
+     display]
+     {abs\_ci}
+%
+
+
+% The following conditions are results of the abs_up - schema.
+%
+% [Schema]
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Xi  RepositoryState; 
+       files?: \power Abs\_Name |
+       \forall  n :wfiles@ (n \in \dom wc\_uidtab)
+       \implies
+       (n \in \dom  wc\_uidtab)} , 
+     nummer={1}, 
+     display]
+     {abs\_up}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Xi  RepositoryState; 
+       files?: \power Abs\_Name |
+       \forall  n :wfiles@ (wc\_uidtab~n) \in \dom abs\_passwd} , 
+     nummer={2}, 
+     display]
+     {abs\_up}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Xi  RepositoryState; 
+       files?: \power Abs\_Name | 
+       rep \in \dom  authtab} , 
+     nummer={3}, 
+     display]
+     {abs\_up}
+%
+
+%
+%The following consistency condition is maybe a little bit strict.
+\definednessSchemas[
+     inhalt={\Delta  ClientState;\Xi  RepositoryState; 
+       files?: \power Abs\_Name | 
+       \forall  n :wfiles@(n \in \dom rep)
+       \implies (n \in \dom  rep\_permtab)} , 
+     nummer={4}, 
+     display]
+     {abs\_up}
+%
+
+%
+% HH: missing:
+%
+% authtab %^ rep %^ (wc_uidtab %^ n, abs_passwd %^ (wc_uidtab %^ n))
+%
+% abs_passwd %^ id
+% 
+
+%
+% CCs resulting from ZSection FileSystem
+%
+
+The following definedness consistency conditions result from the ZSection FileSystem. 
+
+%[Axiom]
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall a,b : Path @ 
+       ((a,b) \in \dom cutPath)}, 
+     display]
+     {cutPath\_cc1}
+%
+
+%
+% [Axiom]
+\definednessAxiomsGeneric[
+     inhalt={\forall  fs : (Path \pfun (Data \pplus Unit)) @ 
+       \forall  d : Path @ 
+       (d \isin  fs)\implies(d \in \dom  fs)}, 
+     display]
+     {is\_in\_cc1}
+%
+
+
+% The following conditions are results of the has_Attribute Axioms.
+%
+% [Axiom]
+\definednessAxiomsGeneric[
+     inhalt={\forall  uid: Uid@ uid \in \dom  groups}, 
+     display]
+     {has\_attrib\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall  fa : FILEATTR\_TAB@ 
+       \forall   p : Path @ p \in \dom  fa
+     \implies p \in \dom  fa}, 
+     display]
+     {has\_attrib\_cc2}
+%
+%
+
+% The following conditions are results of the has_Attribute2 Axioms.
+%
+% [Axiom]
+     The following condition will for sure be watched again, as the front
+     operator is not defined on empty sequences, and p may be the empty
+     sequence.  
+     \definednessAxiomsGeneric[
+     inhalt={\forall p : Path @ p \in \dom front},
+     display]
+     {has\_w\_access\_cc1}
+%
+
+% The following conditions are results of the FileSystem - schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={files : FILESYS\_TAB; attributes : FILEATTR\_TAB | 
+       \forall   p : \dom  files @ p \in \dom  front} , 
+     nummer={1}, 
+     display]
+     {FileSystem}
+% 
+%
+%
+
+%The following conditions are results of the mkdir - Schema.
+%[Schema]
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u? : Name | 
+       wdir \in \dom  attributes} , 
+     nummer={1}, 
+     display]
+     {mkdir}
+%
+%
+
+%The following conditions are results of the mkfile - Schema.
+%[Schema]
+%
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u? : Name; d? : Data | 
+       wdir \in \dom  attributes} , 
+     nummer={1}, 
+     display]
+     {mkfile}
+%
+%
+% The following conditions are results of the access - Schema.
+%
+% [Schema]
+%
+
+%
+\definednessSchemas[
+     inhalt={\Xi  FileSystem; \Xi  ProcessState; u? : Name; 
+       c! : (Data \pplus Unit) |
+       (wdir \cat \langle u?\rangle) \in \dom  files} , 
+     nummer={1}, 
+     display]
+     {access}
+%
+%
+% The following conditions are results of the mv_file - Schema.
+%
+% [Schema]
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name | 
+       (wdir\cat \langle   u1?\rangle)  \in \dom  files} , 
+     nummer={1}, 
+     display]
+     {mv\_file}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name | 
+       (wdir\cat \langle   u1?\rangle)  \in \dom  attributes} , 
+     nummer={2}, 
+     display]
+     {mv\_file}
+%
+
+%
+%
+% The following conditions are results of the mv_file - Schema.
+%
+% [Schema]
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name |
+       \forall p : Path @
+       (wdir\cat \langle   u1?\rangle \cat p)\isin files
+       \implies 
+       (wdir\cat \langle   u1?\rangle \cat p)  \in \dom  files} , 
+     nummer={1}, 
+     display]
+     {mv\_dir}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name |
+       \forall p : Path @
+       (wdir\cat \langle   u1?\rangle \cat p)\isin files
+       \implies  
+       (wdir\cat \langle   u1?\rangle \cat p)  \in \dom  attributes} , 
+     nummer={2}, 
+     display]
+     {mv\_dir}
+%
+
+
+%
+%
+% The following conditions are results of the rename_dir - Schema.
+%
+% [Schema]
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name |
+       \forall p : Path @
+       (wdir\cat \langle   u1?\rangle \cat p)\isin files
+       \implies 
+       (wdir\cat \langle   u1?\rangle \cat p)  \in \dom  files} , 
+     nummer={1}, 
+     display]
+     {rename\_dir}
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; u1? : Name; u2? : Name |
+       \forall p : Path @
+       (wdir\cat \langle   u1?\rangle \cat p)\isin files
+       \implies  
+       (wdir\cat \langle   u1?\rangle \cat p)  \in \dom  attributes} , 
+     nummer={2}, 
+     display]
+     {rename\_dir}
+%
+
+% The following conditions are results of the chown - Schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; 
+       p? : Path; gr? : Gid; ow? : Uid | 
+       p? \in \dom  attributes} , 
+     nummer={1}, 
+     display]
+     {chown}
+%
+ 
+%
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; 
+       p? : Path; gr? : Gid; ow? : Uid | 
+       uid \in \dom  groups} , 
+     nummer={2}, 
+     display]
+     {chown}
+%
+%
+%
+
+% The following conditions are results of the chmod - Schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  FileSystem; \Xi  ProcessState; 
+       ps? : \power  Perm; p? : Path | 
+       p? \in \dom  attributes} , 
+     nummer={1}, 
+     display]
+     {chmod}
+% 
+%
+%
+%
+
+%
+% CCs resulting from ZSection CVSServer
+%
+
+The following definedness consistency conditions result from the ZSection CVSServer. 
+
+%
+%
+% The following conditions are results of the cvs_perm-axioms.
+% cvsperm2uid and cvsperm2gid are discussed here.
+%
+% [Axiom]
+\definednessAxiomsGeneric[
+     inhalt={users \subseteq \dom  groups}, 
+     display]
+     {cvsperm2gid\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={Cvs\_Perm \subseteq \dom  cvsperm2uid}, 
+     display]
+     {cvsperm2uid\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={Cvs\_Perm \subseteq \dom  cvsperm2gid}, 
+     display]
+     {cvsperm2uid\_cc2}
+%
+%
+
+% The following conditions are results of the PrettyPrinterImpl-axioms.
+% cvs_rep, CVSROOT, cvsauth, auth_of and data_of are discussed here.
+%
+% [Axiom]
+%
+\definednessAxiomsGeneric[
+     inhalt={\ran  auth\_of \subseteq \dom data\_of}, 
+     display]
+     {cvs\_rep\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall x : \dom auth\_of @ x \in \dom auth\_of}, 
+     display]
+     {cvs\_rep\_cc2}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\ran  data\_of \subseteq \dom  auth\_of}, 
+     display]
+     {cvs\_rep\_cc3}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={AUTH\_TAB \subseteq \dom  data\_of}, 
+     display]
+     {cvs\_rep\_cc4}
+%
+
+% The following conditions are due to
+% the repOf_axdef.
+% [Axiom]
+%
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall as : CVS\_ATTRIBUTES @ as \in \dom  repOf}, 
+     display]
+     {repOf\_cc1}
+%
+
+% The following conditions are due to
+% the attributes_in_rep_axdef.
+% [Axiom]
+%
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FileSystem @ 
+       \forall p : \dom fs.files @ 
+       p \in \dom fs.attributes}, 
+     display]
+     {attributes\_in\_rep\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FileSystem @ 
+       \forall p : \dom fs.files @ 
+       ((fs.attributes~p).uid) \in \dom groups}, 
+     display]
+     {attributes\_in\_rep\_cc2}
+%
+
+% The following conditions are due to
+% the attributes_in_root_axdef.
+% [Axiom]
+%
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={cvs\_admin \in \dom cvsperm2uid}, 
+     display]
+     {attributes\_in\_root\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={cvs\_admin \in \dom cvsperm2gid}, 
+     display]
+     {attributes\_in\_root\_cc2}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={cvs\_public \in \dom cvsperm2gid}, 
+     display]
+     {attributes\_in\_root\_cc3}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FileSystem @ 
+       \forall p : \dom fs.files @ 
+       p \in \dom fs.attributes}, 
+     display]
+     {attributes\_in\_root\_cc4}
+%
+
+% The following conditions are due to
+% the get_auth_tab_axdef.
+% [Axiom]
+%
+%
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FILESYS\_TAB @
+       fs \in \dom get\_auth\_tab}, 
+     display]
+     {get\_auth\_tab\_cc1}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FILESYS\_TAB @
+       \LET p == cvs\_rep \cat \langle CVSROOT,cvsauth \rangle @ 
+       p \in \dom fs}, 
+     display]
+     {get\_auth\_tab\_cc2}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall fs : FILESYS\_TAB @
+       \LET p == cvs\_rep \cat \langle CVSROOT,cvsauth \rangle @ 
+       \LET m == (\mu x: \dom auth\_of | Inl(x) = fs(p)) @
+       m \in \dom auth\_of}, 
+     display]
+     {get\_auth\_tab\_cc3}
+%
+
+% The following conditions are due to
+% the rep_access_axdef.
+% [Axiom]
+%
+%
+%
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall  x:  Cvs\_FileSystem @ 
+       x \in \dom  rep\_access},  
+     display]
+     {rep\_access\_cc1}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  f: \ran  rep\_access @ 
+       Path \subseteq \dom  f}, 
+     display]
+     {rep\_access\_cc2}
+%
+
+%
+% weak formulation because
+% function application is inside
+% set-collect-statement
+%
+\definednessAxiomsGeneric[
+     inhalt={\forall  cfs : Cvs\_FileSystem @ 
+       (\exists ipwd : cfs.cvs\_passwd @ 
+       ipwd \in \dom  (get\_auth\_tab(cfs.files))) 
+        \implies
+        (\exists ipwd : cfs.cvs\_passwd @ 
+        ipwd \in \dom  (get\_auth\_tab(cfs.files)))}, 
+     display]
+     {rep\_access\_cc3}
+%
+
+%
+\definednessAxiomsGeneric[
+     inhalt={FILESYS\_TAB \subseteq \dom  get\_auth\_tab}, 
+     display]
+     {rep\_access\_cc4}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  cfs : Cvs\_FileSystem @ 
+       Cvs\_Perm \subseteq \dom cvsperm2uid }, 
+     display]
+     {rep\_access\_cc5}
+%
+
+% The following conditions are due to
+% the choose_axdef.
+% [Axiom]
+%
+%
+%
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  fs : Cvs\_FileSystem ; q : Path @ 
+       (fs, q) \in \dom choose}, 
+     display]
+     {choose\_cc1}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  fs : Cvs\_FileSystem ; q : Path @ 
+        cvs\_rep \cat q \in \dom fs.attributes}, 
+     display]
+     {choose\_cc2}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  fs : Cvs\_FileSystem @ 
+     \ran (get\_auth\_tab~(fs.files)) 
+     \subseteq
+     \dom cvsperm2gid}, 
+     display]
+     {choose\_cc3}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  fs : Cvs\_FileSystem @ 
+     fs.files 
+     \in
+     \dom get\_auth\_tab}, 
+     display]
+     {choose\_cc4}
+%
+
+%
+     \definednessAxiomsGeneric[
+     inhalt={\forall  fs : Cvs\_FileSystem @
+       \forall id : \dom fs.cvs\_passwd @
+       id \in \dom fs.cvs\_passwd }, 
+     display]
+     {choose\_cc5}
+%
+
+% The following conditions are results of the Cvs_FileSystem - Schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={FileSystem; wcs\_attributes : CVS\_ATTR\_TAB; 
+       cvs\_passwd : PASSWD\_TAB| 
+       cvs\_rep \in \dom  attributes} , 
+     nummer={1}, 
+     display]
+     {Cvs\_FileSystem}
+% 
+
+%
+\definednessSchemas[
+     inhalt={FileSystem; wcs\_attributes : CVS\_ATTR\_TAB; 
+       cvs\_passwd : PASSWD\_TAB| 
+       cvs\_admin \in \dom  cvsperm2uid} , 
+     nummer={2}, 
+     display]
+     {Cvs\_FileSystem}
+%
+
+%
+\definednessSchemas[
+     inhalt={FileSystem; wcs\_attributes : CVS\_ATTR\_TAB; 
+       cvs\_passwd : PASSWD\_TAB| 
+       cvs\_public \in \dom  cvsperm2gid} , 
+     nummer={3}, 
+     display]
+     {Cvs\_FileSystem}
+%
+
+%
+\definednessSchemas[
+     inhalt={FileSystem; wcs\_attributes : CVS\_ATTR\_TAB; 
+       cvs\_passwd : PASSWD\_TAB| 
+       (cvs\_rep \cat \langle CVSROOT \rangle)\in \dom  attributes} , 
+     nummer={4}, 
+     display]
+     {Cvs\_FileSystem}
+% 
+
+%
+\definednessSchemas[
+     inhalt={FileSystem; wcs\_attributes : CVS\_ATTR\_TAB; 
+       cvs\_passwd : PASSWD\_TAB| 
+       cvs\_admin \in \dom  cvsperm2gid} , 
+     nummer={5}, 
+     display]
+     {Cvs\_FileSystem}
+%
+
+% The following conditions are results of the cvs_login_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       cvs\_uid? : Cvs\_Uid; cvs\_pwd? : Cvs\_Passwd| 
+       files \in \dom  get\_auth\_tab} , 
+     nummer={1}, 
+     display]
+     {cvs\_login}
+%
+%
+
+% The following conditions are results of the cvs_add_normal_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       wdir \in \dom wcs\_attributes} , 
+     nummer={1}, 
+     display]
+     {cvs\_add\_normal}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+        (fu, cvs\_passwd~fu)\in \dom (get\_auth\_tab(files))} , 
+     nummer={2}, 
+     display]
+     {cvs\_add\_normal}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|
+        files \in \dom get\_auth\_tab} , 
+     nummer={3}, 
+     display]
+     {cvs\_add\_normal}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+        fu \in \dom cvs\_passwd} , 
+     nummer={4}, 
+     display]
+     {cvs\_add\_normal}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+       \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd fu) @ 
+        perm \in \dom cvsperm2uid} , 
+     nummer={5}, 
+     display]
+     {cvs\_add\_normal}
+%
+%
+
+% The following conditions are results of the cvs_add_error_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       wdir \in \dom wcs\_attributes} , 
+     nummer={1}, 
+     display]
+     {cvs\_add\_error}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|
+        files \in \dom get\_auth\_tab} , 
+     nummer={2}, 
+     display]
+     {cvs\_add\_error}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+        (fu, cvs\_passwd~fu)\in \dom (get\_auth\_tab(files))}, 
+     nummer={3}, 
+     display]
+     {cvs\_add\_error}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+        fu \in \dom cvs\_passwd} , 
+     nummer={4}, 
+     display]
+     {cvs\_add\_error}
+%
+%
+
+% 
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \LET fu == (wcs\_attributes~wdir).f\_uid @
+       \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd fu) @ 
+        perm \in \dom cvsperm2uid} , 
+     nummer={5}, 
+     display]
+     {cvs\_add\_error}
+%
+%
+
+% The following conditions are results of the cvs_co_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \forall q : rep\_access(\theta Cvs\_FileSystem)(p?) @
+       (cvs\_rep \cat q) \in \dom files} , 
+     nummer={1}, 
+     display]
+     {cvs\_co}
+%
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \forall q : rep\_access(\theta Cvs\_FileSystem)(p?) @
+       (\theta Cvs\_FileSystem, q) \in \dom choose} , 
+     nummer={2}, 
+     display]
+     {cvs\_co}
+%
+%
+
+% The following conditions are results of the cvsUp_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       wdir \in \dom wcs\_attributes} , 
+     nummer={1}, 
+     display]
+     {cvsUp}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       (wcs\_attributes~wdir) \in \dom repOf} , 
+     nummer={2}, 
+     display]
+     {cvsUp}
+%
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \forall q : rep\_access(\theta Cvs\_FileSystem)((wcs\_attributes~wdir).rep \cat p?) @
+       (q , (wcs\_attributes~wdir).rep) \in \dom cutPath} , 
+     nummer={3}, 
+     display]
+     {cvsUp}
+%(call inside set collect statement)
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \forall q : rep\_access(\theta Cvs\_FileSystem)((wcs\_attributes~wdir).rep \cat p?) @
+       (cvs\_rep \cat q) \in \dom files} , 
+     nummer={4}, 
+     display]
+     {cvsUp}
+% (call inside set collect statement)
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       (\theta Cvs\_FileSystem) \in \dom rep\_access} , 
+     nummer={5}, 
+     display]
+     {cvsUp}
+%
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       ((wcs\_attributes~wdir).rep \cat p?) \in \dom (rep\_access~(\theta Cvs\_FileSystem))} , 
+     nummer={6}, 
+     display]
+     {cvsUp}
+%
+%
+
+%
+\definednessSchemas[
+     inhalt={\Delta  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       \forall q : rep\_access(\theta Cvs\_FileSystem)((wcs\_attributes~wdir).rep \cat p?) @
+       (\theta Cvs\_FileSystem, q) \in \dom choose} , 
+     nummer={7}, 
+     display]
+     {cvsUp}
+% (call inside set collect statement)
+%
+
+% The following conditions are results of the cvsUpNoAct_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       wdir \in \dom wcs\_attributes} , 
+     nummer={1}, 
+     display]
+     {cvsUpNoAct}
+%
+
+%
+% 
+\definednessSchemas[
+     inhalt={\Xi  Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       (wcs\_attributes~wdir) \in \dom repOf} , 
+     nummer={2}, 
+     display]
+     {cvsUpNoAct}
+%
+
+% The following conditions are results of the cvs_ci_schema.
+%
+% [Schema]
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       wdir \in \dom wcs\_attributes} , 
+     nummer={1}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| \forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @
+       (q, (wcs\_attributes~wdir).rep) \in \dom cutPath} , 
+     nummer={2}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| \forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @
+       wdir \cat cutPath(q, (wcs\_attributes~wdir).rep) \in \dom files} , 
+     nummer={3}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+       (\theta Cvs\_FileSystem) \in \dom rep\_access} , 
+     nummer={4}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path| 
+        (((wcs\_attributes~wdir).rep) \cat p?) \in 
+        \dom (rep\_access(\theta Cvs\_FileSystem))} , 
+     nummer={5}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|\forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @ 
+       q \in \dom wcs\_attributes} , 
+     nummer={6}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|\forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @ 
+       (wcs\_attributes~q).f\_uid \in \dom cvs\_passwd} , 
+     nummer={7}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|
+      files \in \dom get\_auth\_tab} , 
+     nummer={8}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|\forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @
+      ((wcs\_attributes~q).f\_uid,  cvs\_passwd((wcs\_attributes~q).f\_uid)) 
+      \in \dom (get\_auth\_tab~files)} , 
+     nummer={9}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|\forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @
+      ((get\_auth\_tab~files)~((wcs\_attributes~q).f\_uid,  cvs\_passwd((wcs\_attributes~q).f\_uid))) 
+      \in \dom cvsperm2gid} , 
+     nummer={10}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+\definednessSchemas[
+     inhalt={\Delta Cvs\_FileSystem; \Xi  ProcessState;
+       p? : Path|\forall q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @
+      ((get\_auth\_tab~files)~((wcs\_attributes~q).f\_uid,  cvs\_passwd((wcs\_attributes~q).f\_uid))) 
+      \in \dom cvsperm2uid} , 
+     nummer={11}, 
+     display]
+     {cvs\_ci}
+%
+
+%
+%
+%
+%
+%
+
+%
+\subsection{Deadlockfree Conditions}
+%
+%
+
+The following conditions correspond to the schema operations of the AbsOperations section.
+
+%
+% abs_login_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[ClientState; RepositoryState; 
+       passwd?: Cvs\_Passwd; uid?: Cvs\_Uid |
+       (uid?,passwd?) \in \dom (authtab~rep)]}
+     ]
+     {abs\_login}
+%
+
+%
+% abs_cd_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[ClientState; RepositoryState; 
+       wfiles? : \power Abs\_Name |]}
+     ]
+     {abs\_cd}
+
+%
+% abs_add_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[ClientState; RepositoryState; 
+       newfiles? : ABS\_DATATAB | 
+       \dom newfiles? \cap \dom rep = \emptyset]}
+     ]
+     {abs\_add}
+
+%
+% abs_ci_df
+%
+\deadlockFreeCondition[
+     display,
+      synPre={[ClientState; RepositoryState; files? : \power Abs\_Name |
+        (wfiles \cap files?) \subseteq \dom wc]}
+      ]
+      {abs\_ci}
+
+%
+% abs_up_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[ClientState; RepositoryState; 
+       files? : \power Abs\_Name |]}
+     ]
+     {abs\_up}
+%
+%
+
+%
+% CCs resulting from ZSection FileSystem
+%
+The following deadlockfree consistency conditions result from the ZSection FileSystem. 
+%
+% cd_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; p? : Path | 
+       has\_x\_attrib(uid,p?,attributes) \land 
+        p? \isdirin files]}
+     ]
+     {cd}
+%
+
+%
+% mkdir_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name | 
+       (wdir \isdirin files) \land 
+       (\lnot ( wdir\cat\langle u? \rangle \isdirin (files))) \land 
+       has\_w\_access(uid,wdir,attributes)]}
+     ]
+     {mkdir}
+%
+
+%
+% mkfile_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name; d? : Data | 
+       (wdir \isdirin files) \land 
+       (\lnot ( wdir\cat\langle u? \rangle \isdirin (files))) \land 
+       has\_w\_access(uid,wdir,attributes)]}
+     ]
+     {mkfile}
+%
+
+%
+% access_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name | 
+       (wdir\cat\langle u? \rangle \isfilein files) \land 
+       has\_r\_access(uid,wdir,attributes)]}
+     ]
+     {access}
+%
+
+%
+% write_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name; d? : Data | 
+       (wdir\cat\langle u? \rangle \isfilein files) \land 
+       has\_w\_access(uid,wdir\cat\langle u?\rangle,attributes)]}
+     ]
+     {write}
+%
+
+%
+% rm_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name | 
+       (wdir\cat\langle u? \rangle \isfilein files) \land 
+       has\_w\_access(uid,wdir,attributes)\land 
+       has\_w\_access(uid,wdir\cat\langle u?\rangle,attributes)]}
+     ]
+     {rm}
+%
+
+%
+% rmdir_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u? : Name | 
+       (wdir\cat\langle u? \rangle \isin files) \land 
+       (\{ x : Name | wdir \cat \langle u? \rangle \cat \langle x \rangle \isdirin (files) \}=\emptyset) \land 
+       has\_w\_access(uid,wdir,attributes)\land 
+       has\_w\_access(uid,wdir\cat\langle u?\rangle,attributes)]}
+     ]
+     {rmdir}
+%
+
+%
+% mv_file_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u1? : Name; u2? : Name | 
+       (wdir\cat\langle u1? \rangle \isfilein files) \land 
+       has\_w\_access(uid,wdir,attributes) \land 
+       (\lnot (wdir \cat \langle u2? \rangle \isin files) 
+       \lor ((wdir \cat \langle u2? \rangle \isfilein files)
+       \land has\_w\_access(uid,wdir \cat \langle u2?\rangle,attributes)))]}
+     ]
+     {mv\_file}
+%
+
+%
+% mv_dir_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u1? : Name; u2? : Name | 
+       (wdir\cat\langle u1? \rangle \isin files) \land 
+       (wdir\cat\langle u2? \rangle \isdirin (files))\land 
+       has\_w\_access(uid,wdir,attributes)\land 
+       has\_w\_access(uid,wdir \cat \langle u1?\rangle,attributes)]}
+     ]
+     {mv\_dir}
+%
+
+%
+% rename_dir_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u1? : Name; u2? : Name | 
+       (wdir\cat\langle u1? \rangle \isdirin files) \land 
+       (\lnot wdir\cat\langle u2? \rangle \isin (files))\land 
+       has\_w\_access(uid,wdir,attributes)\land 
+       has\_w\_access(uid,wdir \cat \langle u1?\rangle,attributes)]}
+     ]
+     {rename\_dir}
+%
+
+
+%
+% mv_dir_df
+%
+% In this case the synPre results from using
+% distributivity on the disjunction of
+% all predicates and thereby changing the disjunction
+% to a conjunction, which is then filtered concerning 
+% those conjuncts which contain ' or !.
+%
+% I simplify this procedure to using distributivity on
+% those atoms which are contained in each block.  
+%
+%The mv operation is resulting from the disjunction of mv\_file, mv\_dir, rename\_dir.
+% Probably, the predicate part has to be fixed again, 
+% as th isin/isfilein\ldots predicates somehow overlap and
+% also should produce a common factor.
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; u1? : Name; u2? : Name | 
+       has\_w\_access(uid,wdir,attributes)]}
+     ]
+     {mv}
+%
+
+%
+% chown_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; p? : Path; gr? : Gid; ow? : Uid |
+       p? \in \dom (files) \land 
+       ((root = uid) \lor ((root \neq uid \land ow? = uid \land ow? = ((attributes~p?).uid) \land 
+       gr?\in groups(uid))))]}
+     ]
+     {chown}
+%
+
+%
+% chmod_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; ps? : \power Perm; p? : Path |
+       p? \in \dom (files) \land 
+       ((root = uid) \lor (root \neq uid \land uid = ((attributes~p?).uid)))]}
+     ]
+     {chmod}
+%
+
+%
+% setumask_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[FileSystem; ProcessState; mask? : \power (Perm\setminus \{sg\})|]}
+     ]
+     {setumask}
+%
+
+%
+These conditions correspond to the schema operations of the CVSServer section.
+%
+% CVSServer
+%
+%-------------
+%
+
+%
+% cvs_login_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; 
+       cvs\_uid? : Cvs\_Uid; cvs\_pwd? : Cvs\_Passwd | 
+       (cvs\_uid?,cvs\_pwd?) \in \dom(get\_auth\_tab~files)]}
+     ]
+     {cvs\_login}
+%
+
+%
+% cvs_add_normal_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path | 
+       wdir \isdirin files \land
+       wdir \in \dom wcs\_attributes \land
+       has\_r\_access(uid, wdir, attributes) \land
+       ((wdir \cat p? \isdirin files) \implies 
+       has\_w\_access(uid, wdir \cat p?, attributes)) \land
+       \# p? = 1 \land
+       cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \notin \dom files \land
+       (has\_w\_access(\LET fu == (wcs\_attributes~wdir).f\_uid @ 
+       \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd~fu) @ 
+       cvsperm2uid perm,
+       cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p?, attributes))]}
+     ]
+     {cvs\_add\_normal}
+%
+
+%
+% cvs_add_error_df
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path | 
+    \lnot wdir \isdirin files 
+     \lor \lnot(wdir \in \dom wcs\_attributes) 
+     \lor \lnot has\_r\_access(uid, wdir, attributes) 
+     \lor \lnot ((wdir \cat p? \isdirin files) \implies 
+     has\_w\_access(uid, wdir \cat p?, attributes)) 
+     \lor \lnot \# p? = 1 
+     \lor \lnot cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \notin \dom
+    files  
+     \lor \lnot has\_w\_access(\LET fu == (wcs\_attributes~wdir).f\_uid @ 
+     \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd fu) @ 
+     cvsperm2uid perm, 
+     cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p?, attributes)]}
+     ]
+     {cvs\_add\_error}
+%
+
+%
+% cvs_add_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |]}
+     ]
+     {cvs\_add}
+%
+
+%
+% cvs_co_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       cvs\_rep \cat p? \in \dom files \land
+       (\forall q:rep\_access(\theta Cvs\_FileSystem)(p?) @ wdir \cat q \notin \dom
+       files) \land
+       has\_w\_access(uid,wdir,attributes)]}
+     ]
+     {cvs\_co}
+%
+
+%
+% cvsUp_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       wdir \in \dom wcs\_attributes \land
+       cvs\_rep \cat repOf(wcs\_attributes~wdir) \cat p? \in \dom files \land
+       has\_w\_access(uid, wdir \cat p?, attributes)
+       ]}
+     ]
+     {cvsUp}
+%
+
+%
+% cvsUpNoAct_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       cvs\_rep \cat repOf(wcs\_attributes~wdir) \cat p? \notin \dom files \land
+       wdir \in \dom wcs\_attributes 
+       ]}
+     ]
+     {cvsUpNoAct}
+%
+
+%
+% cvsUpErr_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       \lnot (has\_w\_access(uid, wdir \cat p?, attributes)) 
+       \lor \lnot (wdir \in \dom wcs\_attributes)
+       ]}
+     ]
+     {cvsUpErr}
+%
+
+%
+% cvs_update_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       ]}
+     ]
+     {cvs\_update}
+%
+
+%
+% cvs_ci_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path |
+       has\_r\_access(uid, wdir \cat p?, attributes) \land
+       wdir \in \dom wcs\_attributes
+       ]}
+     ]
+     {cvs\_ci}
+%
+
+%
+% unix - operations
+% 
+%
+%
+The last condition shows the degenerated cases of the deadlock-free consistency conditions. In HOL-Z, the proof goals corresponding to the Unix operations at the Filesystem-level are equal to those due to operations lifted to the cvs layer, except for a few set constraints which are already contained in the assumptions.
+%
+% cvs_cd_df
+%
+%
+\deadlockFreeCondition[
+     display,
+     synPre={[Cvs\_FileSystem; ProcessState; p?: Path; cd\_df |
+       ]}
+     ]
+     {cvs\_cd}
+%
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

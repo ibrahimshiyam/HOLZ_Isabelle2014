@@ -1,0 +1,13 @@
+package zeta.agl;
+
+/** An interface providing a total order on objects. */
+
+public interface Ordered<A> {
+
+  /** A total order on objects. 
+    * @return a value less then 0 if this is less then other,
+    *   a value greater then 0 if this is greater then other,
+    *   and 0 otherwise.
+    */
+  public int compareTo(A other);
+}

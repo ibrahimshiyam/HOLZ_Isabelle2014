@@ -1,0 +1,43 @@
+1 Lader                      [done - but not fully tested.
+                                     known Bug in loader appearing in corbasec. ]
+  - load infra for all exmpls. [prototypically done] 
+  - install infra 
+  - recompile zeta and holzadaptor under
+    most recent java.
+
+2 TopThy <- ROOT             [done]
+3 isar-Syntax fur ProofUtil  [done]
+4 Refiner                    [done]
+  + Isar Syntax              [done]
+5 BirthdayBook               [done]
+6 a DARMA Taktiken ->        [done]
+  ProofUtil
+6 DARMA integration          [loads completely, but no proofs yet]
+7 Cleanup ZSig ZEnv etc.     [done]
+  Lots of dead code.         [done]
+
+8 zsig reformieren.
+  3 stellig. Refiner drauf abstellen.
+
+9 Documentation of HOL-Z 3.0.
+  Commands, Porting Guide, commented Example BBook, Library.
+10Update Webpage.
+
+DARMA ladbar?                [done]
+Neue Fallstudie Ladbar?      [done except minor bug in conjecture-loading.]
+
+DARMA portieren !
+
+
+Bugs: elim_pre_tac in ISAR
+      multiple argument zunfold syntax.
+      full_expand / expand hat komische syntax     
+
+      Man brauchte eine zsig, die auch den Type-Constaint, und
+      nichtn ur den Tpy berucksichtigt.
+
+      Wichtig fur: pre, EX, Hide, und die berechnung von
+                   Refinement POGs ...
+
+
+doc looschen

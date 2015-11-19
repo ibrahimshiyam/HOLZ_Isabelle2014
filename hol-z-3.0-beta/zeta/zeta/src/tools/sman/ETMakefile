@@ -1,0 +1,4 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	Storage.pizza UnitImpl.pizza SessionImpl.pizza SessionManagerImpl.pizza
+NODEKIND	= java

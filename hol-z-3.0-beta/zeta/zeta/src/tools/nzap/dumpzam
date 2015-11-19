@@ -1,0 +1,2 @@
+#!/bin/sh
+java zeta.tools.nzap.DumpZAM "$@"

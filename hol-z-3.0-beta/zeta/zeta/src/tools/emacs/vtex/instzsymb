@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ -z "$ZETABASE" ]; then
+   ZETABASE=`expr $0 : '\(..*\)/bin/..*$'`
+   export ZETABASE
+fi   
+if [ ! -f "$ZETABASE/etc/etenv.sh" ]
+then
+  echo "The base directory of the ZETA installation not found or invalid." >&2
+  echo "Please set the environment variable ZETABASE." >&2
+  exit 1
+fi
+
+if [ -z "$ETFONTDIR" ]
+then
+   ETFONTDIR="${ZETABASE}/lib/fonts"
+fi
+
+echo "Installing fonts from $ETFONTDIR ..."
+xset fp- ${ETFONTDIR} 2>/dev/null || true
+xset fp+ ${ETFONTDIR}

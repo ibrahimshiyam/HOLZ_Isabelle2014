@@ -1,0 +1,796 @@
+/*****************************************************************************
+ * HOL-Z --- a shallow embedding of Z into Isabelle/HOL
+ *             http://projects.brucker.ch/hol-z/
+ *                                                                            
+ * HOLZExporter.pizza --- 
+ * This file is part of HOL-Z.
+ *
+ * Copyright (c) 2000-2003, University Freiburg, Germany
+ *
+ * HOL-Z is free software; you can redistribute it and/or modify it under   
+ * the terms of the GNU General Public License as published by the Free       
+ * Software Foundation; either version 2 of the License, or (at your option)  
+ * any later version.                                                         
+ *                                                                            
+ * HOL-Z is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more 
+ * details.                                                              
+ *                                                                            
+ * You should have received a copy of the GNU General Public License along    
+ * with this program; if not, write to the Free Software Foundation, Inc.,    
+ * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.                  
+ ******************************************************************************/
+/* $Id: HOLZExporter.pizza 6729 2007-08-03 05:25:17Z brucker $ */
+
+import zeta.content.text.*;
+import zeta.content.text.Lexem.*;
+import zeta.content.text.Text;
+import zeta.content.text.Text.*;
+import zeta.content.text.Config.*;
+
+import zeta.content.zirp.*;
+import zeta.content.zirp.Item.*;
+import zeta.content.zirp.Expr.*;
+import zeta.content.zirp.Expr.Decl.*;
+import zeta.content.zirp.Predicate.*;
+import zeta.content.zirp.Transition.*;
+import zeta.content.zirp.State.*;
+import zeta.content.zirp.Fixity.*;
+import zeta.content.zirp.Layout.*;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+
+import zeta.session.*;
+
+import java.io.*;
+
+import java.util.*;
+
+/**
+ * Export the internal representation of Z specifications from ZeTa to HOL-Z.
+ *
+ * @version $Id: HOLZExporter.pizza 6729 2007-08-03 05:25:17Z brucker $
+ * 
+ * @author Frank Rittinger <frittinger@acm.org>
+ */
+public class HOLZExporter {
+
+    private Session session;
+
+    public HOLZExporter(Session s) {
+	session = s;
+    }
+
+    public Vector export(UnitAbsy unit) throws NotSupported {
+	Vector v = new Vector();
+
+	switch (unit) {
+	case ClassDef(Name name, Name[] parents, Name[] formals, Item[] items):
+	    throw new NotSupported("ClassDef");
+	case Section(Name name, Name[] parents, Item[] items):
+
+	    /* Sort the list of parents, according to their dependencies. */
+	    Vector tVec = new Vector();
+	    for (int i = parents.length - 1; i > -1 ; i--) {
+		if (!parents[i].toString().equals("LTX:Toolkit#Toolkit") &&
+		    !parents[i].toString().startsWith("LTX:Prelude#")) {
+
+		    try {
+			UnitAbsy absy = (UnitAbsy) session.lookupUnit(parents[i])
+			    .query(ZirpContentTypes.checkedAbsy);
+			switch (absy) {
+			case Section(Name n, Name[] ps, Item[] is):
+			    // Pair<int, String> myPair = new Pair(7, "seven");
+			    // fst, snd
+			    tVec.add(new SectionPair(n,ps));
+			}
+		    } catch (Failures f) {
+			System.err.println(f);
+		    }
+		}
+	    }
+
+	    tVec = sort(tVec);
+
+	    String s = new String("ZAbsy.ZSection(\""+name.toString()+"\",");
+	    s = s + "[\"LTX:Toolkit#Toolkit\"";
+	    Enumeration e = tVec.elements();
+
+	    while (e.hasMoreElements()) {
+		SectionPair sp = (SectionPair) e.nextElement();
+		s = s + ", \"" + sp.fst().toString() + "\"";
+	    }
+	    s = s + "]";
+	    v.add(s);
+
+	    if (items.length > 0) {
+		if (items.length == 1) {
+		    v.add("[" + exportItem(items[0]) + "])");
+		} else {
+		    v.add("[" + exportItem(items[0]));
+		    for (int i = 1; i < items.length-1; i++) {
+			v.add(exportItem(items[i]));
+		    }
+		    v.add(exportItem(items[items.length-1]) + "])");
+		}
+	    } else {
+		v.add("[])");
+	    }
+	    return v;
+	}
+    }
+
+
+    private String exportItem(Item item) throws NotSupported {
+	String s;
+
+	switch (item) {
+	case AxiomaticDef(NameDecl[] formals, Expr def):
+	    s = "(" + exportAxiomaticDef(formals, def)+")";
+	    //	    s = s + ", " + printType(def.an) + ")";
+	    break;
+	case ConfigDef(Configuration configuration):
+	    throw new NotSupported("Configuration");
+	case StatechartDef(State root):
+	    throw new NotSupported("Configuration");
+	case StaticReactionDef(NameDecl name, LabelExpr[] reactions):
+	    throw new NotSupported("StaticReaction");
+	case TransitionDef(NameDecl name, LabelExpr[] reactions):
+	    throw new NotSupported("Transition");
+	case AttributeDef(AttributeKind attrib, NameAppl[] name):
+	    throw new NotSupported("Attribute");
+	case EnrichDef(NameAppl name):
+	    throw new NotSupported("Enrichment");
+	case EmbeddedText(Text text):
+	    s = new String("(ZAbsy.EmbeddedText(\"NoText\"))");
+// 	    s = new String("(ZAbsy.EmbeddedText(\"NoText\")");
+// 	    s = s + ", ZAbsy.Type(ZAbsy.Denotation(\"NoType\")))";
+	    break;
+	case FixityDef(Fixity fixity):
+	    //	    s = new String("(ZedFixity(\""+ZedFixity(fixity).toString()+"\")");
+	    s = new String("(ZAbsy.ZedFixity(\"NoFixity\"))");
+// 	    s = new String("(ZAbsy.ZedFixity(\"NoFixity\")");
+// 	    s = s + ", ZAbsy.Type(ZAbsy.Denotation(\"NoType\")))";
+	    break;
+	}
+	return s;
+    }
+
+
+    private String exportAxiomaticDef(NameDecl[] formals, Expr def) 
+	throws NotSupported {
+	String s = new String();
+
+
+	switch (def) {
+	case Text(Decl[] decls, Predicate[] props):
+	    //	    s = new String("AxiomaticDef("+exportExpr(def)+")");
+		    
+	    if (formals.length > 0) {
+		s = new String("ZAbsy.Gen([");
+		for (int i=0; i < formals.length-1; i++) {
+		    s = s + exportNameDecl(formals[i]) + ",";
+		}
+		s = s + exportNameDecl(formals[formals.length-1]) + "],";
+	    }
+
+	    if (props.length == 0 && decls.length == 1) {
+		switch (decls[0]) {
+		case Eqn(NameDecl name, Expr box):
+		    // Schema definition
+		    s = s + exportEqn(decls[0]);
+		    break;
+		default:
+		    s = s + exportExpr(def);
+		} 
+	    } else {
+		s = s + exportExpr(def);
+	    }
+
+	    if (formals.length > 0) {
+		s = s + ")";
+	    }
+	    break;
+	default:
+	    s = exportExpr(def);
+	}
+ 	return s;
+    }
+
+
+    private String exportNameDecl(NameDecl decl) {
+	return "\"" + dbs(decl.name.toString()) + "\"";
+    }
+
+    private String exportNameAppl(NameAppl appl, boolean deco) throws NotSupported {
+	String s = new String();
+
+	switch (appl) {
+	case NameAppl(Name name, Expr[] actuals):
+	    if (deco) {
+		s = new String("ZAbsy.NameAppl(\""+dbs(name.toString())+"'\",[");
+	    } else {
+		s = new String("ZAbsy.NameAppl(\""+dbs(name.toString())+"\",[");
+	    }
+
+	    if (actuals.length > 0) {
+		for(int i=0; i < actuals.length-1; i++) {
+		    s = s + exportExpr(actuals[i]) + ",";
+		}
+		s = s + exportExpr(actuals[actuals.length-1]);
+	    }
+	    s = s + "])";
+	    break;
+	}
+	return s;
+    }
+
+
+    private String exportPredicate(Predicate pred) throws NotSupported {
+	String s = new String();
+	
+	switch (pred) {
+	case Schema(Expr schema):
+	    return exportExpr(schema);
+	case Test(Expr elem, Expr set):
+	    s = new String("ZAbsy.Test(");
+	    s = s + exportExpr(elem) + ", " + exportExpr(set) + ")";
+	    break;
+	case Fact(FactKind kind):
+	    s = new String("ZAbsy.Fact(ZAbsy." + kind + ")");
+	    break;
+	case Unary(Predicate.UnaryKind kind, Predicate oper):
+
+	    switch (kind) {
+            case Not:
+		s = new String("ZAbsy.Unary(ZAbsy." + kind + ",");
+		s = s + exportPredicate(oper) + ")";
+		break;
+//             case Renaming:
+// 		s = new String("ZAbsy.Unary(ZAbsy." + kind + ",");
+// 		s = s + exportPredicate(oper) + ")";
+// 		break;
+            case Await:
+		throw new NotSupported("Await");
+            case Everywhere:
+		throw new NotSupported("Everywhere");
+            case Prefix:
+		throw new NotSupported("Prefix");
+            case Repeat:
+		throw new NotSupported("Repeat");
+            case Somewhere:
+		throw new NotSupported("Somewhere");
+            case TransLift:
+		throw new NotSupported("TransLift");
+            case StateLift:
+		throw new NotSupported("StateLift");
+	    default:
+		throw new NotSupported("*** Unary Expression not known...");
+	    }
+	    break;
+	case Binary(Predicate.BinaryKind kind, Predicate left, Predicate right):
+	    
+	    switch (kind) {
+            case And:
+            case Or:
+            case Iff:
+            case Implies:
+		s = new String("ZAbsy.Binary(ZAbsy." + kind + ",");
+		s = s + exportPredicate(left) + ", ";
+		s = s + exportPredicate(right) + ")";
+		break;
+            case Chop:
+		throw new NotSupported("Chop");
+            case Compose:
+		throw new NotSupported("Compose");
+            case Preempt:
+		throw new NotSupported("Preempt");
+            case Leadsto:
+		throw new NotSupported("Leadsto");
+            case Trans:
+		throw new NotSupported("Trans");
+            case Compute:
+		throw new NotSupported("Compute");
+            case Choice:
+		throw new NotSupported("Choice");
+            case Guarded:
+		throw new NotSupported("Guarded");
+	    }
+	    break;
+	case Quantor(Predicate.QuantorKind kind, Expr matrix, Predicate range):
+	    
+	    switch (kind) {
+            case Exists:
+            case Exists1:
+            case Forall:
+            case Let:
+		// <quantor> <schema> @ <predicate>
+		s = new String("ZAbsy.Quantor(ZAbsy."+kind+", ");
+		s = s + exportMatrix(matrix)+ ", " + exportPredicate(range) + ")";
+	    }
+	}
+	return s;
+    }
+
+
+    /*
+     *
+     */
+    private String exportExpr(Expr expr) throws NotSupported {
+	String s = new String();
+	
+	switch (expr) {
+	case Number(String value):
+	    s = new String("ZAbsy.Number(\""+value+"\")");
+	    break;
+	case Denotation(String value):
+	    s = new String("ZAbsy.Denotation(\"" + value + "\")");
+	    break;
+	case Variable(NameAppl name):
+	    s = exportNameAppl(name,false);
+	    break;
+	case Tuple(Expr[] elements):
+	    // (element1,...,elementN)
+	    if (elements.length == 0) System.err.println("ARRAY<0 -- Tuple");
+	    s = new String("ZAbsy.Tuple([");
+	    for (int i = 0; i < elements.length-1; i++) {
+		s = s + exportExpr(elements[i]) + ", ";
+	    }
+	    s = s + exportExpr(elements[elements.length-1]) + "])";
+	    break;
+	case Product(Expr[] elements):
+	    // set1 \cross ... \cross setN
+	    s = new String("ZAbsy.Product([");
+	    if (elements.length == 0) System.err.println("ARRAY< -- Product");
+	    for (int i = 0; i < elements.length-1; i++) {
+		s = s + exportExpr(elements[i]) + ", ";
+	    }
+	    s = s + exportExpr(elements[elements.length-1]) + "])";
+	    break;
+	case Binding(Eqn[] bindings):
+	    // <| name1 -> expr1, ..., nameN -> exprN |>
+	    s = new String("ZAbsy.Binding([");
+	    if (bindings.length == 0) System.err.println("ARRAY< -- Binding");
+	    for (int i = 0; i < bindings.length-1; i++) {
+		s = s + exportEqn(bindings[i]) + ", ";
+	    }
+	    s = s + exportEqn(bindings[bindings.length-1]) + "])";
+	    break;
+	case Signature(Name[] names, Expr[] types):
+	    // [ name1 : type1; ...; nameN : typeN ]
+	    s = new String("ZAbsy.Signature([");
+	    if (names.length > 0) {
+		for (int i = 0; i < names.length-1; i++) {
+		    s = s + "(\"" + dbs(names[i].toString())+ "\"," + 
+			exportExpr(types[i]) + "), ";
+		}
+		s = s + "(\"" + dbs(names[names.length-1].toString()) + "\"," + 
+		    exportExpr(types[names.length-1]) + ")])";
+	    } else {
+		s = s + "])";
+	    }
+	    break;
+	case Display(Expr[] elements):
+	    //  element_1, ..., element_N
+	    s = new String("ZAbsy.Display([");
+	    if (elements.length > 0) {
+		for (int i = 0; i < elements.length-1; i++) {
+		    s = s + exportExpr(elements[i]) + ", ";
+		}
+		s = s + exportExpr(elements[elements.length-1]) + "])";
+	    } else {
+		s = s + "])";
+	    }
+	    break;
+	case Cond(Predicate cond, Expr thenPath, Expr elsePath):
+	    s = new String("ZAbsy.Cond(");
+	    s = s + exportPredicate(cond) + ", ";
+	    s = s + exportExpr(thenPath) + ", ";
+	    s = s + exportExpr(elsePath) + ")";
+	    break;
+	case Quantor(Expr.QuantorKind kind, Expr matrix, Expr range):
+	    // <quantor> <declarations> [ | <predicate> ] [ @ <expression> ]
+	    // or
+	    // { <declarations> [ | <predicate> ] [ @ <expression> ] }
+	    s = new String("ZAbsy.Quantor(ZAbsy."+kind+",");
+
+	    if (range != null) {
+		s = s + exportMatrix(matrix)+ "," + exportExpr(range) + ")";
+	    } else { // set without range
+		s = s + exportMatrix(matrix) + ")";
+	    }
+	    break;
+	case Text(Decl[] decls, Predicate[] props):
+	    // This is a special case:
+	    // stand-alone it looks like: 
+	    // \lbrack <declarations> [ | <predicate> ] \rbrack
+	    // but in the context of a quantor, the \lbrack and \rbrack vanish
+	    // in the context of a schema definition, it is displayed vertically:
+	    // | <declarations>
+	    //[|-----------------
+	    // | <predicate>     ] (but that is handled in prettyItem())
+	    s = new String("ZAbsy.SchemaText("+exportMatrix(expr)+")");
+	    break;
+	case Select(Expr oper, NameAppl name):
+	    s = new String("ZAbsy.Select(");
+	    s = s + exportExpr(oper) + ", " + exportNameAppl(name,false);
+	    s = s + ", " + printType(oper.an) + ")";
+	    break;
+	case Unary(Expr.UnaryKind kind, Expr oper):
+	    
+	    switch (kind) {
+	    case Renaming(Rename[] renames):
+		System.err.println("*** Renaming");
+		s =  new String("ZAbsy.Renaming(");
+		s = s + exportExpr(oper) + ", [";
+		s = s + exportRenames(renames) + "])";
+		break;
+	    case Decorate(String decore):
+		// Ugly hack!
+		switch (oper) {
+		case Variable(NameAppl name):
+		    s = exportNameAppl(name,true);
+		    break;
+		default:
+		    System.err.println("*** Expr:Unary:Deco: Not a variable!");
+		    throw new NotSupported(" non-variable in decoration");
+		}
+		break;
+	    case Theta:
+		s = new String("ZAbsy.Unary(ZAbsy."+kind+","+exportTheta(oper,false)+")"); 
+		break;
+            case StateFlat: // FIXME: What does this look like?
+            case StepFlat:  // FIXME: What does this look like?
+		throw new NotSupported("StateFlat or StepFlat");
+	    default:
+		s = new String("ZAbsy.Unary(ZAbsy."+kind+","+exportExpr(oper)+")");
+	    }
+	    break;
+	case Binary(Expr.BinaryKind kind, Expr left, Expr right):
+	    s = new String("ZAbsy.Binary(ZAbsy."+kind+",");
+	    s = s + exportExpr(left) + "," + exportExpr(right) + ")";
+	    break;
+	case GivenType(NameDecl name):
+	    s = new String("ZAbsy.GivenType("+exportNameDecl(name)+")");
+	    break;
+	case FreeType(NameDecl name, Branch[] branches):
+	    s = new String("ZAbsy.FreeType("+exportNameDecl(name)+", [");
+
+	    if (branches.length == 0) System.err.println("ARRAY< -- FreeType");
+	    for (int i = 0; i < branches.length-1; i++) {
+                s = s + exportBranch(branches[i]) + ",";
+	    }
+	    s = s + exportBranch(branches[branches.length-1]) + "])";
+	    break;
+	case UniVar(Name name, Expr oper):
+	    // FIXME: what does this look like?
+	    break;
+	}
+	return s;
+    }
+
+    private String exportName(Name name) {
+	return "\"" + dbs(name.toString()) + "\"";
+    }
+
+    private String exportBranch(Branch branch) throws NotSupported {
+	String s;
+
+	// FRANK: Hier evtl. auch noch "Branch" mit einfuegen, 
+	//        um enger am Z-Standard zu bleiben.
+	switch (branch) {
+	case Constant(NameDecl name):
+	    s = new String("ZAbsy.Constant(" + exportNameDecl(name) + ")");
+	    break;
+	case Function(NameDecl name, Expr type):
+	    s = new String("ZAbsy.Function(");
+	    s = s + exportNameDecl(name) + ", " + exportExpr(type) + ")";
+	}
+	return s;
+    }
+
+    private String exportMatrix(Expr expr) throws NotSupported {
+	String s;
+
+	switch (expr) {
+	case Text(Decl[] decls, Predicate[] props):
+	    s = new String();
+
+	    if (decls.length > 0) {
+		s = s + "[";
+		for (int i = 0; i < decls.length-1; i++) {
+		    s = s + exportDecl(decls[i]) + ", ";
+		}
+		s = s + exportDecl(decls[decls.length-1]) + "]";
+	    } else {
+		s = "[]";
+	    }
+	    if (props.length > 0) {
+		s = s + ", [";
+		for (int i = 0; i < props.length-1; i++) {
+		    s = s + exportPredicate(props[i]) + ", ";
+		}
+		s = s + exportPredicate(props[props.length-1]) + "]";
+	    } else {
+		s = s + ", []";
+	    }
+	    return s;
+	case Variable(NameAppl name):
+	    // Special case for set comprehension with only a schema name in the
+	    // declaration part und no constraints.
+	    return new String("[" + exportSchemaName(expr,false) + "],[]");
+	case Unary(Expr.UnaryKind kind, Expr oper):
+	    switch (kind) {
+	    case Decorate(String decore):
+		// Ugly hack!
+		switch (oper) {
+		case Variable(NameAppl name):
+		    return new String("["+exportSchemaName(oper,true)+"], []");
+		default:
+		    System.err.println("*** Expr:Unary:Deco: Not a variable!");
+		    throw new NotSupported(" non-variable in decoration");
+		}
+	    default:
+		System.err.println("*** Expr:Unary:Deco: Not a variable!");
+		throw new NotSupported(" non-variable in decoration");
+	    }
+	default:
+	    System.out.println("\n### Warum das?  \n");
+	    System.out.println(expr);
+	    return exportExpr(expr);
+	}
+    }
+
+    private String exportDecl(Decl decl) throws NotSupported {
+	String s;
+
+	switch (decl) {
+	case Direct(NameDecl[] names, Expr type):
+	    // name1, ..., nameN : type
+	    
+	    s = new String("ZAbsy.Direct([");
+	    
+	    for (int i = 0; i < names.length-1; i++) {
+		s = s + exportNameDecl(names[i]) + ", ";
+	    }
+	    s = s + exportNameDecl(names[names.length-1]) + "], ";
+	    s = s + exportExpr(type) + ")";
+	    break;
+	case Inclusion(Expr schema):
+	    switch (schema) {
+	    case Variable(NameAppl name):
+		s = exportSchemaName(schema,false);
+		break;
+	    case Unary(Expr.UnaryKind kind, Expr oper):
+		switch (kind) {
+		case Decorate(String decore):
+		    // Ugly hack!
+		    switch (oper) {
+		    case Variable(NameAppl name):
+			s = exportSchemaName(oper,true);
+			break;
+		    default:
+			System.err.println("*** Expr:Unary:Deco: Not a variable!");
+			throw new NotSupported(" non-variable in decoration");
+		    }
+		    break;
+		default:
+		    s = exportExpr(schema);
+		}
+		break;
+	    default:
+		throw new NotSupported("Declaration: not unary or variable!");
+	    }
+	    break;
+	case Eqn(NameDecl name, Expr def):
+	    s = exportEqn(decl);
+	}
+	return s;
+    }
+
+    private String exportEqn(Decl eqn) throws NotSupported {
+	
+	switch (eqn) {
+	case Eqn(NameDecl name, Expr def):
+	    String s = new String("ZAbsy.Eqn(");
+	    s = s + exportNameDecl(name) + ", " + exportExpr(def) + ",";
+	    s = s + printType(def.an) + ")";
+	    return s;
+	default:
+	    return null;
+	}
+    }
+    
+    /*
+     * This method prints the type of an expression, if the
+     * annotation is a type annotation.
+     */
+    private String printType(Annotation an) {
+	String s = "";
+	try {
+	    if (Type.isProvided(an)) {
+		s = new String("ZAbsy.Type("+exportExpr(Type.get(an))+")");
+	    } else {  // This should never happen and cannot be parsed by HOL-Z.
+		s = new String("ZAbsy.Type(Void)");
+	    }
+	} catch (Exception e) {System.err.println(e);}
+	return s;
+    }
+
+    /*
+     * This method replaces each backslash '\' by two backslashs '\\'.
+     * This is needed because the sml parser interprets single '\' as
+     * escape sequence.
+     */
+    private static String dbs(String s) {
+	int i=0;
+	StringBuffer b = new StringBuffer(s);
+	
+	for (i=0; i < b.length(); i++) {
+	    if (b.charAt(i) == '\\') {
+		b.deleteCharAt(i);
+	    }
+	}
+	return b.toString();
+    }
+
+    private String exportRenames(Rename [] renames) throws NotSupported {
+	String s = "";
+
+	for (int i = 0; i < renames.length; i++) {
+	    switch(renames[i]) {
+	    case Rename(NameAppl old, NameDecl _new):
+		s = s + "(" + exportNameAppl(old,false) + ", " + exportNameDecl(_new) + ")";
+		if (i < renames.length-1) {
+		    s = s + ", ";
+		}
+	    }
+	}
+	return s;
+    } 
+
+    private String exportSchemaName(Expr expr, boolean deco) throws NotSupported {
+	String s = new String();
+
+	switch (expr) {
+	case Variable(NameAppl(Name name, Expr[] actuals)):
+	    if (deco) {
+		s = new String("ZAbsy.SchemaName(\""+dbs(name.toString())+"'\",");
+	    } else {
+		s = new String("ZAbsy.SchemaName(\""+dbs(name.toString())+"\",");
+	    }
+	    s = s + printType(expr.an) + ",[";
+	    if (actuals.length > 0) {
+		for(int i=0; i < actuals.length-1; i++) {
+		    s = s + exportExpr(actuals[i]) + ",";
+		}
+		s = s + exportExpr(actuals[actuals.length-1]);
+	    }
+	    s = s + "])";
+	    break;
+	default:
+	    throw new NotSupported("SchemaName: ???");
+	}
+	return s;
+    }
+
+
+    private String exportTheta(Expr expr, boolean deco) throws NotSupported {
+	String s = new String();
+
+	switch (expr) {
+	case Variable(NameAppl(Name name, Expr[] actuals)):
+	    if (deco) {
+		s = new String("ZAbsy.NameAppl(\""+dbs(name.toString())+"'\"");
+	    } else {
+		s = new String("ZAbsy.NameAppl(\""+dbs(name.toString())+"\"");
+	    }
+	    s = s + ",[";
+	    if (actuals.length > 0) {
+		for(int i=0; i < actuals.length-1; i++) {
+		    s = s + exportExpr(actuals[i]) + ",";
+		}
+		s = s + exportExpr(actuals[actuals.length-1]);
+	    }
+	    s = s + "])";
+	    break;
+	case Unary(Expr.UnaryKind kind, Expr oper):
+	    
+	    switch (kind) {
+	    case Decorate(String decore):
+		// Ugly hack!
+		switch (oper) {
+		case Variable(NameAppl name):
+		    s = exportTheta(oper,true);
+		    break;
+		default:
+		    System.err.println("*** Expr:Unary:Deco: Not a variable!");
+		    throw new NotSupported(" non-variable in decoration");
+		}
+		break;
+	    default:
+		System.err.println("*** Kind: " + kind);
+		throw new NotSupported("Theta: SchemaName");
+	    }
+	    break;
+	default:
+	    System.err.println(expr);
+	    throw new NotSupported("Theta: SchemaName");
+	}
+	return s;
+    }
+
+    private class SectionPair implements Comparable {
+	private Name name;
+	private Name[] parents;
+	
+	public SectionPair(Name n, Name[] ns) {
+	    name = n;
+	    parents = ns;
+	}
+	
+	public Name fst() {return name;}
+	public Name [] snd() {return parents;}
+	
+	public boolean equals(Object o) {
+	    if (!(o instanceof SectionPair))
+		return false;
+	    SectionPair n = (SectionPair)o;
+	    return n.fst().equals(name) &&
+		n.snd().equals(parents);
+	}
+	
+	public String toString() {return "("+name+", "+parents+")";}
+	
+	public int compareTo(Object o) {
+	    int comp = 1;
+
+	    SectionPair p = (SectionPair)o;
+	    /* If name in p.snd then -1, else 1. */
+	    for (int i=0; i<p.snd().length;i++) {
+		if (name.equals(p.snd()[i])) {
+		    comp = -1;
+		    break;
+		}
+	    }
+	    return comp;
+	}
+    }
+
+    /*
+     * Insertion sort for vectors of elements that implement
+     * the Comparable interface.
+     */
+    private Vector sort(Vector in) {
+	Vector out = new Vector();
+
+	Enumeration e = in.elements();
+	while (e.hasMoreElements()) {
+	    Comparable o = (Comparable) e.nextElement();
+	    insert(o, out);
+	}
+	return out;
+    }
+
+    /*
+     * Insert the object c at the right position in v, according to
+     * the Comparable::compareTo operation.
+     */
+    private void insert(Comparable c, Vector v) {
+	Comparable cc;
+
+	for (int i=0; i < v.size(); i++) {
+	    cc = (Comparable)  v.elementAt(i);
+	    if (c.compareTo(cc) < 0) {
+		v.add(i,c);
+		return;
+	    }
+	}
+	/* Finally add it at the end. */
+	v.add(c);
+    }
+
+}

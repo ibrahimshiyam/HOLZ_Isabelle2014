@@ -1,0 +1,199 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>3. The User Interface</TITLE>
+<META NAME="description" CONTENT="3. The User Interface">
+<META NAME="keywords" CONTENT="zapnotes">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zapnotes.css">
+<LINK REL="next" HREF="zapnotes-node5.html">
+<LINK REL="previous" HREF="zapnotes-node3.html">
+<LINK REL="up" HREF="zapnotes.html">
+<LINK REL="next" HREF="zapnotes-node5.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html135"
+ HREF="zapnotes-node5.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html131"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html125"
+ HREF="zapnotes-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html133"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html136"
+ HREF="zapnotes-node5.html">4. Controlling Search</A>
+<B> Up:</B> <A NAME="tex2html132"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html126"
+ HREF="zapnotes-node3.html">2. Principles</A>
+ &nbsp <B>  <A NAME="tex2html134"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html137"
+ HREF="zapnotes-node4.html#SECTION00041000000000000000">3.1 Queries</A>
+<LI><A NAME="tex2html138"
+ HREF="zapnotes-node4.html#SECTION00042000000000000000">3.2 Profiling</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00040000000000000000">
+3. The User Interface</A>
+</H1>
+
+<P>
+Z<SMALL>A</SMALL>P is embedded in the diverse interfaces (graphical, XEmacs,
+batch) provided by <A NAME="tex2html7"
+ HREF="zeta.html"><I>Z<SMALL>E</SMALL>T<SMALL>A</SMALL></I></A>. Here, we look
+at the batch-oriented (command line) interface. Similar principles
+apply to the other interfaces.
+
+<P>
+
+<H2><A NAME="SECTION00041000000000000000">
+3.1 Queries</A>
+</H2>
+
+<P>
+Execution is involved by the two single-letter commands <code>e</code>
+(execute expression) and <code>p</code> (execute predicate). The output
+of the <code>help</code> command gives the following syntax for these commands:
+
+<P>
+ 
+<PRE>
+  e [-u &lt;UNITNAME&gt;] [ ( -r | -t | -f ) ] ( -n | -d | -o | &lt;EXPR&gt; ) 
+  p [-u &lt;UNITNAME&gt;] &lt;PREDICATE&gt;
+</PRE>
+
+<P>
+The optional unit name specifies the section focus, as usual with
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL> commands. The first group of options to the <code>e</code> command
+has the following meaning:
+
+<P>
+
+<UL><LI><code>-r</code> - ``raw mode'' - indicates that sets in the
+  result should not be enumerated.
+
+<LI><code>-t</code> - ``try mode'' - indicates that sets in the
+  result should be enumerated to a certain extend. This may
+  fail, producing ``unresolved constraints'' diagnostics. This
+  is the default.
+
+<LI><code>-f</code> - ``force mode'' - indicates that sets in the
+  result should be forced to be completely enumerated. This may lead
+  to non-termination.
+
+</UL>
+
+<P>
+The last group of options of the <code>e</code> command allows us
+to step through the solutions to the entire specification
+or a set-result. Consider the (loose) specification:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="380" HEIGHT="39" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img57.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{Stepping}
+\end{zdirectives}\beg...
+...def}
+S: \power \num
+\where
+S \in \{\{1,2\},\{3,4\}\}
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+Evaluating <I>S</I> yields in:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="228" HEIGHT="55" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img58.gif"
+ ALT="\begin{zexecexpr}
+S
+\yields
+{1,2}
+(possibly more solutions)
+\end{zexecexpr}">
+<BR>
+
+<P>
+Typing <code>e -n</code> shows the next solution to <I>S</I>, <code>{3,4}</code>.
+From the current value we are observing, we can also step
+downwards (if the current value is a set value): typing <code>e -d</code>
+now yields <code>3 (possibly more solutions)</code>, and <code>e -n</code> afterwards
+<code>4</code>. With <code>e -o</code> we return to the outer target.
+
+<P>
+
+<H2><A NAME="SECTION00042000000000000000">
+3.2 Profiling</A>
+</H2>
+
+<P>
+Z<SMALL>A</SMALL>P provides two options for timing and profiling.  First, with the
+command <code>xconf ton</code>/<code>xconf toff</code> timing of execution can
+beactivated and deactivated.  
+
+<P>
+Second, the command <code>xprof</code> can be used to display a profile
+which counts the number of steps executed in each individual
+constraint.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html135"
+ HREF="zapnotes-node5.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html131"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html125"
+ HREF="zapnotes-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html133"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html136"
+ HREF="zapnotes-node5.html">4. Controlling Search</A>
+<B> Up:</B> <A NAME="tex2html132"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html126"
+ HREF="zapnotes-node3.html">2. Principles</A>
+ &nbsp <B>  <A NAME="tex2html134"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

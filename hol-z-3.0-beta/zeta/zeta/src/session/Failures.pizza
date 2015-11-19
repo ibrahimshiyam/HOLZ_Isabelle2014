@@ -1,0 +1,51 @@
+package zeta.session;
+
+/**
+ * Failures thrown by the session system. These exceptions represent
+ * a normal error condition in operation, and need to be declared
+ * in the throws class of method, or to be caught.
+ *
+ * @version $Id: Failures.pizza,v 1.5 1998/11/16 00:53:24 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.util.Name;
+
+public class Failures extends Exception {
+
+  /**
+   * An entity does not exists.
+   */
+  public case NoSuchEntity(final String name);
+
+  /**
+   * An entity of the given name does already exists.
+   */
+  public case EntityExists(final String name);
+
+  /**
+   * A failure in evaluating a form.
+   */
+  public case FormFailed(final String message);
+
+  /**
+   * A partial unit name is not resolvable.
+   */
+  public case UnresolvableName(final Name name);
+
+  /**
+   * A partial unit name is ambigious resolvable.
+   */
+  public case AmbigiousName(final Name[] fullNames);
+
+  /**
+   * A target cannot be computed. 
+   */
+  public case CannotCompute(final Target target);
+
+  /**
+   * A computation of the specified target failed.
+   */
+  public case ComputationFailed(final Target target);
+
+}

@@ -1,0 +1,18 @@
+
+# do adaptors first
+SUBJAVANODES = util latex zchecker zparser pp 
+
+SUBNODES = util latex zchecker zparser pp \
+               nmzreducer \
+	       sh emacs sman \
+               nzap zetasty 
+
+xSUBNODES = util latex zchecker zparser pp \
+               mzrewriter mzreducer \
+	       sh emacs sman \
+	       stm graphics \
+	       prover \
+               zap ztoolkits \
+	       zetasty
+JAVAFLAGS       = -nowarn
+NODEKIND	= javagroup

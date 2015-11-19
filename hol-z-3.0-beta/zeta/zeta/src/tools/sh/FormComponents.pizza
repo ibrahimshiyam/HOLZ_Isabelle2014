@@ -1,0 +1,1312 @@
+package zeta.tools.sh;
+
+/**
+ * Constructing Swing components for forms. 
+ *
+ * @version $Id: FormComponents.pizza,v 1.14 2000/05/16 08:10:47 wg Exp $ */
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.form.*;
+import zeta.session.*;
+
+import java.io.*;
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+import javax.swing.text.*;
+
+class FormComponents {
+
+  /** The shell state. */
+  private final ShellState state;
+
+  /** The history up-arrow icon. */
+  private static Icon historyUp;
+
+  /** The history down-arrow icon. */
+  private static Icon historyDown;
+
+  /** The history down-arrow icon. */
+  private static Icon historyExtern;
+
+
+  /** Create a form components generator object. */
+  FormComponents(ShellState state){
+    this.state = state;
+    if (historyUp == null){
+      File libDir = new File(state.session.getLibDir(), "images");
+      historyUp = 
+	new ImageIcon(new File(libDir, "history-up-arrow.gif").getPath());
+      historyDown = 
+	new ImageIcon(new File(libDir, "history-down-arrow.gif").getPath());
+      historyExtern = 
+	new ImageIcon(new File(libDir, "history-extern.gif").getPath());
+    }
+  }
+
+  /** Make a button from its textual description. */
+  JButton makeButton(String descr){
+    JButton button = new JButton();
+    setButtonName(button, descr);
+    return button;
+  }
+
+  /** Set the name of a button from a textual description. */
+  void setButtonName(JButton button, String descr){
+    if (descr.startsWith("@")){
+      // icon file name given
+      String iconName;
+      String name;
+      int i = descr.indexOf(";");
+      if (i > 0){
+	iconName = descr.substring(1, i);
+	name = descr.substring(i+1);
+      } else {
+	iconName = descr.substring(1);
+	name = iconName;
+      }
+      File libDir = new File(state.session.getLibDir(), "images");
+      File iconFile = new File(libDir, iconName);
+      if (iconFile.isFile()){
+	Icon icon = new ImageIcon(iconFile.getPath());
+	button.setIcon(icon);
+      } else
+	button.setName(name);
+    } else
+      button.setName(descr);
+  }
+
+  /** Create a dialog for a component with specified buttons
+      to react on user action. */
+  JPanel makeDialog(JComponent comp, String[] buttons, int defaultButton,
+		    final (int)->void action){
+    return makeDialog(comp, buttons, defaultButton, action, false);
+  }
+
+  JPanel makeDialog(JComponent comp, String[] buttons, int defaultButton,
+		    final (int)->void action,
+		    boolean buttonsAtRight){
+    JPanel panel = new JPanel();
+    panel.setDoubleBuffered(true);
+    // panel.setBorder(BorderFactory.createEmptyBorder(5, 5, 0, 5));
+    panel.setLayout(new BoxLayout(panel, 
+				  buttonsAtRight ? BoxLayout.X_AXIS 
+				                 : BoxLayout.Y_AXIS));
+    panel.add(comp);
+    addSpace(panel);
+    JPanel buttonPane = new JPanel();
+    buttonPane.setLayout(new BoxLayout(buttonPane, 
+				       buttonsAtRight ? BoxLayout.Y_AXIS
+				                      : BoxLayout.X_AXIS));
+    buttonPane.setBorder(makeSmallSpaceBorder());
+    for (int i = 0; i < buttons.length; i++){
+      JButton button = makeButton(buttons[i]);
+      final int j = i;
+      button.addActionListener(
+      	new ActionListener(){
+	  public void actionPerformed(ActionEvent event){
+	    action(j);
+	  }
+	}
+      );
+      if (i == defaultButton) button.setDefaultCapable(true);
+      addGlue(buttonPane);
+      buttonPane.add(button);
+    }
+    addGlue(buttonPane);
+    panel.add(buttonPane);
+    return panel;
+  }
+    
+      
+  /** Popup a modal dialog to input the given form. Returns true if
+      the user commits the dialog, false if she cancels it. */
+  boolean modalDialog(Component parent, String title, Form form){
+    FormDialog dialog = new FormDialog(parent, title, 
+				       makeComponent(form),
+				       true);
+    dialog.show();
+    boolean res = dialog.committed;
+    dialog.setVisible(false);
+    dialog.dispose();
+    return res;
+  }
+
+  /** The class of form dialogs. */
+  class FormDialog extends JDialog {
+    boolean committed = false;
+    FormDialog(Component parent, String title, JComponent comp,
+	       boolean withCancel){
+      super(getFrame(parent), title, true); // modal dialog
+      JPanel panel;
+      if (withCancel)
+	panel = makeDialog(comp, new String[]{"Cancel", "Ok"}, 1,
+	                    fun (int i)->void {
+			      committed = i == 1;
+			      setVisible(false);
+			    }
+			  );
+      else
+	panel = makeDialog(comp, new String[]{"Dismiss"}, 0,
+	                    fun (int i)->void {
+			      committed = true;
+			      setVisible(false);
+			    }
+			  );
+      getContentPane().add(panel);
+      addWindowListener(
+	new WindowAdapter() {
+	  public void windowActivated(WindowEvent e) {
+	    getRootPane().requestFocus();
+	  }
+	}
+      );
+      pack();
+      setLocationRelative(parent, this);
+    }
+
+  }
+
+  static Frame getFrame(Component comp){
+    while (comp != null && !(comp instanceof Frame)){
+      comp = comp.getParent();
+    }
+    if (comp == null) return null; else return (Frame)comp;
+  }
+
+  static void setLocationRelative(Component comp,
+				  Window window){
+    Point pt = comp.getLocation();
+    SwingUtilities.convertPointToScreen(pt, comp);
+    Dimension sz = comp.getSize();
+    pt.x += sz.width / 4;
+    pt.y += sz.height / 4;
+    Dimension ssz = window.getToolkit().getScreenSize();
+    Dimension wsz = window.getSize();
+    if (pt.x + wsz.width > ssz.width)
+      pt.x -= (pt.x + wsz.width) - ssz.width;
+    if (pt.y + wsz.height > ssz.height)
+      pt.y -= (pt.y + wsz.height) - ssz.height;
+    if (pt.x < 0) pt.x = 0;
+    if (pt.y < 0) pt.y = 0;
+    window.setLocation(pt);
+  }
+
+  /** Create a component for the given form, with styles as specified
+      by the form. */
+  JComponent makeComponent(Form form){
+    return makeComponent(form, form.style);
+  }
+
+  /** Create a component for the given form, applying the given styles. */
+  JComponent makeComponent(Form form, Form.Style[] styles){
+    JComponent comp;
+    if (form instanceof LiteralForm)
+      comp = makeComponent((LiteralForm)form);
+    else if (form instanceof TextForm)
+      comp = makeComponent((TextForm)form);
+    else if (form instanceof FileForm)
+      comp = makeComponent((FileForm)form);
+    else if (form instanceof ListForm)
+      comp = makeComponent((ListForm)form);
+    else if (form instanceof OptionForm)
+      comp = makeComponent((OptionForm)form);
+    else if (form instanceof SeqForm)
+      comp = makeComponent((SeqForm)form);
+    else if (form instanceof ChoiceForm)
+      comp = makeComponent((ChoiceForm)form);
+    else
+      throw FatalError.assertionFailed(
+	      "don't know how to make GUI component for form: " + 
+	      form.getClass());
+    center(comp);
+    return evalStyle(form, comp, styles);
+  }
+
+
+  /** Create a component for a literal form. */
+  JComponent makeComponent(final LiteralForm form){
+    // empty! needs to have a label to be displayed
+    JPanel panel = new JPanel();
+    panel.setPreferredSize(new Dimension(0, 0));
+    return panel;
+  }
+
+  /** Create a component for a text form. */
+  JComponent makeComponent(final TextForm form){
+    return new TextPanel(form);
+  }
+
+  /** Add history buttons to text form. This has to be done after
+      applying styles such as scrolling views. */
+  JComponent addTextHistory(JComponent comp, final TextForm form){
+    return new HistoryAndExternText(comp, form);
+  }
+
+  private class HistoryAndExternText extends JPanel {
+
+    private JComponent comp;
+    private TextForm form;
+
+    private boolean externMode = false;
+    private TextEditor editor;
+
+    private JButton upButton;
+    private JButton downButton;
+    private JButton externButton;
+    private Color oldExternColor;
+
+    HistoryAndExternText(JComponent _comp, TextForm _form){
+      super(new BorderLayout());
+      comp = _comp; form = _form;
+      JPanel buttons = new JPanel();
+      setVertLayout(buttons);
+      upButton = new JButton(historyUp);
+      upButton.setPreferredSize(new Dimension(makeWidth(-2), makeHeight(-1)));
+      upButton.addActionListener(
+	new ActionListener(){
+	  public void actionPerformed(ActionEvent e){
+	    if (form.state.stepHistory(state.session, false)){
+	      // beep
+	    }
+	  }
+	}
+      );
+      center(upButton);
+      buttons.add(upButton);
+
+      downButton = new JButton(historyDown);
+      downButton.setPreferredSize(new Dimension(makeWidth(-2), makeHeight(-1)));
+      downButton.addActionListener(
+	new ActionListener(){
+	  public void actionPerformed(ActionEvent e){
+	    if (form.state.stepHistory(state.session, true)){
+	      // beep
+	    }
+	  }
+	}
+      );
+      center(downButton);
+      buttons.add(downButton);
+
+      if (form.state.getExternFile(state.session) != null){
+	editor = state.session.getTextEditor();
+	externButton = new JButton(historyExtern);
+	externButton.setPreferredSize(new Dimension(makeWidth(-2), 
+						    makeHeight(-1)));
+	externButton.addActionListener(
+	  new ActionListener(){
+	    public void actionPerformed(ActionEvent e){
+	      toggleExtern();
+	    }
+	  }
+	);
+	center(externButton);
+	buttons.add(externButton);
+      }
+      addGlue(buttons);
+      add(buttons, BorderLayout.WEST);
+      add(comp, BorderLayout.CENTER);
+
+      form.state.addListener(
+	new FormState.ListenerAdaptor(){
+	  public void stateRequired(FormState fstate, Object source){
+	    if (externMode) {
+	      form.state.setDraftText(state.session, copyFromExtern());
+	      form.state.notifyChange(this);
+	    }
+	  }
+	  public void stateChanged(FormState fstate, Object source){
+	  }
+	}
+      );
+
+    }
+
+    private void toggleExtern(){
+      if (!externMode){
+	editor = state.session.getTextEditor();
+	if (editor == null){
+	  alert("No text editor registered.");
+	  return;
+	}
+	setButtonName(externButton, editor.getButtonName());
+	externMode = true;
+	copyToExtern(form.state.getText(state.session));
+	comp.setEnabled(false);
+	downButton.setEnabled(false);
+	upButton.setEnabled(false);
+	externButton.setSelected(true);
+	oldExternColor = externButton.getBackground();
+	externButton.setBackground(Color.red);
+      } else {
+	externMode = false;
+	form.state.setDraftText(state.session, copyFromExtern());
+	form.state.notifyChange(this);
+	comp.setEnabled(true);
+	downButton.setEnabled(true);
+	upButton.setEnabled(true);
+	externButton.setSelected(false);
+	externButton.setBackground(oldExternColor);
+	externButton.setIcon(historyExtern);
+      }
+    }
+
+    private void copyToExtern(String text){
+      File externFile = form.state.getExternFile(state.session);
+      try {
+	editor.unlock(externFile);
+	editor.commit();
+	PrintWriter wr = new PrintWriter(new FileWriter(externFile));
+	wr.print(text);
+	wr.close();
+	editor.reopen(externFile);
+	editor.commit();
+      }
+      catch (IOException e){
+	alert("Cannot write to editor:\n" + e.getMessage());
+      }
+    }
+      
+    private String copyFromExtern(){
+      File externFile = form.state.getExternFile(state.session);
+      try {
+	editor.save(externFile, true);
+	editor.commit();
+	BufferedReader reader = new BufferedReader(new FileReader(externFile));
+	String line;
+	StringBuffer res = new StringBuffer();
+	while ((line = reader.readLine()) != null){
+	  if (res.length() > 0) res.append("\n");
+	  res.append(line);
+	}
+	reader.close();
+	return res.toString();
+      }
+      catch (IOException e){
+	alert("Cannot read from editor:\n" + e.getMessage());
+	return "";
+      }
+    }
+	
+	
+  }
+
+  private void alert(String message){
+    JOptionPane.showMessageDialog(
+      state.master != null && 
+      state.master instanceof Component ?
+      (Component)state.master : null,
+      message,
+      "Error",
+      JOptionPane.WARNING_MESSAGE
+    );
+  }
+
+  private class TextPanel extends JTextArea 
+  implements DocumentListener, MouseListener, FormState.Listener {
+    private final TextForm form;
+    private boolean externalUpdate = false;
+    TextPanel(TextForm form){
+      setFont(GuiOptions.active.editFont);
+      this.form = form;
+      setBorder(makeTextFieldBorder());
+      String text = form.state.getText(state.session);
+      setLineWrap(false);
+      setWrapStyleWord(true);
+      try {
+	externalUpdate = true;
+	setText(text);
+      }
+      finally {
+	externalUpdate = false;
+      }
+      Document doc = getDocument();
+      doc.addDocumentListener(this);
+      // addMouseListener(this);
+    }
+    public void mouseEntered(MouseEvent e){
+      transferFocus();
+    }
+    public void mouseExited(MouseEvent e){
+      transferFocus();
+    }
+    public void mouseClicked(MouseEvent e){
+      requestFocus();
+    }
+    public void mousePressed(MouseEvent e){
+      requestFocus();
+    }
+    public void mouseReleased(MouseEvent e){
+    }
+    public void addNotify(){
+      super.addNotify();
+      form.state.addListener(this);
+    }
+    public void removeNotify(){
+      super.removeNotify();
+      form.state.removeListener(this);
+    }
+    public void insertUpdate(DocumentEvent e) {
+      if (!externalUpdate)
+	form.state.setDraftText(state.session, getText());
+    }
+    public void removeUpdate(DocumentEvent e) {
+      if (!externalUpdate)
+	form.state.setDraftText(state.session, getText());
+    }
+    public void changedUpdate(DocumentEvent e) {
+      if (!externalUpdate)
+	form.state.setDraftText(state.session, getText());
+    }
+    public void stateChanged(FormState fstate, Object source){
+      if (source != this){
+	TextForm.State tstate = (TextForm.State)fstate;
+	String oldT = getText();
+	String newT = tstate.getText(state.session);
+	if (oldT == null) oldT = "";
+	if (newT == null) newT = "";
+	if (!oldT.equals(newT)){
+	  try {
+	    externalUpdate = true;
+	    setText(newT);
+	  }
+	  finally {
+	    externalUpdate = false;
+	  }
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+
+  }
+
+  /** Create a component for a file form. */
+  JComponent makeComponent(final FileForm form){
+    return new FilePanel(form);
+  }
+  private static JFileChooser chooser = new JFileChooser();
+  private static Icon folderIcon = UIManager.getIcon("FileView.directoryIcon");
+  private static Icon fileIcon = UIManager.getIcon("FileView.fileIcon");
+
+  private class FilePanel extends JPanel 
+  implements ActionListener, MouseListener,
+             DocumentListener, FormState.Listener {
+    FileForm form; 
+    JTextField field = new JTextField();
+    JButton button = new JButton();
+    File currDir = new File(System.getProperty("user.dir"));
+    boolean externalUpdate = false;
+    
+    FilePanel (FileForm form) {
+      setHoriLayout(this);
+      this.form = form;
+      if (form.state.file != null){
+        field.setText(form.state.file.getPath());
+      } else {
+        field.setText("");
+      }
+      field.setFont(GuiOptions.active.editFont);
+      field.setColumns(32);
+      field.setBorder(makeTextFieldBorder());
+      field.getDocument().addDocumentListener(this);
+      if (form.mode == FileForm.Mode.EXDIRECTORY) {
+        button.setIcon(folderIcon);
+      } else {
+        button.setIcon(fileIcon);
+      }          
+      button.setBorder(null);
+      button.setToolTipText("Click to choose file/folder");
+      button.setFocusPainted(false);
+      button.addActionListener(this);
+      center(field);
+      add(field);
+      addSpace(this);
+      center(button);
+      add(button);
+      // addMouseListener(this);
+    }
+
+    public void mouseExited(MouseEvent e){
+      transferFocus();
+    }
+    public void mouseEntered(MouseEvent e){
+      requestFocus();
+    }
+    public void mouseClicked(MouseEvent e){
+      requestFocus();
+    }
+    public void mousePressed(MouseEvent e){
+      requestFocus();
+    }
+    public void mouseReleased(MouseEvent e){
+    }
+
+    public void setEnabled(boolean enabled) {
+      field.setEnabled(enabled);
+      button.setEnabled(enabled);
+      super.setEnabled(enabled);
+    }
+
+    public void addNotify(){
+      super.addNotify();
+      form.state.addListener(this);
+    }
+
+    public void removeNotify(){
+      super.removeNotify();
+      form.state.removeListener(this);
+    }
+
+    public void actionPerformed(ActionEvent e) {
+      if (form.state.file != null){
+	chooser.setSelectedFile(form.state.file);
+	if (form.state.file.getParent() != null)
+	  chooser.setCurrentDirectory(new File(form.state.file.getParent()));
+	else
+	  chooser.setCurrentDirectory(currDir);
+      } else 
+	chooser.setCurrentDirectory(currDir);
+      switch (form.mode){
+      case EXFILE:
+        chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+	chooser.setDialogTitle("Choose Existent File");
+	chooser.setApproveButtonText("Choose");
+	chooser.setApproveButtonToolTipText("Choose selected file");
+	break;
+      case EXDIRECTORY:
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+	chooser.setDialogTitle("Choose Directory");
+	chooser.setApproveButtonText("Choose");
+	chooser.setApproveButtonToolTipText("Choose selected directory");
+	break;
+      default:
+        chooser.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+	chooser.setDialogTitle("Choose File");
+	chooser.setApproveButtonText("Choose");
+	chooser.setApproveButtonToolTipText("Choose selected file");
+      }
+      if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) 
+	return;
+      File selFile = chooser.getSelectedFile();
+      if (selFile == null) return;
+      File old = form.state.file;
+      if (selFile.isAbsolute())
+	if (selFile.getParent().equals(currDir.getPath()))
+	  // use relative path
+	  form.state.file = new File(selFile.getName());
+	else
+	  form.state.file = selFile;
+      else
+	if (chooser.getCurrentDirectory().equals(currDir))
+	  // keep relative path
+	  form.state.file = selFile;
+	else
+	  form.state.file = new File(chooser.getCurrentDirectory(),
+				     selFile.getName());
+      if (form.state.file != null)
+	field.setText(form.state.file.getPath());
+      else
+	field.setText("");
+    }
+
+    public void insertUpdate(DocumentEvent e) {
+      if (!externalUpdate){
+	form.state.file = new File(field.getText());
+	form.state.notifyChange(this);
+      }
+    }
+    public void removeUpdate(DocumentEvent e) {
+      if (!externalUpdate){
+	form.state.file = new File(field.getText());
+	form.state.notifyChange(this);
+      }
+    }
+    public void changedUpdate(DocumentEvent e) {
+      if (!externalUpdate){
+	form.state.file = new File(field.getText());
+	form.state.notifyChange(this);
+      }
+    }
+    public void stateChanged(FormState cstate, Object source){
+      if (source != this){
+	FileForm.State fstate = (FileForm.State)cstate;
+	try {
+	  externalUpdate = true;
+	  if (fstate. file != null)
+	    field.setText(fstate.file.getPath());
+	  else
+	    field.setText("");
+	}
+	finally {
+	  externalUpdate = false;
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+  }
+  
+  /** Create a component for a list form. */
+  JComponent makeComponent(final ListForm form){
+    return new ListPanel(form);
+  }
+
+  private class ListPanel extends JComboBox 
+  implements ActionListener, 
+             FormState.Listener, zeta.session.Listener {
+
+    final ListForm form;
+    boolean externalUpdate = false;
+    String[] range;
+    
+
+    ListPanel(ListForm form){
+      this.form = form;
+      range = form.state.getRange(state.session);
+      addActionListener(this);
+      // setLightWeightPopupEnabled(false);
+      setEditable(form.style.editable);
+      setMaximumRowCount(form.style.maxPopupRows);
+      state.session.registerListener(
+	new Class[]{SessionStateMessage.class}, 
+	this
+      );
+      updateView();
+    }
+
+    public void addNotify(){
+      super.addNotify();
+      // System.err.println(System.identityHashCode(this) + " added");
+      form.state.addListener(this);
+    }
+
+    public void removeNotify(){
+      super.removeNotify();
+      // System.err.println(System.identityHashCode(this) + " removed");
+      form.state.removeListener(this);
+    }
+
+    public synchronized void actionPerformed(ActionEvent e) {
+      if (externalUpdate) 
+	// not a gui input: state is already up-to-date, ignore
+	;
+      else {
+	// gui input: update state
+	form.state.setSelected(state.session, getSelectedIndex(), this);
+      }
+    }
+
+    public synchronized void receive(Name tool, Message message){
+      // check if the range of the list form has been modified by this event
+      if (rangeChanged()){
+	// update range later on (we may be called from outside event loop)
+	SwingUtilities.invokeLater(
+	  new Runnable(){
+	    public void run(){
+	      updateView();
+	    }
+	  }
+	);
+      }
+    }
+
+    public synchronized void stateChanged(FormState myState, Object source){
+      // System.err.println("list #" + System.identityHashCode(this) + 
+	// 		 " got update from " + source.getClass() + "#" +
+	// 		 System.identityHashCode(source));
+      if (source == this) return;
+      if (rangeChanged())
+	updateView();
+      else {
+	int curr = form.state.getSelected(state.session);
+	if (curr != getSelectedIndex() && curr >= 0 && 
+	    curr < getItemCount()){
+	  try {
+	    externalUpdate = true;
+	    setSelectedIndex(curr);
+	  }
+	  finally {
+	    externalUpdate = false;
+	  }
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+
+    private boolean rangeChanged(){
+      String[] newRange = form.state.getRange(state.session);
+      boolean changed = false;
+      if (newRange.length == range.length){
+	for (int i = 0; !changed && i < newRange.length; i++){
+	  changed = !range[i].equals(newRange[i]);
+	}
+      }
+      else
+	changed = true;
+      if (changed) range = newRange;
+      return changed;
+    }
+
+
+    private synchronized void updateView(){
+      try {
+	externalUpdate = true;
+	int curr = form.state.getSelected(state.session);
+	if (curr == -1 && range.length > 0){
+	  form.state.setSelected(state.session, 0, this);
+	}
+	if (getItemCount() > 0) // SWING bug: throws if itemcount = 0
+	  removeAllItems();
+	for (int j = 0; j < range.length; j++){
+	  addItem(range[j]);
+	}
+	if (curr >= 0 && curr < range.length){
+	  setSelectedIndex(curr);
+	}
+      }
+      finally {
+	externalUpdate = false;
+      }
+    }
+
+  }
+
+  /** Create a component for an option form. */
+  JComponent makeComponent(final OptionForm form){
+    // FIXME: styles
+    // FIXME: if option is structured, put a border around
+    return new OptionPanel(form);
+  }
+  class OptionPanel extends JPanel implements ActionListener,
+                                              FormState.Listener {
+    final OptionForm form;
+    final JCheckBox checkBox;
+    final JComponent content;
+    boolean externalUpdate = false;
+    OptionPanel(OptionForm form) {
+      super(new BorderLayout());
+      this.form = form;
+      checkBox = new JCheckBox();
+      checkBox.setBorder(null);
+      checkBox.addActionListener(this);
+      add(checkBox, BorderLayout.WEST);
+      content = makeComponent(form.subform);
+      add(content, BorderLayout.CENTER);
+      center(this);
+      stateChanged(form.state, form);
+    }
+
+    public void addNotify(){
+      super.addNotify();
+      form.state.addListener(this);
+    }
+    public void removeNotify(){
+      super.removeNotify();
+      form.state.removeListener(this);
+    }
+    
+    public synchronized void stateChanged(FormState myState, Object source){
+      if (source != this){
+	try {
+	  externalUpdate = true;
+	  if (form.state.selected) 
+	    checkBox.setSelected(true);
+	  else 
+	    content.setEnabled(false);
+	}
+	finally {
+	  externalUpdate = false;
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+
+    public synchronized void actionPerformed(ActionEvent e) {
+      if (externalUpdate) return;
+      if (checkBox.isSelected()) {
+        content.setEnabled(true);
+        form.state.selected = true;
+      } else {
+        content.setEnabled(false);
+        form.state.selected = false;
+      }
+      form.state.notifyChange(this);
+    }
+
+    // pass enabling which is not done by JPanel
+    public void setEnabled(boolean enabled) {
+      checkBox.setEnabled(enabled);
+      content.setEnabled(enabled);
+      super.setEnabled(enabled);
+    }
+  }
+
+  
+
+  /** Create a component for a sequence form. */
+  JComponent makeComponent(final SeqForm form){
+    return new SeqPanel(form);
+  }
+  private class SeqPanel extends JPanel {
+    private final SeqForm form;
+    SeqPanel(SeqForm form) {
+      this.form = form;
+      setVertLayout(this);
+      for (int i = 0; i < form.subforms.length; i++){
+	Form sub = form.subforms[i];
+	if (isVisible(sub.style)){
+	  if (i > 0) addSpace(this);
+	  add(makeComponent(form.subforms[i]));
+	}
+      }
+    }
+
+    /** Test whether a form is visible. */
+    boolean isVisible(Form.Style[] style){
+      for (int i = 0; i < style.length; i++){
+	switch (style[i]){
+	case INVISIBLE:
+	  return false;
+	}
+      }
+      return true;
+    }
+
+    // pass enabling which is not done by JPanel
+    public void setEnabled(boolean enabled) {
+      for (int i = 0; i < getComponentCount(); i++) {
+        getComponent(i).setEnabled(enabled);
+      }
+      super.setEnabled(enabled);
+    }
+  }
+
+  /** Create a component for a choice form. */
+  JComponent makeComponent(final ChoiceForm form){
+    switch (form.style){
+    case RADIOBUTTON: 
+      return new ChoiceRadioPanel(form);
+    case TABBEDPANE:
+      return new ChoiceTabbedPanel(form);
+    }
+  }
+  private class ChoiceRadioPanel extends JPanel 
+  implements ActionListener, FormState.Listener {
+    private final ChoiceForm form;
+    private final ButtonGroup buttonGroup;
+    private final JPanel [] boxes;
+    private boolean externalUpdate = false;
+    ChoiceRadioPanel(ChoiceForm form) {
+      setVertLayout(this);
+      this.form = form;
+      boxes = new JPanel[form.subforms.length];
+      buttonGroup = new ButtonGroup();
+      for (int i = 0; i < form.subforms.length; i++) {
+        Form subform = form.subforms[i];
+	boxes[i] = new JPanel(new BorderLayout());
+	center(boxes[i]);
+	JRadioButton radioButton = new JRadioButton();
+	radioButton.setBorder(null);
+	radioButton.addActionListener(this);
+	buttonGroup.add(radioButton);
+	JComponent content = makeComponent(subform);
+	content.setEnabled(false);
+	boxes[i].add(radioButton, BorderLayout.WEST);
+	boxes[i].add(content, BorderLayout.CENTER);
+	add(boxes[i]);
+      }
+      stateChanged(form.state, form);
+    }
+    public void addNotify(){
+      super.addNotify();
+      form.state.addListener(this);
+    }
+    public void removeNotify(){
+      super.removeNotify();
+      form.state.removeListener(this);
+    }
+    public synchronized void stateChanged(FormState myState, Object source){
+      if (source != this){
+	try {
+	  externalUpdate = true;
+	  for (int i = 0; i < getComponentCount(); i++){
+	    JRadioButton radioButton = (JRadioButton) boxes[i].getComponent(0);
+	    JComponent content = (JComponent) boxes[i].getComponent(1);
+	    if (i == form.state.selection){
+	      radioButton.setSelected(true);
+	      content.setEnabled(true);
+	    } else {
+	      radioButton.setSelected(false);
+	      content.setEnabled(false);
+	    }
+	  }
+	}
+	finally {
+	  externalUpdate = false;
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+	      
+    // notice changed choice
+    public void actionPerformed(ActionEvent e) {
+      if (externalUpdate) return;
+      for (int i = 0; i < getComponentCount(); i++) {
+	JRadioButton radioButton = (JRadioButton) boxes[i].getComponent(0);
+	JComponent content = (JComponent) boxes[i].getComponent(1);
+	if (e.getSource() == radioButton) {
+	  content.setEnabled(true);
+	  form.state.selection = i;
+	} else 
+	  content.setEnabled(false);
+      }
+    }
+
+    // pass enabling which is not done by JPanel
+    public void setEnabled(boolean enabled) {
+      for (int i = 0; i < getComponentCount(); i++) {
+        JRadioButton radioButton = (JRadioButton) boxes[i].getComponent(0);
+        radioButton.setEnabled(enabled);
+        if (i == form.state.selection) {
+          JComponent content = (JComponent) boxes[i].getComponent(1);
+          content.setEnabled(enabled);
+        }
+      }
+      super.setEnabled(enabled);
+    }
+  }
+
+  private class ChoiceTabbedPanel extends JTabbedPane 
+  implements ChangeListener, FormState.Listener {
+    ChoiceForm form;
+    private boolean externalUpdate = false;
+    ChoiceTabbedPanel(ChoiceForm form) {
+      this.form = form;
+      for (int i = 0; i < form.subforms.length; i++) {
+        Form subform = form.subforms[i];
+	Pair<String, Form.Style[]> ex = extractLabel(subform.style);
+	addTab(ex.fst, makeComponent(subform, ex.snd));
+	if (form.state.selection == i)
+	  setSelectedIndex(i);
+      }
+      addChangeListener(this);
+    }
+    public void addNotify(){
+      super.addNotify();
+      form.state.addListener(this);
+    }
+    public void removeNotify(){
+      super.removeNotify();
+      form.state.removeListener(this);
+    }
+    // external state change
+    public synchronized void stateChanged(FormState myState, Object source){
+      if (source != this){
+	try {
+	  externalUpdate = true;
+	  for (int i = 0; i < getTabCount(); i++){
+	    if (i == form.state.selection){
+	      setSelectedIndex(i);
+	      setEnabledAt(i, true);
+	    } else {
+	      // setEnabledAt(i, false);
+	    }
+	  }
+	}
+	finally {
+	  externalUpdate = false;
+	}
+      }
+    }
+    public void stateRequired(FormState fstate, Object source){}
+    // internal state change
+    public void stateChanged(ChangeEvent e) {
+      if (externalUpdate) return;
+      form.state.selection = getSelectedIndex();
+    }
+
+    // pass enabling which is not done by JTabbedPane
+    public void setEnabled(boolean enabled) {
+      for (int i = 0; i < getTabCount(); i++) 
+        setEnabledAt(i, enabled);
+      super.setEnabled(enabled);
+    }
+  }
+
+  // STYLE EVALUATION
+
+  private JComponent evalStyle(Form form, JComponent comp, Form.Style[] styles){
+    for (int i = 0; i < styles.length; i++){
+      final JComponent fcomp = comp;
+      switch (styles[i]) {
+      case Border(String title):
+	if (comp.getBorder() != null){
+	  JPanel panel = new JPanel(new BorderLayout());
+	  panel.add(comp, BorderLayout.CENTER);
+	  center(panel);
+	  comp = panel;
+	}
+	if (title != null)
+	  comp.setBorder(
+	    BorderFactory.createCompoundBorder(
+	      BorderFactory.createTitledBorder(makeLineBorder(), title),
+	      BorderFactory.createEmptyBorder(0, 4, 4, 4)
+	    )
+	  );
+	else
+	  comp.setBorder(
+	    BorderFactory.createCompoundBorder(
+	      makeLineBorder(),
+	      makeSmallSpaceBorder()
+	    )
+	  );
+	break;
+      case Label(String label):
+	JPanel panel = new JPanel();
+	setHoriLayout(panel);
+	JLabel lpanel = new JLabel(label);
+	center(lpanel);
+	panel.add(lpanel);
+	addSpace(panel);
+	panel.add(comp);
+	center(panel);
+	comp = panel;
+	break;
+      case Tip(String text):
+	comp.setToolTipText(text);
+	break;
+      case PreferredSize(final int width, final int height):
+	JPanel panel = 
+	  new JPanel(new BorderLayout()){
+	    public Dimension getPreferredSize(){
+	      return makeSize(super.getPreferredSize(), width, height);
+	    }
+	    public void setEnabled(boolean yes){
+	      fcomp.setEnabled(yes);
+	      super.setEnabled(yes);
+	    }
+	  };
+	panel.add(comp, BorderLayout.CENTER);
+	center(panel);
+	comp = panel;
+	break;
+      case MinimumSize(final int width, final int height):
+	JPanel panel = 
+	  new JPanel(new BorderLayout()){
+	    public Dimension getMinimumSize(){
+	      return makeSize(super.getMinimumSize(), width, height);
+	    }
+	    public void setEnabled(boolean yes){
+	      fcomp.setEnabled(yes);
+	      super.setEnabled(yes);
+	    }
+	  };
+	panel.add(comp, BorderLayout.CENTER);
+	center(panel);
+	comp = panel;
+	break;
+      case MaximumSize(final int width, final int height):
+	JPanel panel = 
+	  new JPanel(new BorderLayout()){
+	    public Dimension getMaximumSize(){
+	      return makeSize(super.getMaximumSize(), width, height);
+	    }
+	    public void setEnabled(boolean yes){
+	      fcomp.setEnabled(yes);
+	      super.setEnabled(yes);
+	    }
+	  };
+	panel.add(comp, BorderLayout.CENTER);
+	center(panel);
+	comp = panel;
+	break;
+      case FIXSIZE:
+	JPanel panel = 
+	  new JPanel(new BorderLayout()){
+	    public Dimension getMaximumSize(){
+	      return getPreferredSize();
+	    }
+	    public Dimension getMinimumSize(){
+	      return getPreferredSize();
+	    }
+	    public void setEnabled(boolean yes){
+	      fcomp.setEnabled(yes);
+	      super.setEnabled(yes);
+	    }
+	  };
+	panel.add(comp, BorderLayout.CENTER);
+	center(panel);
+	comp = panel;
+	break;
+      case Dialog(String textOrIcon, final String title):
+	final JButton button = makeButton(textOrIcon);
+	final JComponent theComp = comp;
+	button.addActionListener(
+	  new ActionListener(){
+	    private FormDialog dialog = null;
+	    public void actionPerformed(ActionEvent e) {
+	      if (dialog == null){
+		dialog = new FormDialog(button, title, theComp, false);
+	      }
+	      dialog.show();
+	    }
+	  }
+	);
+	center(button);
+	comp = button;
+	break;
+      case View(final int horiStep, final int vertStep):
+	JScrollPane pane = 
+	  new JScrollPane(comp){
+	    public void setEnabled(boolean yes){
+	      fcomp.setEnabled(yes);
+	      super.setEnabled(yes);
+	    }
+	  };
+        if (horiStep >= 0)
+	  pane.getHorizontalScrollBar()
+	      .setUnitIncrement(makeWidth(horiStep));
+        if (vertStep >= 0)
+	  pane.getVerticalScrollBar().setUnitIncrement(makeHeight(vertStep));
+	center(pane);
+	comp = pane;
+	break;
+      case HORIZONTAL:
+	setHoriLayout(comp);
+	break;
+      case VERTICAL:
+	setVertLayout(comp);
+	break;
+      case HISTORY:
+	if (form instanceof TextForm){
+	  TextForm tform = (TextForm)form;
+	  if (tform.state.hasHistory(state.session)){
+	    comp = addTextHistory(comp, tform);
+	    center(comp);
+	  }
+	}
+	break;
+      }
+    }
+    return comp;
+  }
+
+  /** Extract a label from a set styles, return the styles without the
+      label. */
+  private Pair<String,Form.Style[]> extractLabel(Form.Style[] styles){
+    for (int i = 0; i < styles.length; i++){
+      switch (styles[i]) {
+      case Label(String label):
+	Seq<Form.Style> s = new ArraySeq(styles);
+	return new Pair(label,
+			s.subseq(0,i).appendAll(s.subseq(i+1))
+			 .toArray(Form.Style.class)
+		       );
+      }
+    }
+    return new Pair("<unnamed>", styles);
+  }
+
+
+
+  // AUXILARY STUFF
+
+  /** Center alignment of component. */
+  private static void center(JComponent comp){
+    comp.setAlignmentX(Component.CENTER_ALIGNMENT);
+    comp.setAlignmentY(Component.CENTER_ALIGNMENT);
+  }
+
+  /** Top-center alignment of component. */
+  private static void topCenter(JComponent comp){
+    comp.setAlignmentX(Component.CENTER_ALIGNMENT);
+    comp.setAlignmentY(Component.TOP_ALIGNMENT);
+  }
+
+  /** Define vertical layout for this component. */
+  private static void setVertLayout(JComponent comp){
+    comp.setLayout(new BoxLayout(comp, BoxLayout.Y_AXIS));
+  }
+
+  /** Define horizontal layout for this component. */
+  private static void setHoriLayout(JComponent comp){
+    comp.setLayout(new BoxLayout(comp, BoxLayout.X_AXIS));
+  }
+
+  /** Add vertical space to container. */
+  private static void addSpace(Container cont){
+    cont.add(Box.createRigidArea(new Dimension(8, 8)));
+  }
+
+  /** Add stretchable glue to container. */
+  private static void addGlue(Container cont){
+    cont.add(Box.createGlue());
+  }
+
+
+  /** Create a space border. */
+  private static Border makeSpaceBorder(){
+    return BorderFactory.createEmptyBorder(8, 8, 8, 8);
+  }
+
+  /** Create a small space border. */
+  private static Border makeSmallSpaceBorder(){
+    return BorderFactory.createEmptyBorder(4, 4, 4, 4);
+  }
+
+  /** Create a line border. */
+  private static Border makeLineBorder(){
+    return new EtchedBorder();
+  }
+
+  /** Create a border for a text field. */
+  private static Border makeTextFieldBorder(){
+    return BorderFactory.createCompoundBorder(
+	     BorderFactory.createLoweredBevelBorder(),
+	     makeSmallSpaceBorder()
+	   );
+  }
+
+  /** Metrics of the default font. */
+  private int fontWidth;
+  private int fontHeight;
+  {
+    FontMetrics fontMetrics;
+    JTextArea protoText = new JTextArea("foo");
+    protoText.setFont(GuiOptions.active.editFont);
+    fontMetrics = protoText.getFontMetrics(GuiOptions.active.editFont);
+    fontWidth = fontMetrics.stringWidth("X");
+    fontHeight = fontMetrics.getHeight();
+  }
+
+  /** Make a size according to ZETA conventions. */
+  Dimension makeSize(Dimension size, int width, int height){
+    return new Dimension((width != 0 ? makeWidth(width) : size.width) + 10,
+			 (height != 0 ? makeHeight(height) : size.height) + 14);
+  }
+
+  /** Make a vertical size according to ZETA conventions. */
+  private int makeHeight(int height){
+    if (height < 0)
+      return fontHeight * (-height);
+    else
+      return height;
+  }
+
+  /** Make a horizontal size according to ZETA conventions. */
+  private int makeWidth(int width){
+    if (width < 0)
+      return fontWidth * (-width);
+    else
+      return width;
+  }
+
+  
+}

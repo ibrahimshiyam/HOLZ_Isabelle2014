@@ -1,0 +1,119 @@
+package zeta.content.zirp;
+
+/** Fixity definitions. <p>
+  *
+  * @version $Id: Fixity.pizza,v 1.2 1998/09/13 15:13:01 wg Exp $ 
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  * 
+  */
+
+import zeta.util.Name;
+import zeta.util.Term;
+import zeta.content.text.Lexem;
+import zeta.format.*;
+import zeta.agl.*;
+
+public class Fixity extends Term {
+
+  /** A fixity definition.
+    * @param prio  the binding priority of the entire construct
+    * @param components  the components
+    */
+  public case Fixity(int prio, boolean isGeneric, Component[] components);
+
+  /** The class of components of fixity definitions. */
+  public static class Component extends Term {
+
+    /** An operand with given priority. */
+    public case Operand(int prio);
+
+    /** A list of operands enclosed by names. */
+    public case OperandList(Name lname, Name rname);
+
+    /** A keyword, represented by the given name. */
+    public case Keyword(Name name);
+
+    /** Make format of component. */
+    public Format toFormat(FormatInfo info){
+      switch (this) {
+      case Operand(int prio):
+	return Format.literal("(" + prio + ")");
+      case OperandList(Name lname, Name rname):
+	return Format.literal(lname + ",," + rname);
+      case Keyword(Name name):
+	return Format.literal(name.toString());
+      }
+    }
+  }
+
+  /** Priority assigned to relations (= -1). */
+  public static final int relationPrio = -1;
+
+  /** Minimal priority for expressions (= 0). */
+  public static final int minExprPrio = 0;
+
+  /** Maximal priority for expressions (= 9999). */
+  public static final int maxExprPrio = 9999;
+
+  /** Starting point for precedences of generics. */
+  public static final int genericsPrio = 2;
+
+  /** Precedences of cartesian product. */
+  public static final int cartPrio = 8;
+
+  /** Starting point for precedence of functions. */
+  public static final int functionPrio = 10;
+
+  /** Precedence of powerset construction. */
+  public static final int powerPrio = 80;
+
+  /** Starting point for precedence of generic prefixes. */
+  public static final int prefixPrio = 90;
+
+  /** Starting point for precedence of postfixes. */
+  public static final int postfixPrio = 100;
+
+  /** Precedence of juxtaposed application. */
+  public static final int applyPrio = 900;
+
+  /** Return the name associated with a fixity. */
+  public Name makeName(){
+    Fixity fixity = this;
+    StringBuffer res = new StringBuffer();
+    for (int i = 0; i < fixity.components.length; i++){
+      switch (fixity.components[i]){
+      case Keyword(Name name):
+	res.append(name.toString());
+	break;
+      case Operand(_): 
+	res.append("_");
+	break;
+      case OperandList(Name lname, Name rname): 
+	res.append(lname + ",," + rname);
+	break;
+      }
+    }
+    return new Name(res.toString());
+  }
+
+  /** Make format of fixity. */
+  public Format toFormat(FormatInfo info){
+    Format prefix;
+    if (isGeneric)
+      prefix = Format.literal("[" + prio + "]: ");
+    else
+      prefix = Format.literal("(" + prio + "): ");
+    return Format.block(
+	     prefix,
+	     Format.list(Format.empty, Format.space, Format.empty,
+			 fun (Component c)->Format {
+			   return Format.buildFormat(c);
+			 },
+			 new ArraySeq(components)
+			)
+	   );
+  }
+
+}
+  
+  

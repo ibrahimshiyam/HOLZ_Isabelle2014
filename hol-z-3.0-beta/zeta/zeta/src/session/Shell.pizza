@@ -1,0 +1,47 @@
+package zeta.session;
+
+/**
+ * The type of shells . <p>
+ *
+ * A shell registers at a session to be responsible for the
+ * execution of forms. The shell is notified by the session
+ * manager when the session form has been changed.
+ *
+ * @see Form
+ * @see Session#registerShell
+ *
+ * @version $Id: Shell.pizza,v 1.5 1998/10/22 09:02:24 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.io.File;
+import zeta.util.Name;
+import zeta.form.TopLevelForm;
+
+public interface Shell {
+
+  /**
+   * Modal execute the given form in this shell. 
+   */
+  public void exec(String prompt, TopLevelForm form)
+  throws Failures.FormFailed;
+
+  /**
+   * Notify the shell that the given top-level form has been
+   * added. This typically results in that the shell updates
+   * its syntax (for command operation) resp. its view (for gui operation).
+   *
+   * @see Session#registerForm
+   */
+  public void notifyFormRegister(TopLevelForm form);
+
+  /**
+   * Notify the shell that the given top-level form has been
+   * removed. This typically results in that the shell updates
+   * its syntax (for batch operation) resp. its view (for gui operation).
+   *
+   * @see Session#unregisterForm
+   */
+  public void notifyFormUnregister(TopLevelForm form);
+
+}

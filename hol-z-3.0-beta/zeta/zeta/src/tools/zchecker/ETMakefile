@@ -1,0 +1,8 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= Report.pizza Env.pizza TermChecker.pizza \
+		  UnitChecker.pizza CheckerAdaptor.pizza
+JAVA_FILES 	= 
+NODEKIND	= java
+
+inst:
+	$(ET_INSTALL) lib/images tcheck.gif

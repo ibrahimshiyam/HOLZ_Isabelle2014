@@ -1,0 +1,216 @@
+package zeta.session;
+
+/**
+ * The type of tool adaptors.
+ *
+ * @version $Id: Adaptor.pizza,v 1.8 2000/05/16 08:10:47 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.util.Date;
+
+import zeta.util.Name;
+
+
+public interface Adaptor {
+
+  /**
+   * Get a unique (short) name of this tool adaptor.  The name is used in
+   * unit names and for looking up adaptors. The name must
+   * not contain spaces.
+   *
+   * @see Session#lookupUnit
+   * @see Session#lookupAdaptor
+   */
+  public Name getName();
+
+  /** 
+   * Initialize a newly created instance of this adaptor for the given
+   * session.  The passed storage handle may be used to store
+   * persistent data of the adaptor. It is fixed from session to
+   * session. If the adaptor is initialized the first time for a project,
+   * the object loaded from the handle will be null. <p>
+   * 
+   */
+  public void initialize(Session session, StorageHandle handle); 
+
+
+  /**
+   * Flush internal persistent data of the adaptor.  Flush is, e.g., called
+   * before the session is terminated to allow the adaptor to store persistend
+   * data.
+   */
+  public void flush();
+
+
+    
+  /**
+   * Lookup a unit by a (partial) unit name.  This method applies to adaptors
+   * that create new units (source adaptors).  Adaptors that only compute
+   * content types from existing units/contents (function adaptors) can
+   * throw <code>Failures.UnresolvableName</code>.
+   *
+   * The partial name has the syntax
+   *
+   * <pre>
+   *  [TOOL:]toolspecificname
+   * </pre>
+   *
+   * If <code>TOOL</code> is present, then it is guaranteed to be the
+   * name of this adaptor. <code>toolspeficname</code> may be
+   * a partial name, which is going to be completed by the adaptor. <p>
+   *
+   * If the adaptor creates a new unit during lookup, this unit should
+   * be given a full name, consisting of the <code>TOOL</code> part
+   * and a complete <code>toolspecificname</code>.
+   *
+   * @exception Failures.UnresolvableName  a unit of the given
+   * partial name does not exists in this adaptor.
+   * @exception Failures.AmbigiousName  there are several possibilities
+   * to complete this name to a full unit name in this adaptor.
+   *
+   * @see Session#lookupUnit 
+   * @see Session#getOrCreateUnit 
+   * */
+  public Unit lookupUnit(Name specifier)
+  throws Failures.UnresolvableName, Failures.AmbigiousName;
+
+
+
+  /** 
+   * Return the content types which this adaptor can in principle compute.
+   */
+  public ContentType[] computedTypes();
+
+
+    
+  /**
+   * Try to run the adaptor to compute the specified content.  If
+   * the method succeeds (doesn't throws) it is expected that the given
+   * content is up-to-date. <p>
+   *
+   * This method checks if the target, given by a unit and a
+   * content type, can be computed, and if so, computes
+   * it. Computability of contents in general depends on two
+   * conditions:
+   *
+   * <UL>
+   * <LI> for the given unit, the content type can be computed. 
+   *    (It is guaranteed by the
+   *    caller that the content type is among those reported by this
+   *    adaptor by its method <code>computedTypes</code>.)
+   * <LI> contents of other units required for this computation can
+   *    be sucessfully queried from the session system.
+   * </UL>
+   *
+   * Depending on the kind of the adaptor, these conditions are usally
+   * implemented as follows:
+   *
+   * <UL> 
+   *
+
+   * <LI> if this is a pure <em>Source Adaptor</em>, which imports units
+   * from external data, the adaptor checks whether the given unit has
+   * once been created by itself (which was done via the method
+   * <code>lookupUnit</code>). So the computability check solely
+   * depends on whether this is a unit originating from this adaptor
+   * (recall that its guaranteed that the content type is
+   * computable by this adaptor.)
+   *
+   * <LI> if this is a pure <em>Function Adaptor</em>, which transforms
+   * contents into contents, the adaptor recursively queries the session system
+   * for the unit contents it depends from. So the computability check
+   * solely depends on whether dependencies can be resolved.
+   *
+   * </UL>
+   *
+   * Between these antipodes, mixtures of behaviour are possible. <p>
+   *
+   * @exception Failures.CannotCompute 
+   *    this exception is thrown if the adaptor cannot compute
+   *    the specified contents -- for reasons as described above.
+   *    If the session system catches this exception from an adaptor,
+   *    it tries other adaptors if they can handle the target. 
+   *      
+   * @exception Failures.ComputationFailed 
+   *    this exception is thrown if a
+   *    computation, though in principle possible, failed because of
+   *    user level errros. The errors are expected to be reported by
+   *    the adaptor using the session message system. 
+   *    If the session system catches this exception from an adaptor,
+   *    it aborts computing this target and targets involving this target.
+   *    
+   * @see Session#query
+   * @see Unit#define 
+   * @see Message
+   *
+   */
+  public void tryCompute(Target target)
+    throws Failures.CannotCompute, Failures.ComputationFailed;
+
+    
+
+  /**
+   * Check if the specified target which was defined at date by this
+   * adaptor is up-to-date. The check doesn't needs to consider
+   * registered dependencies; these are treated automatically. Thus
+   * returning false here makes only sense if the computation of the
+   * adaptor was based on hidden dependencies, such as e.g. 
+   * data of external tools.  
+   *
+   * @see Unit#isUptodate 
+   * @see Unit#define 
+   */
+  public boolean isUptodate(Target target, Date definedAt);
+
+    
+  
+  /**
+   * Called to notify the adaptor that the specified target which was
+   * defined at date by this adaptor has been outdated and is not
+   * longer needed by the session system. The persistent storage
+   * handle of the content is passed to the adaptor, for possible
+   * internal reusage. If the method returns true, the session manager
+   * supposes the storage is reused, otherwise it frees the storage
+   * after calling this method. <p>
+   *
+   * Adaptors which don't implement reusage of the result of former
+   * computations return false here.  
+   *
+   * @see Unit#outdate 
+   */
+  public boolean notifyOutdate(Target target, Date definedAt,
+			       StorageHandle handle);
+
+  
+  /**
+   * Tell the adaptor to update any assumptions about data
+   * of external tools. This method is always called before
+   * a sequence of <code>isUptodate</code>, <code>tryCompute</code>
+   * and <code>isUptodate</code> calls which should solve a top-level user
+   * query. It is also called before the session gets idle to wait for the
+   * next user action. <p>
+   *
+   * An adaptor may use this method to calculate the "up-to-date"
+   * information about external data in adavance for each
+   * interactive query. The up-to-date check could be equally made
+   * by each individual call to <code>isUptodate</code>, but this
+   * might be too expansive, e.g. if up-to-date checking means
+   * polling the state of file modification stamps.<p>
+   *
+   */
+  public void checkExternalData();
+
+
+  /** 
+   * Ask the adaptor to return a locator which can be used to
+   * visit the source of the given unit. Returns <code>null</code>
+   * if the adaptor does not knows how to visit this unit.
+   * The session system contacts the adaptors to return this
+   * information in some arbitrary order until the first
+   * returns non-null.
+   */
+  public Locator unitLocator(Unit unit);
+  
+
+}

@@ -1,0 +1,46 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of label expression.
+  * 
+  * A label expression describes a statechart-transition.
+  *
+  * @version $Id: LabelExpr.pizza,v 1.1.1.1 1998/09/01 10:51:17 wg Exp $
+  *
+  */
+
+import zeta.util.AnnotatedTerm;
+
+public class LabelExpr extends AnnotatedTerm {
+
+  /** A guard/action pair.
+    * @param guard   condition to become valid
+    * @param action  action to be performed
+    */
+  public case Guarded(Predicate guard, Predicate action);
+
+  /** A temporal predicate. */
+  public case Temporal(Predicate predicate);
+
+  /** A reference to a transition name. */
+  public case Reference(NameAppl name);
+
+
+  /** Map a predicate to a label expression. For downwards compatibility. 
+    * @deprecated
+    */
+  static LabelExpr transform(Predicate pred){
+    LabelExpr res;
+    switch (pred){
+    case Predicate.Binary(Predicate.BinaryKind kind,
+			  Predicate left,
+			  Predicate right):
+      res = new Guarded(left, right);
+      break;
+    default:
+      res = new Temporal(pred);
+      break;
+    }
+    return res;
+  }
+
+}

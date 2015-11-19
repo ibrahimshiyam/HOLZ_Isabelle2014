@@ -1,0 +1,147 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of Z predicates. 
+  *
+  * @version $Id: Predicate.pizza,v 1.1.1.1 1998/09/01 10:51:17 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  *
+  */
+
+import zeta.util.Term;
+import zeta.util.AnnotatedTerm;
+
+public class Predicate extends AnnotatedTerm {
+  
+  /** Applying a schema as a predicate (`schema reference'). 
+    * @param schema  expression which denotes a schema, that is
+    * a set of bindings. */
+  public case Schema(Expr schema);
+
+  /** Element Test. Also represents relations: R(e1,...,en) ==
+    * Test((e1,...,en),R).
+    * @param elem expression denoting the element to
+    * test 
+    * @param set expression denoting the set to test 
+    */
+  public case Test(Expr elem, Expr set);
+
+  /** Facts. 
+    * @param kind the kind of the fact.
+    */
+  public case Fact(FactKind kind);
+
+  /** Kinds of facts. */
+  public static class FactKind extends Term {
+    /** Truth. */
+    public case True;
+    /** Falsity. */
+    public case False;
+  }
+
+  /** Unary operators. 
+    * @param kind  the kind of the unary operator, logical negation
+    *   and a lot of DZ specific operators. 
+    * @param oper  the predicate to which the operation is applied to. */
+  public case Unary(UnaryKind kind, Predicate oper);
+
+  /** Kind of unary operators. */
+  public static class UnaryKind extends Term {
+    /** Logical negation. */
+    public case Not;
+    /** State formula (DZ only). */
+    public case StateLift;
+    /** Transition formula (DZ only). */
+    public case TransLift;
+    /** Awaiting (DZ only). */
+    public case Await;
+    /** Everywhere (DZ only). */
+    public case Everywhere;
+    /** Somewhere (DZ only.) */
+    public case Somewhere;
+    /** Repetition (DZ only.) */
+    public case Repeat;
+    /** Prefix (DZ only.) */
+    public case Prefix;
+    /** Step constraint (DZ only). 
+      * @param ref   which step is referred to by the constraint.
+      * @param rel  a binary Z relation describing how the referred
+      *   step is related to the <code>expr</code>.
+      * @param expr expression denoting a number of steps which is
+      * related via <code>rel</code> with the referred step.
+      */
+    public case StepConstr(ConstrRef ref, NameAppl rel, Expr expr);
+    /** Real-time constraint (DZ only). Similar to <code>StepConstr</code>,
+      * with the only difference that instead of steps real-time
+      * is used.
+      * @see zeta.content.zirp.Predicate.UnaryKind#StepConstr
+      */
+    public case TimeConstr(ConstrRef ref, NameAppl rel, Expr expr);
+  }
+
+  /** Reference of a time or step constraint. */
+  public static class ConstrRef extends Term {
+    /** Referring to the relative length of the interval. */
+    public case Length;
+    /** Referring to the starting point of the interval. */
+    public case Start;
+    /** Referring to the end point of the interval. */
+    public case End;
+  }
+
+    
+  /** Binary operators. 
+    * @param kind  the kind of the binary operator (the usual logical
+    *   connectivities and DZ specific operators). 
+    * @param left  the left operand predicate.
+    * @param right  the right operand predicate.
+    */
+  public case Binary(BinaryKind kind, Predicate left, Predicate right);
+
+  /** Kind of binaries. */
+  public static class BinaryKind extends Term {
+    /** Logical conjunction. */
+    public case And;
+    /** Logical disjunction. */
+    public case Or;
+    /** Logical implication. */
+    public case Implies;
+    /** Logical equivalence. */
+    public case Iff;
+    /** Guarded action (DZ only). */
+    public case Guarded;
+    /** Chopping (DZ only). */
+    public case Chop;
+    /** Overlapping chop (DZ only). */
+    public case Compose;
+    /** Preemption (DZ only). */
+    public case Preempt;
+    /** Leadsto (DZ only). */
+    public case Leadsto;
+    /** Transition (DZ/mSZ only). */
+    public case Trans;
+    /** Computation (DZ only). */
+    public case Compute;
+    /** Choice (DZ only). */
+    public case Choice;
+  }
+
+  /** Quantors. 
+    * @param kind  the kind of the quantor.
+    * @param matrix the matrix of the quantor, an expression denoting
+    *   a schema. 
+    * @param range  the range of the quantor, a predicate. */
+  public case Quantor(QuantorKind kind, Expr matrix, Predicate range);
+
+  /** Quantor kinds. */
+  public static class QuantorKind extends Term {
+    /** Universal quantification. */
+    public case Forall;
+    /** Existential quantification. */
+    public case Exists;
+    /** Unique existential quantification. */
+    public case Exists1;
+    /** Constructive binding. */
+    public case Let;
+  }
+  
+}

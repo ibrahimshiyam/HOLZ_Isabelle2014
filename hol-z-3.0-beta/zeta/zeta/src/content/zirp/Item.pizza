@@ -1,0 +1,99 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of Z items.
+  *  
+  * @version $Id: Item.pizza,v 1.5 1998/09/14 13:48:55 wg Exp $
+  *
+  */
+
+import zeta.util.Term;
+import zeta.util.AnnotatedTerm;
+import zeta.content.text.Text;
+
+public class Item extends AnnotatedTerm {
+
+  /** Axiomatic definition.  
+    * @param formals the sequence of generic formals this definition
+    *   depends on.
+    * @param def an expression denoting a schema. The names of
+    * this schema are introduced as global constants. <p>
+    *
+    * Note that schema definitions are treated like abbreviations in
+    * Standard Z. In turn, abbreviations are treated as schema text
+    * with equational declarations.  Henceforth a schema definition
+    * such as <code> S =^= E </code> is represented as:
+    *
+    <pre>
+      AxiomaticDef({}, Expr.Text({Expr.Decl.Eqn("S", "E")}, {}))
+    </pre>
+    * 
+    */
+  public case AxiomaticDef(NameDecl[] formals, Expr def);
+
+
+  /** Fixity definition.
+   * @param fixity  the fixity being defined.
+   */
+  public case FixityDef(Fixity fixity);
+
+
+  /** 
+   * Text object embedded in abstract syntax, containing eg. 
+   * references, macros, and pragmas.
+   * @param text  the text object. 
+   */
+  public case EmbeddedText(Text text);
+
+
+  /** Configuration definition. mSZ only, inside of class definitions.
+    * NOTE: not yet elaborated. */
+  public case ConfigDef(Configuration config);
+
+  /** Statechart definition. mSZ only, inside of class definitions. 
+    * @param root  the root state. */
+  public case StatechartDef(State root);
+
+  /** Named transition definition. mSZ only, inside of class definitions. 
+    * @param name   name of the transition
+    * @param reactions  a sequence of lable expressions describing the
+    *              reactions of the transition
+    * 
+    * */
+  public case TransitionDef(NameDecl name,
+			    LabelExpr[] reactions);
+  
+  /** Static reactions. mSZ only, inside of class definitions. 
+    * @param name  the name of the state this
+    *              static reaction is associated with. <code>null</code>
+    *              is used for the root state
+    * @param reactions a sequence of lable expressions describing the
+                   static reactions in the state <code>name</code>
+    */
+  public case StaticReactionDef(NameDecl name,
+				LabelExpr[] reactions);
+			  
+
+  /** Attribute definition. mSZ only, inside of class definitions.
+    * @param kind  the kind of attriute
+    * @param names the names the attribute is attached to
+    */
+  public case AttributeDef(AttributeKind attrib, NameAppl[] name);
+
+  /** Kind of attributes. */
+  public static class AttributeKind extends Term {
+    /** No special meaning in the kernel of mSZ. */
+    public case Plain;
+    /** Variable only allowed as input. */
+    public case Input;
+    /** Variable is derived. */
+    public case Derived;
+  }
+
+  /** Enrichment of class. mSZ only, inside of class definitions.
+    * @param name name of the enriched class, inclusive of actualizations 
+    * of formals. */
+  public case EnrichDef(NameAppl name);
+
+
+}
+

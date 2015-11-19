@@ -1,0 +1,360 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>4. Controlling Search</TITLE>
+<META NAME="description" CONTENT="4. Controlling Search">
+<META NAME="keywords" CONTENT="zapnotes">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zapnotes.css">
+<LINK REL="next" HREF="zapnotes-node6.html">
+<LINK REL="previous" HREF="zapnotes-node4.html">
+<LINK REL="up" HREF="zapnotes.html">
+<LINK REL="next" HREF="zapnotes-node6.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html149"
+ HREF="zapnotes-node6.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html145"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html139"
+ HREF="zapnotes-node4.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html147"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html150"
+ HREF="zapnotes-node6.html">5. Special Definitions</A>
+<B> Up:</B> <A NAME="tex2html146"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html140"
+ HREF="zapnotes-node4.html">3. The User Interface</A>
+ &nbsp <B>  <A NAME="tex2html148"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html151"
+ HREF="zapnotes-node5.html#SECTION00051000000000000000">4.1 Sequentialization</A>
+<LI><A NAME="tex2html152"
+ HREF="zapnotes-node5.html#SECTION00052000000000000000">4.2 Extensionalization</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00050000000000000000">
+4. Controlling Search</A>
+</H1>
+
+<P>
+The execution model of Z<SMALL>A</SMALL>P uses concurrent constraint resolution,
+employing the so-called <I>Andorra Principle</I> to schedule search.
+This means that deterministic computation is preferred for
+non-deterministic computation: on resolving the constraints of
+a goal, those constraints which try to create a choice point
+are suspended until no other constraints can continue. 
+
+<P>
+If several choices remain in such a situation, those which are textual
+``first'' are preferred. However, for recursive definitions, also
+those choices which are ``older'' are preferred for those which are
+``younger''. This is necessary in order to provide fairness. It may
+lead to unexpected behavior, which is discussed in this section.
+
+<P>
+Consider a specification of the 8-queens problem:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="616" HEIGHT="259" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img59.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{queens}
+\end{zdirectives} \\
+\b...
+...easible;
+qs' = qs \cup \{(c,n)\}
+@
+(n, qs') \} \&gt;
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+Execution of the goal 
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="186" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img60.gif"
+ ALT="\begin{zexecexpr}
+\{qs: \power Pos \vert (8,qs) \in queens\}
+\end{zexecexpr}">
+<BR>
+
+<P>
+leads to virtual endless search. What is wrong with the specification
+(resp.&nbsp;Z<SMALL>A</SMALL>P's current execution model)?
+
+<P>
+The problem is that <I>queens</I> is computed again and again for the same
+<I>n</I>. Though on the same recursion level the constraint 
+<!-- MATH
+ $(n-1,qs) \in
+queens$
+ -->
+<IMG
+ WIDTH="124" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img61.gif"
+ ALT="$(n-1,qs) \in
+queens$">
+preceed the constraint 
+<!-- MATH
+ $c \in 1 \upto N$
+ -->
+<IMG
+ WIDTH="60" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img62.gif"
+ ALT="$c \in 1 \upto N$">
+and is thus
+priorized, 
+<!-- MATH
+ $(n-2,qs) \in queens$
+ -->
+<IMG
+ WIDTH="124" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img63.gif"
+ ALT="$(n-2,qs) \in queens$">
+is not priorized for 
+<!-- MATH
+ $c \in 1 \upto
+N$
+ -->
+<IMG
+ WIDTH="60" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img62.gif"
+ ALT="$c \in 1 \upto N$">
+on the upper level, since older constraints are priorized over younger
+ones. Thus for each choice point of 
+<!-- MATH
+ $c \in 1 \upto N$
+ -->
+<IMG
+ WIDTH="60" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img62.gif"
+ ALT="$c \in 1 \upto N$">
+the constraint
+
+<!-- MATH
+ $(n-2,qs) \in queens$
+ -->
+<IMG
+ WIDTH="124" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img63.gif"
+ ALT="$(n-2,qs) \in queens$">
+is backtracked and recomputed.
+
+<P>
+In fact, there is no actual dependency between 
+<!-- MATH
+ $(n-1,qs) \in queens$
+ -->
+<IMG
+ WIDTH="124" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img61.gif"
+ ALT="$(n-1,qs) \in
+queens$">
+and 
+<!-- MATH
+ $c \in 1 \upto N$
+ -->
+<IMG
+ WIDTH="60" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img62.gif"
+ ALT="$c \in 1 \upto N$">,
+and thus backtrack is not necessary.  However,
+Z<SMALL>A</SMALL>P is currently not capable of recognizing the independency.
+
+<P>
+There are several ways how a user can control search, discussed below.
+
+<P>
+
+<H2><A NAME="SECTION00051000000000000000">
+4.1 Sequentialization</A>
+</H2>
+
+<P>
+There are two primitive predicates, <IMG
+ WIDTH="29" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img64.gif"
+ ALT="$\BEGINSEQ$">
+(<code>\BEGINSEQ</code>)
+and <IMG
+ WIDTH="29" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img65.gif"
+ ALT="$\ENDSEQ$">
+(<code>\ENDSEQ</code>) which can be used to enforce
+sequential execution. Used for queens, this looks as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="375" HEIGHT="115" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img66.gif"
+ ALT="\begin{axdef}
+queens_1 : \nat \rel \power Pos
+\where
+queens_1 = \\ \t1
+\{(0, ...
+..., (c,n)) \in feasible;
+qs' = qs \cup \{(c,n)\}
+@
+(n, qs') \} \&gt;
+\end{axdef}">
+<BR>
+
+<P>
+The constraints enclosed in <IMG
+ WIDTH="29" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img64.gif"
+ ALT="$\BEGINSEQ$">
+and <IMG
+ WIDTH="29" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img65.gif"
+ ALT="$\ENDSEQ$">
+are
+strictly executed sequential. Note that this means, if one
+of them residuates, the entire group residuates. For the
+example, we thus ensure that choices for <I>c</I> are always
+appended to the bottom of the choice tree for <I>qs</I>.
+
+<P>
+
+<H2><A NAME="SECTION00052000000000000000">
+4.2 Extensionalization</A>
+</H2>
+
+<P>
+We can enforce the complete enumeration of the solutions on the
+next recursion level using the 
+<!-- MATH
+ $\EXT: \power A \pfun \power A$
+ -->
+<IMG
+ WIDTH="100" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img67.gif"
+ ALT="$\EXT: \power A \pfun \power A$">
+(<code>\EXT</code>) function from the toolkit. This functions takes
+a set and yields its extensional (enumerated) version:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="432" HEIGHT="115" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img68.gif"
+ ALT="\begin{axdef}
+queens_2 : \nat \rel \power Pos
+\where
+queens_2 = \\ \t1
+\{(0, ...
+..., (c,n)) \in feasible;
+qs' = qs \cup \{(c,n)\}
+@
+(n, qs') \} \&gt;
+\end{axdef}">
+<BR>
+
+<P>
+Here, 
+<!-- MATH
+ $qs \in \{\ldots\}$
+ -->
+<IMG
+ WIDTH="61" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img69.gif"
+ ALT="$qs \in \{\ldots\}$">
+is still backtracked if 
+<!-- MATH
+ $c \in 1 \upto N$
+ -->
+<IMG
+ WIDTH="60" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img62.gif"
+ ALT="$c \in 1 \upto N$">
+makes
+a choice, but since the result of <IMG
+ WIDTH="29" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img70.gif"
+ ALT="$\{\ldots\}$">
+is already computed, this
+does not hurts very much.
+
+<P>
+The <IMG
+ WIDTH="17" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img71.gif"
+ ALT="$\EXT$">
+function can enhance efficiency in many other situations
+which deal with finite sets. In general, if a set is defined
+by a set-comprehension, its contents is recomputed at every
+application point. This behavior is intended, since 
+the application context determines what we actually
+need to compute of a set (in a constraint <IMG
+ WIDTH="32" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img72.gif"
+ ALT="$e \in S$">,
+the
+``pattern'' of the expression <I>e</I> narrows what 
+to compute from <I>S</I>). However, for problems such as <I>queens</I>
+this behavior is not adequate.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html149"
+ HREF="zapnotes-node6.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html145"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html139"
+ HREF="zapnotes-node4.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html147"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html150"
+ HREF="zapnotes-node6.html">5. Special Definitions</A>
+<B> Up:</B> <A NAME="tex2html146"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html140"
+ HREF="zapnotes-node4.html">3. The User Interface</A>
+ &nbsp <B>  <A NAME="tex2html148"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,56 @@
+package zeta.form;
+
+/**
+ * The class of literal forms. <p>
+ *
+ * A literal form represents some fixed user input, and is usually
+ * used in choice-like structures to indicate an option or a path
+ * to enter.
+ *
+ * @version $Id: LiteralForm.pizza,v 1.2 1998/10/22 09:02:20 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.Session;
+import zeta.session.Locator;
+
+public class LiteralForm extends Form {
+
+  /** The keyword of the literal form. */
+  public final String keyword;
+
+  /** 
+   * Construct a literal form from a keyword. 
+   */
+  public LiteralForm(String keyword){
+    this.keyword = keyword;
+  }
+
+  /**
+   * Parse the given sequence of words starting at index. Parsing
+   * succeeds if the keyword of the literal form starts the sequence.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start){
+    if (start < words.length &&
+	words[start].toLowerCase().equals(keyword.toLowerCase()))
+      return start+1;
+    else
+      return -1;
+  }
+
+  /**
+   * Unparse the internal state of the form. Returns the singleton array
+   * containing the keyword of this literal form.
+   */
+  public String[] unparse(Session session){
+    return new String[]{keyword};
+  }
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    return keyword;
+  }
+
+}

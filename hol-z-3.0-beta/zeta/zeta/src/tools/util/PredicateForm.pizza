@@ -1,0 +1,158 @@
+package zeta.tools.util;
+
+/**
+ * A form for entering a predicate.
+ *
+ * @version $Id: PredicateForm.pizza,v 1.9 2000/05/14 17:43:32 wg Exp $
+ */
+
+import java.io.Serializable;
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import java.io.File;
+import java.io.IOException;
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.zirp.*;
+
+
+public class PredicateForm extends TextForm {
+
+  private static ExprForm.SourceInfo sinfo = 
+    new ExprForm.SourceInfo("Z_Predicate");
+
+  /**
+   * The class of predicate form states. 
+   */
+  public static class State extends TextForm.State {
+    /** 
+     * @param unit  a UnitForm-state which holds the unit in which
+     *              context this predicate is evaluated. Must be defined.
+     * @param text  the textual representation of the predicate. May
+     *              be null.
+     * @param translator a transslator which may augment the text before 
+     *              it is checked as an predicate. <code>null</code>
+     *              if not translation is present.
+     * @param pred  the parsed predicate, if any. May be null.
+     */
+    public case State(UnitForm.State unitState,
+		      String text, 
+		      (String)->String translator,
+		      Predicate pred);
+
+    /**
+     * Return the text in the state.
+     */
+    public String getText(Session session){
+      PredicateForm.State estate = (PredicateForm.State)this;
+      if (estate.text == null)
+	return "";
+      else
+	return estate.text;
+    }
+
+    /**
+     * Set the draft text.
+     */
+    public boolean setDraftText(Session session, String text){
+      ((PredicateForm.State)this).text = text;
+      return true;
+    }
+
+    /**
+     * Confirm the draft text.
+     */
+    public void confirmText(Session session, Locator locator, Object source)
+    throws Failures.FormFailed {
+      PredicateForm.State pstate = (PredicateForm.State)this;
+      if (pstate.unitState.unit == null){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   "unit needed for predicate input")
+	);
+	throw new Failures.FormFailed("PredicateForm");
+      }
+      if (pstate.text == null || pstate.text.length() == 0){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   "text needed for predicate input")
+	);
+	throw new Failures.FormFailed("PredicateForm");
+      }
+      sinfo.makeInput(session, locator, pstate.text);
+      if (pstate.translator != null){
+	sinfo.nextInput = pstate.translator(sinfo.nextInput);
+      }
+      Predicate pred = 
+	ZirpUtil.enterPredicate(session, pstate.unitState.unit,  
+				locator.getTool(),
+				sinfo.nextInputName,
+				sinfo.nextInputLine,
+				sinfo.nextInputColumn,
+				sinfo.nextInput);
+      if (pred != null){
+	pstate.pred = pred;
+	addToHistory(pstate.text);
+      } else
+	throw new Failures.FormFailed("PredicateForm");
+      pstate.notifyChange(source);
+    }
+
+    /**
+     * We want a history.
+     */
+    public boolean hasHistory(Session s){
+      return true;
+    }
+
+    /**
+     * We want external editing.
+     */
+    public File getExternFile(Session s){
+      return new File("_Z_Predicate_");
+    }
+
+  }
+
+  /**
+   * Construct a predicate form from a state. 
+   */
+  public PredicateForm(State state){
+    super(state);
+  }
+
+  /** 
+   * Get syntax.
+   */
+  public String getSyntax(){
+    return "<PREDICATE>";
+  }
+
+  /**
+   * Overwrite parse method to eat text until the end of command.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start) throws Failures.FormFailed {
+    if (start < words.length){
+      String cword = words[start];
+      while (++start < words.length){
+	cword += " " + words[start];
+      }
+      state.setDraftText(session, cword);
+      state.confirmText(session, locator, this);
+      return start;
+    } else
+      return -1;
+  }
+
+}

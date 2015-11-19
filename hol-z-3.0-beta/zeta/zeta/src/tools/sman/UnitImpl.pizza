@@ -1,0 +1,456 @@
+package zeta.tools.sman;
+
+/**
+ * The unit class implementation.
+ *
+ * @version $Id: UnitImpl.pizza,v 1.8 2000/05/12 07:42:56 wg Exp $
+ */
+
+import java.io.Serializable;
+import java.util.Date;
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+
+import zeta.util.*;
+import zeta.session.*;
+
+class UnitImpl implements Unit {
+   
+  // STRUCTURES
+
+  /**
+   * A class giving information about a content in a running session.
+   */
+  static class ContentInfo {
+    
+    /**
+     * A computed content, calculated by a tool adaptor.
+     */
+    case Defined(StorageHandle handle,
+		 Set<Target> dependencies,
+		 Adaptor definedBy,
+		 Date definedAt,
+		 boolean persistent);
+
+    /**
+     * A linked content.
+     */
+    case Linked(ContentType masterType);
+
+
+  }
+
+  /**
+   * A class giving information about a content suitable for
+   * persistent storage.
+   */
+  static class PersistentContentInfo implements Serializable {
+
+    case PDefined(ContentType type,
+		  StorageHandle handle,
+		  Name[] depNames,
+		  ContentType[] depTypes,
+		  Name definedBy,
+		  Date definedAt);
+
+    case PLinked(ContentType type,
+		 ContentType masterType);
+
+  }
+
+  /**
+   * A class giving information about all unit contents suitable for
+   * persistent storage.
+   */
+  private static class PersistentContents implements Serializable {
+    case PersistentContents(PersistentContentInfo[] infos);
+  }
+    
+    
+
+  // FIELDS
+
+  /** 
+   * The session this unit belongs to.
+   */
+  private final SessionImpl session;
+
+  /*
+   * The Name of this unit.
+   */
+  private final Name name;
+
+  /*
+   * The content information of this unit.
+   */
+  private Map<ContentType, ContentInfo> contents = new HashMap();
+
+  /*
+   * The transient contents.
+   */
+  private Map<ContentType, Serializable> transientContents = new HashMap();
+
+
+  // CONSTRUCTION
+
+  UnitImpl(SessionImpl session, Name name){
+    this.session = session; this.name = name;
+  }
+
+
+  // PERSISTENCY
+
+  /**
+   * Save the information about unit contents into a serializable
+   * object.
+   */
+  Serializable saveContents(){
+    Seq<PersistentContentInfo> pinfos = new BufferSeq();
+    contents.apply(
+      fun (Pair<ContentType,ContentInfo> p)->void {
+	switch (p.snd){
+	case Defined(StorageHandle handle,
+		     Set<Target> deps,
+		     Adaptor definedBy,
+		     Date definedAt,
+		     boolean persistent):
+	  if (persistent){
+	    int n = deps.size();
+	    Name[] depNames = new Name[n];
+	    ContentType[] depTypes = new ContentType[n];
+	    int j = 0;
+	    deps.apply(
+	      fun (Target s)->void {
+		depNames[j] = s.unit.getName();
+		depTypes[j] = s.type;
+		j++;
+	      }
+	    );
+	    pinfos = 
+	      pinfos.append(
+		PersistentContentInfo.PDefined(
+		  p.fst,
+		  handle,
+		  depNames, depTypes,
+		  definedBy.getName(),
+		  definedAt)
+	      );
+	  }
+	  break;
+	case Linked(ContentType master):
+	  pinfos = 
+	    pinfos.append(PersistentContentInfo.PLinked(p.fst, master));
+	}
+      }
+    );
+    return new PersistentContents(pinfos.toArray(PersistentContentInfo.class));
+  }
+
+  /**
+   * Restore the information about unit contents from a serializable
+   * object. It is expected that for the session the adaptors and
+   * units have been already initialized.
+   */
+  void restoreContents(Serializable ser){
+   if (!(ser instanceof PersistentContents))
+     throw new Errors.DataInconsistency("unit contents");
+   
+   PersistentContentInfo[] pinfos = ((PersistentContents)ser).infos;
+   
+   for (int i = 0; i < pinfos.length; i++){
+     switch (pinfos[i]){
+     case PDefined(ContentType type,
+		   StorageHandle handle,
+		   Name[] depNames, ContentType[] depTypes,
+		   Name definedBy,
+		   Date definedAt):
+       Set<Target> deps = new HashSet();
+       for (int j = 0; j < depNames.length; j++){
+	 try {
+	   deps = deps.include(new Target(
+				     session.getUnit(depNames[j]),
+				     depTypes[j]
+				   ));
+	 }
+	 catch (Failures.NoSuchEntity e){
+	   throw new Errors.DataInconsistency(
+		       "referred unit does not exists: " + depNames[j]);
+	 }
+       }
+       Adaptor adaptor;
+       try {
+	 adaptor = session.lookupAdaptor(definedBy);
+       }
+       catch (Failures.NoSuchEntity e){
+	 throw new Errors.DataInconsistency(
+		     "referred adaptor instance does not exists: " + definedBy
+		   );
+       }
+       contents = 
+	 contents.define(type,
+			 new ContentInfo.Defined(
+			       handle, deps, adaptor, definedAt, true));
+       break;
+     case PLinked(ContentType type, ContentType masterType):
+       contents = contents.define(type, 
+				  new ContentInfo.Linked(masterType));
+     }
+   }
+  }
+       
+
+  // METHODS
+
+  /** */
+  public Name getName(){
+    return name;
+  }
+
+  /** */
+  public String getFileName(){
+    String s = name.toString();
+    int n = s.length();
+    StringBuffer buf = new StringBuffer();
+    for (int i = 0; i < n; i++){
+      char ch = s.charAt(i);
+      try {
+	char tch = specialMap.get(ch);
+	buf.append("$");
+	buf.append(tch);
+      }
+      catch (NoSuchElementException e){
+	buf.append(ch);
+      }
+    }
+    return buf.toString();
+  }
+   
+  // VALIDATE: taken from OPAL, should be perhaps reduced
+  private static final String specials = "'!@#$%^&*+|~-=\\`{}[]:;<>./?,";
+  private static final String placebos = "Q12345678pStmebqOCocialgdsuL";
+
+  private static Map<char,char> specialMap = new HashMap();
+  // FIXME: use an array here for efficiency
+  static {
+    for (int i = 0; i < specials.length(); i++){
+      specialMap = specialMap.define(specials.charAt(i), placebos.charAt(i));
+    }
+  }
+
+  /** */
+  public Serializable query(ContentType type)
+    throws Failures.ComputationFailed, Failures.CannotCompute {
+    Target spec = new Target(this, type);
+    if (new UptodateChecker().run(spec) == null){
+      // try to compute it
+      Adaptor[] adaptors = session.findAdaptors(type);
+      for (int i = 0; i < adaptors.length; i++){
+	try {
+	  adaptors[i].tryCompute(spec);
+	  if (!contents.defines(type)){
+	    throw new Errors.AssertionFailed(
+			"computation of `" + adaptors[i].getName() + 
+			"' didn't defined demanded content `" + spec + "'");
+	  }
+	  return getContent(type, contents.get(type));
+	}
+	catch (Failures.CannotCompute e){
+	  // continue with next adaptor
+	}
+      }
+      // no adaptor found
+      throw new Failures.CannotCompute(spec);
+    } else {
+      try {
+	return getContent(type, contents.get(type));
+      }
+      catch (NoSuchElementException e){
+	// FIXME: this may happen by concurrent behavior. Simply
+	// synchronizing query is a bad idea, since tool adaptors may
+	// work concurrently on the same unit (its not clear yet how to
+	// make the session system thread save).
+	throw new Failures.CannotCompute(spec);
+      }
+    }
+  }
+
+
+  /**
+   * Return the actual contents, resolving links
+   */
+  private Serializable getContent(ContentType type, ContentInfo info){
+    switch (info) {
+    case Linked(ContentType master):
+      try {
+	return getContent(master, contents.get(master));
+      }
+      catch (NoSuchElementException e){
+	throw new Errors.DataInconsistency("linked content does not exist");
+      }
+    case Defined(StorageHandle handle, _, _, _, boolean persistent):
+      if (persistent)
+	return session.load(handle);
+      else {
+	try {
+	  return transientContents.get(type);
+	}
+	catch (NoSuchElementException e){
+	  return null;
+	}
+      }
+    }
+  }
+
+
+  /** */
+  public synchronized boolean isUptodate(ContentType type){
+    return 
+      new UptodateChecker().run(new Target(this, type)) != null;
+  }
+
+  /*
+   * Recursively check for up-to-dateness. For efficiency, its
+   * important here to call adaptor methods for the up-to-date check
+   * only once for each transient dependency.  For deep dependency
+   * trees, this might otherwise easily lead to hundreds of redundant
+   * adaptor checks -- and an adaptor check may be expansive, by
+   * retrieving for example file modification stamps. */
+  // FIXME: concurrency may lead to outdating during the execution of
+  // checks. A conceptual clean solution would need to lock the
+  // dependency tree first.
+  static class UptodateChecker {
+    Map<Target,Date> done = new HashMap();
+
+    Date run(Target spec){
+      if (done.defines(spec))
+	return done.get(spec);
+      else {
+	UnitImpl unit = (UnitImpl)spec.unit;
+	if (unit.contents.defines(spec.type)){
+	  ContentInfo info = unit.contents.get(spec.type);
+	  switch (info) {
+	  case Defined(_, Set<Target> deps, 
+			Adaptor definedBy, Date definedAt, _):
+	    // set done for cyclic visits
+	    done = done.define(spec, null);
+	    if (deps.forall(
+		  fun (Target dep)->boolean {
+		    Date date = run(dep);
+		    return date != null && !date.after(definedAt);
+		  }
+		) && definedBy.isUptodate(spec, definedAt)){
+	      // okay
+	      done = done.define(spec, definedAt);
+	      return definedAt;
+	    } else {
+	      // outdate 
+	      unit.outdate(spec.type);
+	      return null;
+	    }
+	  case Linked(ContentType master):
+	    done = done.define(spec, null);
+	    Date date = run(new Target(spec.unit, master));
+	    if (date == null){
+	      unit.outdate(spec.type);
+	      return null;
+	    } else {
+	      done = done.define(spec, date);
+	      return date;
+	    }
+	  }
+	} else {
+	  done = done.define(spec, null);
+	  return null;
+	}
+      }
+    }
+
+  }
+
+
+  /** */
+  public synchronized void outdate(ContentType type){
+    if (contents.defines(type)){
+      ContentInfo info = contents.get(type);
+      contents = contents.undefine(type);
+      switch (info){
+      case Defined(StorageHandle handle, Set<Target> deps, 
+		    Adaptor definedBy, Date definedAt, boolean persistent):
+	if (persistent){
+	  if (!definedBy.notifyOutdate(new Target(this, type),
+				       definedAt,
+				       handle)){
+	    session.free(handle);
+	  }
+	}
+      }
+    }
+  }
+  
+  /** */
+  public synchronized void define(ContentType type, 
+				  Serializable content,
+				  boolean persistent,
+				  Date createdAt,
+				  Target[] deps,
+				  Adaptor adaptor){
+    /////////////////////////////////////////////////////////////
+    // treat all unit contents as transient (there are serious efficiency
+    // problems with serialization)
+    persistent = false;
+    ////////////////////////////////////////////////////////////
+    StorageHandle handle = null;
+    if (contents.defines(type)){
+      ContentInfo info = contents.get(type);
+      switch (info) {
+      case Defined(StorageHandle oldHandle, _, _, _, _):
+	handle = oldHandle;
+      }
+    }
+    if (persistent){
+      if (handle == null) {
+	handle = session.allocate();
+      }
+      session.store(handle, content);
+    } else {
+      transientContents = transientContents.define(type, content);
+    }
+    contents = contents.define(
+		 type,
+		 ContentInfo.Defined(handle, 
+				     HashSet.from(new ArraySeq(deps)),
+				     adaptor,
+				     createdAt,
+				     persistent)
+	       );
+    System.gc();
+  }
+
+  /** */
+  public void link(ContentType otherType, ContentType type){
+    throw FatalError.notImplemented("content links");
+    /*
+    if (contents.defines(type)){
+      switch (contents.get(type)) {
+      case Defined(StorageHandle oldHandle, _, _, _, _):
+	session.free(oldHandle);
+      }
+      contents = contents.undefine(type);
+    }
+    if (!contents.defines(otherType))
+      // handle like outdate
+      return;
+    contents = contents.define(
+		 type,
+		 ContentInfo.Linked(otherType)
+	       ); 
+    */
+  }
+    
+}
+
+  
+

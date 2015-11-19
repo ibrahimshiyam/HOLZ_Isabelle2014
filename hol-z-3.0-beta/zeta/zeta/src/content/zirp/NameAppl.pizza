@@ -1,0 +1,30 @@
+package zeta.content.zirp;
+
+/** A NameAppl is an annotated term which aggregates a Name together
+ * with an actualization of generic parameters associated with this
+ * name.  In the abstract syntax of ZIRP, it appears at places where a
+ * name is applied. <p>
+
+ * Whether an actualization is present depends on the kind of the name:
+ * for applications of schema and class names, an actualization is
+ * supplied whenever the name is generic, for variable names only in the
+ * case the user has explicitely written it down (the actualization
+ * derived by a type checker is found in an annotation). Note that the
+ * parameters of generic infixes or prefixes are treated as
+ * actualizations, since a notation such A \pfun B is actually sugar
+ * for (\_ \pfun \_)[A,B].
+ *
+ * @version $Id: NameAppl.pizza,v 1.1.1.1 1998/09/01 10:51:17 wg Exp $
+ *
+ * */
+
+import zeta.util.Name;
+import zeta.util.AnnotatedTerm;
+
+public class NameAppl extends AnnotatedTerm {
+
+  public case NameAppl(Name name, Expr[] actuals);
+
+}
+
+

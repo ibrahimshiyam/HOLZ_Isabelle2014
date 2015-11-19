@@ -1,0 +1,5 @@
+AUTOSUBNODES	= 
+PIZZA_FILES 	= \
+		MZ.pizza MZConstants.pizza
+JAVAFLAGS	= 
+NODEKIND	= java

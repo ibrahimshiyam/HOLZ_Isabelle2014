@@ -1,0 +1,194 @@
+package zeta.tools.zchecker;
+
+/**
+ * A class summarizing all kinds of messages produced for diagnostics.
+ *
+ * @version $Id: Report.pizza,v 1.5 1998/09/19 20:23:21 wg Exp $
+ */
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.session.*;
+import zeta.content.zirp.*;
+
+
+class Report {
+
+  static Format notSupported(String what){
+    return Format.literal(what + " currently not supported");
+  }
+
+  static Format DZnotSupported(){
+    return Format.literal(
+	     "temporal logics (Dynamic Z) currently not supported");
+  }
+
+  static Format undeclared(Name name, Seq<Locator> otherOrigs){
+    if (otherOrigs.isEmpty())
+      return 
+	Format.literal("undeclared `" + name + "'");
+    else
+      return 
+	Format.describe("undeclared `" + name + "'",
+			"also referred at",
+			Format.list(Format.empty, Format.literal(","),
+				    Format.empty,
+				    otherOrigs.toArray(Locator.class)));
+  }
+
+  static Format cyclic(Seq<Name> names, Seq<Locator> otherOrigs){
+    return 
+      Format.describe("cyclic definition",
+		      "involving names", 
+		      Format.list(Format.empty, Format.literal(","),
+				  Format.empty,
+				  names.toArray(Name.class)),
+		      "involving references",
+		      Format.list(Format.empty, Format.literal(","),
+				  Format.empty,
+				  otherOrigs.toArray(Locator.class))
+		     );
+  }
+    
+  static Format undeclaredInSign(Name name, Expr sign){
+    return 
+      Format.describe("undeclared  `" + name + "' in binding",
+		      "binding", show(sign));
+  }
+
+  static Format redeclaration(Name name, Locator loc){
+    return 
+      Format.describe("illegal redeclaration of `" + name + "'",
+		      "previous declaration", show(loc));
+  }
+
+ static Format redeclarationIncompatGenerics(Name name, Locator loc,
+					      Seq<Name> oldGen, 
+					      Seq<Name> newGen){
+    return 
+      Format.describe("incompatible genericity of redeclared `" + name + "'",
+		      "previous declaration", show(loc),
+		      "previous genericity", show(oldGen),
+		      "new genericity", show(newGen));
+  }
+ 
+  static Format redeclarationIncompatExprs(Name name, Locator loc,
+					   Expr oldExpr, Expr newExpr,
+					   Type.UnificationFailure failure){
+    return 
+      Format.describe("incompatible type of redeclared `" + name + "'",
+		      "previous declaration", show(loc),
+		      "previous type", show(oldExpr),
+		      "new type", show(newExpr));
+  }
+
+  static Format incompatActualization(Name name, int actCnt, int genCnt){
+    return Format.describe("invalid actualization of `" + name + "'",
+			   "genericity", 
+			   Format.literal(genCnt > 0 ? genCnt + " formal(s)"
+			                             : "none"),
+			   "actualization",
+			   Format.literal(actCnt + " parameter(s)")
+			  );
+  }
+
+  static Format incompleteActualization(Name name, Expr[] acts){
+    return Format.describe("cannot determine actualization of `" + name + "'",
+			   "inferred",
+			   show(Expr.Variable(new NameAppl(name, acts))));
+  }
+
+  static Format incompleteType(Expr type){
+    return Format.describe("cannot determine type",
+			   "inferred",
+			   show(type));
+  }
+
+
+  static Format expectedSchema(Expr found){
+    return 
+      Format.describe("expected a schema type",
+		      "found type", show(found));
+  }
+
+  static Format expectedSchemaForImplicite(Name name, Expr found){
+    return 
+      Format.describe("expected a schema type for implicite class schema `" +
+		      name + "'",
+		      "found type", show(found));
+  }
+
+  static Format expectedSet(Expr found){
+    return 
+      Format.describe("expected a powerset type",
+		      "found type", show(found));
+  }
+
+  static Format undeclaredPos(int pos, Expr found){
+    return 
+      Format.describe("expected a product type with at least " + pos + 
+		      "components",
+		      "found type", show(found));
+  }
+
+  static Format undeclaredField(Name field, Expr found){
+    return 
+      Format.describe("expected a binding type with field `" + field + "'",
+		      "found type", show(found));
+  }
+
+  static Format typeIncompat(Expr t1, Expr t2, 
+			     Type.UnificationFailure failure){
+    return 
+      Format.describe("type mismatch",
+		      "demanded type", show(t1),
+		      "delivered type", show(t2));
+  }
+
+  static Format typeIncompatInEnv(Name name, Expr type, Expr envType){
+    return 
+      Format.describe("type mismatch of `" + name + "' in environment",
+		      "this type", show(type),
+		      "environment type", show(envType));
+  }
+
+  static Format typeIncompatInMatch(Name name1, Expr type1, 
+				    Name name2, Expr type2){
+    if (name1.equals(name2))
+      return typeIncompatInJoin(name1, type1, type2);
+    else
+      return 
+	Format.describe("type mismatch of `" + name1 + "' joined with `" + 
+			name2  + "'",
+			"type of `" + name1 + "'", show(type1),
+			"type of `" + name2 + "'", show(type2));
+  }
+
+  static Format typeIncompatInJoin(Name name, Expr type1, Expr type2){
+    return 
+      Format.describe("type mismatch of joined `" + name + "'",
+		      "first type", show(type1),
+		      "second type", show(type2));
+  }
+
+
+    
+
+  static private Format show(Locator loc){
+    return loc == null ? Format.literal("<null>")
+	               : loc.toFormat(new FormatInfo());
+  }
+
+  static private Format show(Seq<Name> names){
+    return names.toFormat(new FormatInfo()); // FIXME
+  }
+
+  static private Format show(Expr type){
+    // return Format.build(type);
+    return Type.toPrettyFormat(type);
+  }
+
+}

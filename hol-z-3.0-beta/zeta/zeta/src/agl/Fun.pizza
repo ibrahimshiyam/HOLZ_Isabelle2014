@@ -1,0 +1,130 @@
+package zeta.agl;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+public class Fun {
+
+    public static <A> 
+    A id(A a) { return a; }
+
+    /* do we need the next two functions? */
+    public static <A,B,C>
+    (A,B)->C first((A)->C f) { 
+	return fun(A a, B b)->C { return f(a); };
+    }
+
+    public static <A,B,C>
+    (A,B)->C second((B)->C f) { 
+	return fun(A a, B b)->C { return f(b); };
+    }
+
+    public static <A,B>
+    A fst(Pair<A,B> p){
+      return p.fst;
+    }
+
+    public static <A,B>
+    B snd(Pair<A,B> p){
+      return p.snd;
+    }
+
+    public static <A,B>
+    (A)->B tee((A,A)->B f) { 
+	return fun(A a)->B { return f(a,a); };
+    }
+
+    public static <A,B,C>
+    (A)->C compose((B)->C f, (A)->B g) {
+	return fun(A a)->C { return f(g(a)); };
+    }
+
+    public static <A,B,C> 
+    (A,B)->C swap((B,A)->C f) {
+	return fun(A a, B b)->C { return f(b, a); };
+    }
+	
+    public static <A,B,C> 
+    (B)->C curryFstOf2((A,B)->C f, A a) { 
+	return fun(B b)->C { return f(a,b); }; 
+    }
+
+    public static <A,B,C,D> 
+    (B,C)->D curryFstOf3((A,B,C)->D f, A a) { 
+	return fun(B b, C c)->D { return f(a,b,c); }; 
+    }
+
+    public static <A,B,C> 
+    (A)->C currySndOf2((A,B)->C f, B b) { 
+	return fun(A a)->C { return f(a,b); }; 
+    }
+
+    public static <A,B,C,D> 
+    (A,C)->D currySndOf3((A,B,C)->D f, B b) { 
+	return fun(A a, C c)->D { return f(a,b,c); }; 
+    }
+
+    public static <A,B,C,D> 
+    (A,B)->D curryThrdOf3((A,B,C)->D f, C c) { 
+	return fun(A a, B b)->D { return f(a,b,c); }; 
+    }
+
+    public static <A,B,C> 
+    (Pair<A,B>)->C toPair((A,B)->C f) { 
+	return fun(Pair<A,B> p)->C { return f(p.fst, p.snd); }; 
+    }
+
+    public static <A>
+    boolean eq(A a1, A a2) {
+	return ((Object) a1).equals((Object) a2);
+    }
+
+    public static <A> 
+    (A)->boolean not((A)->boolean f) { 
+	return fun(A a)->boolean { return !f(a); };
+    }
+
+    public static 
+    boolean not(boolean b) { 
+	return !b; 
+    }
+
+    public static <A,B>
+    (A,B)->boolean and((A)->boolean f1, (B)->boolean f2) {
+	return fun(A a, B b)->boolean { return f1(a) && f2(b); };
+    }
+/*
+    public static <A>
+    (A, boolean)->boolean and((A)->boolean f) {
+	return fun(A a, boolean b)->boolean { return b && f(a); };
+    }
+
+    public static <A>
+    (boolean, A)->boolean and((A)->boolean f) {
+	return fun(boolean b, A a)->boolean { return b && f(a); };
+    }
+
+    public static
+    boolean and(boolean b1, boolean b2) { return b1 && b2; }
+*/
+
+
+    public static <A,B>
+    (A,B)->boolean or((A)->boolean f1, (B)->boolean f2) {
+	return fun(A a, B b)->boolean { return f1(a) || f2(b); };
+    }
+
+    public static <A>
+    (boolean, A)->boolean or((A)->boolean f) {
+	return fun(boolean b, A a)->boolean { return b || f(a); };
+    }
+
+    public static <A>
+    (A)->boolean and1((A)->boolean f1, (A)->boolean f2) {
+	return Fun.tee(Fun.and(f1,f2));
+    }
+
+    public static <A>
+    (A)->boolean or1((A)->boolean f1, (A)->boolean f2) {
+	return Fun.tee(Fun.or(f1,f2));
+    }
+}

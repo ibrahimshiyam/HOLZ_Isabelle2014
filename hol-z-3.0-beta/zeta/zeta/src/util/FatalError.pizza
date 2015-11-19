@@ -1,0 +1,67 @@
+package zeta.util;
+
+/** 
+ * A class for representing fatal errors, such as programming assertion
+ * failure.
+ *
+ * @version $Id: FatalError.pizza,v 1.1.1.1 1998/09/01 10:51:13 wg Exp $
+ */
+
+public class FatalError extends Error {
+
+  /** 
+   * Construct a fatal error. 
+   */
+  public FatalError(String message){
+    super("FATAL ERROR: " + message);
+  }
+
+  /** 
+   * Construct an assertion failure fatal error. 
+   */
+  public static FatalError assertionFailed(String message){
+    return new FatalError("assertion failed: " + message);
+  }
+
+  /** 
+   * Construct a "case" error (e.g. for Pizza default cases which should
+   * never be reached). 
+   */
+  public static FatalError unexpectedCase(){
+    return assertionFailed("unexpected case");
+  }
+
+  /** 
+   * Construct a "case" error (e.g. for Pizza default cases which should
+   * never be reached). 
+   */
+  public static FatalError unexpectedCase(String message){
+    return assertionFailed("unexpected case: " + message);
+  }
+
+  /** 
+   * Construct a "not-implemented" error. 
+   */
+  public static FatalError notImplemented(){
+    return new FatalError("not implemented");
+  }
+
+  /** 
+   * Construct a "not-implemented" error. 
+   */
+  public static FatalError notImplemented(String message){
+    return new FatalError("not implemented: " + message);
+  }
+
+  /**
+   * Construct an unexpected exception error
+   */
+  public static FatalError unexpectedException(final Exception e){
+    return new FatalError("unexpected exception: " + e);
+  }
+    
+
+
+
+}
+

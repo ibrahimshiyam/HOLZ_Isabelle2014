@@ -1,0 +1,150 @@
+
+\section{The Specification}
+
+This document cantains specification and analysis of Spivey's 
+classical BirthdayBook example. It is intended to demonstrate
+the use of the ZETA-frontend to write and typecheck
+specifications in Z, and the Isabelle backend that allows for
+stating and proving proof obligations over this specification.
+
+\subsection{Basic Datatypes and State Schemas}
+\zsection{BBSpec}
+
+\begin{zedgroup}
+  \begin{zed}
+    [NAME,DATE]
+  \end{zed}
+
+  \begin{schema}{BirthdayBook}
+    known: \power NAME \\
+    birthday: NAME \pfun DATE
+    \where
+    known = \dom birthday
+  \end{schema}
+\end{zedgroup}
+
+\subsection{Operations}
+\begin{zed}
+ InitBirthdayBook == [BirthdayBook | known = \emptyset] 
+\end{zed}
+
+\begin{zedgroup}
+  \begin{schema}{AddBirthday}
+    \Delta BirthdayBook \\
+    name?: NAME; date?: DATE
+    \where
+    name? \notin known \\
+    birthday' = birthday \cup \{name? \mapsto date?\}
+  \end{schema}
+  \begin{schema}{FindBirthday}
+    \Xi BirthdayBook \\
+    name?: NAME; date!: DATE 
+    \where
+    name? \in known \\
+    date! = birthday(name?)
+  \end{schema}
+  \begin{schema}{Remind}
+    \Xi BirthdayBook \\
+    today?: DATE; cards!: \power NAME
+    \where
+    cards! = \{ n: NAME | n \in known; birthday(n) =  today? \}\\
+  \end{schema}
+\end{zedgroup}
+
+
+\subsection{Strengthening the Specification}
+
+%\zsection[BBSpec]{BBStrength}
+
+\begin{zed}
+  REPORT ::= ok | already\_known | not\_known
+\end{zed}
+
+\begin{schema}{Success}
+  result!: REPORT \\
+  \where
+  result! = ok
+\end{schema}
+
+\begin{schema}{AlreadyKnown}
+  \Xi BirthdayBook \\
+  name?: NAME \\
+  result!: REPORT \\
+  \where
+  name? \in known \\
+  result! = already\_known \\
+\end{schema}
+
+\begin{zed}
+  RAddBirthday == ( AddBirthday \land Success ) \lor AlreadyKnown
+\end{zed}
+
+
+\subsection{Implementing the Birthday Book}
+
+%\zsection[BBSpec]{BBImpl}
+
+\begin{schema}{BirthdayBook1}
+  names: \nat \fun NAME \\
+  dates: \nat \fun DATE \\
+  hwm:   \nat \\
+  \where
+  \forall i,j: 1 \upto hwm @ i \neq j \implies names(i) \neq names(j) \\
+\end{schema}
+
+\begin{zed}
+ InitBirthdayBook1 == [ BirthdayBook1 | hwm = 0 ] 
+\end{zed}
+
+\begin{schema}{Abs}
+  BirthdayBook \\
+  BirthdayBook1 \\
+  \where
+  known = \{ i: 1 \upto hwm @ names(i) \} \\
+  \forall i: 1 \upto hwm @ birthday( names(i) ) = dates(i)
+\end{schema}
+
+\begin{schema}{AddBirthday1}
+  \Delta BirthdayBook1 \\
+  name?: NAME \\
+  date?: DATE \\
+  \where
+  \forall i: 1 \upto hwm @ name? \neq names(i) \\
+  hwm' = hwm + 1 \\
+  names' = names \oplus \{ hwm' \mapsto name? \} \\
+  dates' = dates \oplus \{ hwm' \mapsto date? \}
+\end{schema}
+
+
+\subsection{Specification}
+\subsection{Stating Conjectures}
+At times, the designer of a specification might want to state
+a certain property that he has in mind when writing the specification
+document. Such properties can be stated as \emph{conjecture}. ZETA
+can type-check them and export them to HOL-Z; the latter will
+consider a conjecture as definition of an internal constant symbol.
+For proving the conjecture, one states a lemma in the analysis that
+this internal constant symbol is actually equivalent to $True$.
+
+The statement of a conjecture is simply done by:
+
+\begin{zed}
+ \forall BirthdayBook; BirthdayBook1; name?:NAME; date?:DATE @  \\
+    name? \notin known \land (known = \{i : 1 \upto hwm @ names(i)\}) \\
+    \implies (\forall i : 1\upto hwm @ name? \neq names(i))
+\end{zed}
+
+
+\subsection{Conclusion}
+In the following, we discuss two versions of analysis: one based on relational refinement,
+another on functional refinement, which leads to simpler proof.
+See corresponding \verb+BBSpec.thy+ file for the relational refinement,
+and \verb+BBSpec_Functional.thy+ for the functional refinement.
+
+The following ISAR command starts a new Isabelle 
+theory based on Z, including all libraries and setups. 
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

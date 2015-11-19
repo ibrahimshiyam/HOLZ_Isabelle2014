@@ -1,0 +1,53 @@
+\section{Introduction}
+
+There is an ongoing discussion about syntax, semantics and methodology
+of uses cases in the software engineering community.  Opposed to the graphic formalisms for
+\emph{combining} Use Cases, e.g. by the ``Use Case Diagrams'' offered
+by UML, the means for specifying the
+\emph{contents} of a single Use Case 
+%(or, to be more exact: ``Use Case
+%Class'') 
+is not agreed upon at all.
+
+The UML semantics state that ``a Use Case can be described in plain
+text, using operations, in activity diagrams, by a state-machine, or
+by other behavior description techniques\ldots.''(UML semantics).  For
+our purpose of applying formal techniques we need an unambiguous
+description technique which is amenable to exact reasoning such as
+test evaluation.  We therefore develop a model related to
+\emph{temporal interval logic}, explicitely using
+\emph{nondeterministic choice}, \emph{repetition} and
+\emph{interruption}.
+
+In summary, we use the following informal definition of use cases:
+
+\begin{itemize}
+  
+\item The systems we observe are characterized by sequences of
+  \emph{interactions}. Sequences of interactions are called
+  \emph{dialogues}.  
+\item Each interaction has assigned a certain \emph{actor}.  The
+  actors are often one human and one technical system, but
+  several humans can also talk to several machines, or machines can
+  talk to each other.  The important methodological principle is that
+  we only look at the \emph{observable} behavior of each actor
+  such that all internal state is hidden.
+  
+\item Use cases are described by a so-called \emph{fragments} of 
+  dialogues between two or more actors. A fragment schematically
+  specifies an aspect of a dialogue by a ``pattern'' of
+  interactions. 
+  
+\item Fragments can be combined by sequential composition,
+  nondeterministic choice, repetition, and interrruption
+  
+\item We have an (observable) global system state which all use cases
+  share.  This extension compared to a ``puristic'' idea of use cases
+  allows us to abstract use cases over some data state. In the
+  fragments we can specify how this data state is transformed.
+\end{itemize}
+
+Note that we do not restrict our model to only two actors, as often
+found in the literature.  Moreover, we do not impose \emph{a priori}
+that actors in dialogues do alternate.  Finally, we do not have a
+builtin concept of ``idle'' states.

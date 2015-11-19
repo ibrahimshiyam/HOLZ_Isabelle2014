@@ -1,0 +1,648 @@
+\documentclass[a4paper]{article}
+
+\usepackage{fullpage}
+\usepackage{zeta}
+
+\newcommand{\zcomment}[1]{#1}
+
+\title{Specification of a Class Scheduling System (CSS)}
+\author{Burkhart Wolff and Frank Rittinger}
+
+\begin{document}
+
+\maketitle
+
+This specification is part of an exercise for a lecture on software engineering.
+The purpose of the \emph{Class Scheduling System} CSS is to calculate a schedule
+for all sorts of lectures, seminars, etc. for our computer science department,
+according to various constraints on rooms, overlapping classes that should be
+taken in the same term, etc.
+
+
+\section{Specification of the Basis-Entities} 
+
+\zsection{basis}
+
+\vspace{1ex}\noindent
+We introduce some elementary data-types (basis and free types), and later give
+schemas for the basis-entities, namely $DayBeginDuration$, $Instructor$, $Room$
+and $EventOffer$.
+
+%%macro \zcomment 1
+
+\begin{zed}
+  [TEXT, EventOfferID, RoomID, ClassScheduleID] \\
+  DAY ::= Mo | Tu | We | Th | Fr | Sa | Su \\
+  RANK ::= Prof | Pd | Dr | Dipl | Stud  \\
+  RESEARCH\_GROUP ::= ST | PS | KI | DB | ME | AS | ML | AT | RA | CG \\
+  ROOM\_FEATURE ::= Multimedia | Beamer | Projector | Computer \\
+  EVENT\_TYPE & ::= & RequiredClass3 \\
+  & | & RequiredClass5 \\
+  & | & RequiredClass7 \\
+  & | & SpecialClass \\
+  & | & Lab | Seminar | Exercises \\
+\end{zed}
+
+The natural way to define $RequiredClass$ would be the following definition, but
+this is not yet supported by HOL-Z!
+\zcomment{
+  \begin{zed}
+    EVENT\_TYPE ::= RequiredClass \ldata \nat \rdata | SpecialClass | Lab |
+    Seminar | Exercises
+  \end{zed}}
+Additionally we need a predicate that decides whether the event type is
+$RequiredClass_i$ or something different.
+\begin{axdef}
+  isRequiredClass: \power EVENT\_TYPE \\
+  \where
+  isRequiredClass = \{ RequiredClass3, RequiredClass5, RequiredClass7 \} \\
+\end{axdef}
+
+\paragraph{Remarks.} $RequiredClass \ldata \nat \rdata$ expresses the
+semester in which the event must take place; this will be important for
+computing the conflicts in the schedules!  Note also that the free types could
+contain further constants, e.g.~$Videorecorder$ in $ROOM\_FEATURE$.
+
+The following are the schemas for the four basis-entities, including constraints
+on data; of course, alternative (equivalent) formulations are possible.
+\begin{schema}{DayBeginDuration}
+  Day: DAY \\
+  Begin: ( 8 \upto 17 ) \setminus \{ 13 \} \\
+  Duration: \nat
+  \where
+  Day \neq Sa \land Day \neq Su \\
+  Begin < 13 \implies Begin + Duration \leq 13 \\
+  Begin > 13 \implies Begin + Duration \leq 18 \\
+  Duration \geq 1
+\end{schema}
+\begin{schema}{Instructor}
+  Name: TEXT  \\
+  Rank: RANK \\
+  Group: RESEARCH\_GROUP
+\end{schema}
+\begin{schema}{Room}
+  Capacity: \nat  \\
+  Features: \power ROOM\_FEATURE 
+  \where
+  Capacity \geq 3
+\end{schema}
+
+\noindent
+Note that the $RoomID$s are not explicitly included in the schema, but
+are used in the table of $Room$s below.
+
+In order to give a schema for $EventOffer$, we first introduce an auxiliary
+function which computes the ``set of hours'' contained in a given
+$DayBeginDuration$, so that we can express the constraint that all
+$PreferredDayBeginDurations$ must have the same overall duration.
+\begin{axdef}
+  TimeFrame: \power DayBeginDuration \fun \power (DAY \cross \nat) \\
+  \where 
+  \forall dbd : \power DayBeginDuration @ TimeFrame(dbd) =
+  \{day: DAY; x: \nat | \\
+  \t1 \exists t: dbd @ (day = t.Day) \land (t.Begin \leq x) \land (x
+  < t.Begin + t.Duration)\}
+\end{axdef}
+\begin{schema}{EventOffer}
+  Instructors: \power Instructor \\
+  Title: TEXT \\
+  Type: EVENT\_TYPE \\
+  Features: \power ROOM\_FEATURE \\
+  ExpectedAttendants: \nat \\
+  PreferredDayBeginDurations: \power (\power DayBeginDuration) \\
+  \where
+  Instructors \neq \emptyset \\
+  PreferredDayBeginDurations \neq \emptyset \land PreferredDayBeginDurations
+  \neq \{\emptyset\} \\ 
+  ExpectedAttendants \geq 3 \\
+  \forall x, y: PreferredDayBeginDurations @ \#(TimeFrame~x) = \#(TimeFrame~y)
+  \\ 
+  \forall d: PreferredDayBeginDurations @ \forall x,y: d @ x \neq y \implies
+  x.Day \neq y.Day \\ 
+\end{schema}
+
+
+\section{Specification of the Relations on the Entities} 
+
+\zsection[basis]{relations}
+
+\vspace{1ex}\noindent
+A $PreferredDayBeginDurations$ is a set of $DayBeginDuration$s, and an
+$EventAssignment$ consists of a triple of an $EventOffer$ (actually, its ID,
+$EventOfferID$), a $PreferredDayBeginDurations$, and a collection (set, list,
+etc.) of $Room$s (actually, their IDs, $RoomID$), which are assigned to an
+event.
+\begin{zed}
+  PreferredDayBeginDuration ==  \power DayBeginDuration \\
+\end{zed}
+
+\noindent
+For each $EventOfferID$, an $EventAssignment$ associates a $DayBeginDuration$
+from the set of $DayBeginDuration$s to a particular room (characterized by its
+$RoomID$). There is a natural linear ordering on $DayBeginDuration$s based on
+their $Day$ and $Begin$, such that an element of the $DayBeginDuration$s-set may
+be associated to a room in the room sequence $S$ according its position.
+\begin{zed} 
+  EventAssignment == \{ea : EventOfferID \cross \power DayBeginDuration \cross
+  \seq RoomID | \\ 
+  \t1 \exists eoid:EventOfferID @ \exists S:\power DayBeginDuration @ \exists
+  ridS:\seq RoomID @ \\ 
+  \t2 ((eoid, S,ridS) = ea) \land (\# S = \# ridS) \} \\
+
+  EventOfferTable == EventOfferID \pinj EventOffer \\
+
+  RoomTable == RoomID \pinj Room \\
+\end{zed}
+  
+\noindent
+Now we turn to the $ClassSchedule$-tables.
+\begin{zed}
+  ClassScheduleTable == ClassScheduleID \pinj (EventOfferID \pinj \power
+  (DayBeginDuration \cross RoomID)) \\
+\end{zed}
+
+\noindent
+It will turn out to be useful to have the following abbreviation:
+\begin{zed} 
+  ClassSchedule == EventOfferID \pinj \power (DayBeginDuration \cross RoomID) \\
+\end{zed} 
+
+
+\section{Specification of the $ClassSchedule$ table} 
+
+\zsection[relations]{classSchedule}
+
+\vspace{1ex}\noindent
+Not all elements of the $ClassSchedule$ table are `legal', as there are a number
+of constraints that must be satisfied.  Given the tables of $EventOffer$s and
+$Room$s, we define a function $ClassSchedules$, which identifies the set of
+legal class-schedules as follows.
+\begin{axdef}
+  ClassSchedules: EventOfferTable \cross RoomTable \fun \power ClassSchedule
+  \where
+  \forall eo : EventOfferTable; r : RoomTable @ \\
+  \t1 ClassSchedules (eo,r) = \{ s : ClassSchedule | \dom s = \dom eo \land \\
+  \t2 ( \forall eoid : \dom s @ \exists dbd:
+  (eo~eoid).PreferredDayBeginDurations @ \\ 
+  \t3 ( \{x : s~eoid @ first~x\} = dbd ) \land ( \forall x: s~eoid @  second~x
+  \in \dom r)) \} \\
+\end{axdef}
+
+\noindent
+The second formula constraining the class-schedule $s$ expresses that the
+$DayBeginDuration$s must be contained in the $PreferredDayBeginDurations$
+(i.e.~$\{x : s~eoid @ first~x\} = dbd$), and that the $Room$s must be defined
+(i.e.~$\forall x : s~eoid @ second~x \in \dom r$).
+
+The following auxiliary function allows us to compute a schedule of the rooms,
+i.e.~a $RoomOccupancyPlan$, from a given $ClassSchedule$ and a $RoomID$.
+\begin{axdef}
+  RoomOccupancyPlan: ClassSchedule \cross RoomID \fun \power (EventOfferID
+  \cross DayBeginDuration) \\
+  \where
+  \forall s: ClassSchedule; rid: RoomID @ \\
+  \t1 RoomOccupancyPlan (s,rid) = \{eoid: EventOfferID; dbd: DayBeginDuration |
+  \\ 
+  \t2 (dbd,rid) \in s~eoid\}
+\end{axdef}
+
+\noindent
+We can also define a similar schedule for the instructors:
+\begin{axdef}
+  InstructorsSchedule: EventOfferTable \cross ClassSchedule \cross Instructor
+  \fun \power (EventOfferID \cross DayBeginDuration) \\ 
+  \where
+  \forall eot: EventOfferTable ; s: ClassSchedule; i: Instructor @ \\
+  \t1 InstructorsSchedule (eot,s,i) = \{eoid: EventOfferID; dbd:
+  DayBeginDuration |  \exists r: RoomID @ \\ 
+  \t2 (dbd,r) \in s~eoid \land i \in (eot~eoid).Instructors\}
+\end{axdef}
+
+
+\section{Specification of the Conflicts} 
+\zsection[classSchedule]{conflicts}
+
+\vspace{1ex}\noindent
+We now formalize auxiliary functions that compute room-features conflicts
+(violations of the requirements enforced on a room) and instructor conflicts
+(violations of the fact that an instructor cannot take part in two or more
+events during the same time-frame).
+
+The main idea is to compute the cardinality of sets of tuples, which
+characterize the conflicts.
+
+The system assigns, within a schedule, a pair of room and date to an event.  A
+room-features conflict occurs when the required features (e.g.~Beamer and
+Projector) of an event are not a subset of the features of the assigned room, or
+when the number of expected attendants is higher than the capacity of the room.
+
+% %%inrel \nsubseteq
+% %% \begin{axdef}[X]
+% %%    \_ \nsubseteq \_ : \assumed \power(\power X \cross \power X)
+% %% \end{axdef}
+
+We define the Z-function $RoomFeatureConflicts$ as follows:
+\begin{axdef}
+  RoomFeatureConflicts: ClassSchedule \cross RoomTable \cross EventOfferTable
+  \fun \nat \\
+  \where
+  \forall s: ClassSchedule; r: RoomTable; eo: EventOfferTable @ \\
+  RoomFeatureConflicts(s,r,eo) = \\
+  \t1 \# \{eoid: \dom s; rid: \dom r | \exists dbd: DayBeginDuration @ (dbd,rid)
+  \in (s~eoid) \land \\
+  \t2 (\lnot(((eo~eoid).Features) \subseteq (r~rid).Features) \\
+  \t2 \lor ((eo~eoid).ExpectedAttendants) > (r~rid).Capacity)\} \\
+\end{axdef}
+
+\noindent
+An instructor conflict occurs when a class-schedule requires an instructor to
+take part in two (or more) events at the same time (i.e.~during the same
+time-frame). In order to define formally the function $InstructorConflicts$ we
+exploit the auxiliary function $TimeFrame$.
+\begin{axdef}
+  InstructorConflicts: ClassSchedule \cross EventOfferTable \fun \nat \\
+  \where
+  \forall s: ClassSchedule; eo: EventOfferTable @ \\
+  InstructorConflicts(s, eo) = \\
+  \# \{eoid1: \dom s; eoid2: \dom s; i: Instructor | \\
+  \t1 eoid1 \neq eoid2 \\
+  \t1 \land i \in (eo~eoid1).Instructors \\
+  \t1 \land i \in (eo~eoid2).Instructors \\
+  \t1 \land TimeFrame \{ sid: s~eoid1 @ first~sid \} \cap TimeFrame \{ sid:
+  s~eoid2 @ first~sid \} \neq \emptyset \} \div 2 \\
+\end{axdef}
+
+\noindent
+{\bf Remark}: we have to divide by 2 since $eoid1$ and $eoid2$ both occur in $s:
+ClassSchedule$, so that the instructor conflicts within the $DayBeginDurations$
+of $eoid1$ and $eoid2$ are counted twice.
+
+We now formalize auxiliary functions that compute further conflicts: room
+conflicts (violations of the fact that a room cannot be assigned to more than
+one event during a time-frame) and required-class conflicts (violations of the
+fact that no two classes required for the same semester $n$ can take place
+during the same time-frame).
+
+As for the other conflicts, the main idea is to compute the cardinality of sets
+of tuples, which characterize the conflicts.
+
+\begin{axdef}
+  RoomConflicts: ClassSchedule \cross RoomTable \fun \nat \\
+  \where
+  \forall s:ClassSchedule; r: RoomTable @ RoomConflicts(s,r) = \\
+  \t1 \# \{eoid1: \dom s; dbd1: DayBeginDuration; \\
+  \t2 eoid2: \dom s; dbd2: DayBeginDuration; rid: \dom r | \\
+  \t3 eoid1 \neq eoid2 \land \\
+  \t3 (dbd1,rid) \in s~eoid1 \land \\
+  \t3 (dbd2,rid) \in s~eoid2 \land \\
+  \t3 TimeFrame(\{dbd1\}) \cap TimeFrame(\{dbd2\}) \neq \emptyset\} \div 2 \\
+\end{axdef}
+
+\noindent
+{\bf Remark}: as for $InstructorConflicts$, we divide by 2, since $eoid1$ and
+$eoid2$ both occur in $s: ClassSchedule$, so that the room conflicts between the
+$DayBeginDurations$ of $eoid1$ and $eoid2$ are counted twice. A similar
+observation holds for the function $RequiredClassConflicts$.
+\begin{axdef}
+  RequiredClassConflicts: ClassSchedule \cross EventOfferTable \fun \nat \\
+  \where 
+  \forall s:ClassSchedule; eo: EventOfferTable @ RequiredClassConflicts(s,eo) = \\
+  \t1 \# \{eoid1: \dom s; dbd1: DayBeginDuration; \\
+  \t2 eoid2: \dom s; dbd2: DayBeginDuration | \\
+  \t3 eoid1 \neq eoid2 \land \\
+  \t3 (eo~eoid1).Type = (eo~eoid2).Type \land \\
+  \t3 (((eo~eoid1).Type) \in isRequiredClass) \land \\ 
+  \t3 (\exists rid1: RoomID @ (dbd1,rid1) \in s~eoid1) \land \\
+  \t3 (\exists rid2: RoomID @ (dbd2,rid2) \in s~eoid2) \land\\
+  \t3 TimeFrame(\{dbd1\}) \cap TimeFrame(\{dbd2\}) \neq \emptyset\} \div 2 \\
+\end{axdef}
+
+
+\section{Specification of the Planning-Algorithm} 
+
+\zsection[conflicts]{planner}
+
+\vspace{1ex}\noindent 
+We have defined the four most important functions for counting conflicts and we
+can now define a lexicographic ordering on conflict-tuples in a class-schedule;
+this will allow us to determine if a schedule is `better' than another
+one.\footnote{Of course, in a more refined specification one may wish to
+  consider also other conflicts that can occur in a class-schedule
+  (e.g.~conflicts between required classes and seminars); the definition of the
+  corresponding counting functions will be along the lines of the four we
+  presented.}
+
+\begin{zed}
+  ConflictTuple == (\nat \cross \nat \cross \nat \cross \nat) \\
+\end{zed}
+\begin{axdef}
+  Conflicts: ClassSchedule \cross EventOfferTable \cross RoomTable \fun
+  ConflictTuple \\
+  \where
+  \forall s:ClassSchedule; eo:EventOfferTable; r:RoomTable @ \\
+  \t1 Conflicts(s,eo,r) = (RequiredClassConflicts(s,eo), RoomConflicts(s,r), \\
+  \t2 InstructorConflicts(s,eo), RoomFeatureConflicts(s,r,eo)) \\
+\end{axdef}
+
+\zrelation{(\_ lessConflicts \_)}
+\begin{axdef}
+  \_ lessConflicts \_: ConflictTuple \rel ConflictTuple \\
+  \where
+  \forall a,b,c,d,a',b',c',d': \nat @ \\
+  \t1 (a,b,c,d)~lessConflicts~(a',b',c',d') \iff \\
+  \t2 a < a' \lor (a = a' \land (b < b' \lor (b = b' \land (c < c' \lor(c = c'
+  \land d \leq d'))))) \\
+\end{axdef}
+
+\noindent
+{\bf Remark:} Note that we have chosen to order conflicts by giving
+required-class conflicts the highest ranking, followed by room conflicts,
+instructor conflicts and room-features conflicts. Of course, other orderings are
+possible.
+
+Given $lessConflicts$, we define an ordering on class-schedules by means of the
+function $lessClassSchedules$ as follows. Note that ours is a
+\emph{quasi-ordering} (i.e.~reflexive, transitive and antisymmetric), so that
+sorting using $lessClassSchedules$ will never be unique.
+\begin{axdef}
+  lessClassSchedules : EventOfferTable \cross RoomTable \fun (ClassSchedule \rel
+  ClassSchedule) \\
+  \where
+  \forall eo:EventOfferTable; r:RoomTable @ \\
+  \t1 lessClassSchedules (eo,r) = \{ s: ClassSchedule; s': ClassSchedule | \\
+  \t2 Conflicts(s,eo,r)~lessConflicts~Conflicts(s',eo,r) \} \\
+\end{axdef}
+
+\noindent
+The following auxiliary function $isSorted$ allows us to define a function
+$Hitlists$, which yields an ordered, $k$-ary list of class-schedules having less
+than $max$ conflicts.
+\begin{axdef}
+  isSorted: (ClassSchedule \rel ClassSchedule) \fun \power (\seq ClassSchedule) 
+  \where
+  \forall ord: (ClassSchedule \rel ClassSchedule) @ \\
+  \t1 isSorted~ord = \{ cs: \seq ClassSchedule | \forall i: \dom cs; j: \dom cs
+  @ i \leq j \implies ((cs~i),(cs~j)) \in ord\} \\
+\end{axdef}
+\begin{axdef}
+  Hitlists: EventOfferTable \cross RoomTable \cross ConflictTuple \cross \nat
+  \fun \power (\seq ClassSchedule) \\
+  \where 
+  \forall eo:EventOfferTable; r:RoomTable; max:ConflictTuple; k:\nat @ \\
+  \t1 Hitlists(eo,r,max,k) = \{sseq: \seq (ClassSchedules(eo,r)) | \\
+  \t2 (\forall s: \ran sseq @ Conflicts(s,eo,r)~lessConflicts~max \land \\
+  \t2 sseq \in isSorted~(lessClassSchedules(eo,r))) @ (1 \upto k) \dres sseq\} \\
+\end{axdef}
+
+
+
+\section{The System-State of CSS}
+
+\zsection[planner]{state}
+
+\vspace{1ex}\noindent
+The following schema $ClassSchedulingSystem$ provides a preliminary model
+(version V1) of the state-space of our class-scheduling-system, which we will
+extend and refine in the final specification.
+\begin{zed}
+  INIT ::= Valid | Invalid \\
+\end{zed}
+\begin{schema}{ClassSchedulingSystem}
+  eventOfferTable: EventOfferTable \\
+  roomTable: RoomTable \\
+  classScheduleTable: ClassScheduleID \pfun ClassSchedule \\
+  classScheduleTableInit: INIT \\
+  actVersion: ClassScheduleID \\
+  maxVersions: \nat \\
+  maxConflicts: ConflictTuple \\
+  \where
+  classScheduleTable \in ClassScheduleID \pfun \bigcup \{eosub: \power (\dom
+  eventOfferTable) @ \\
+  \t1 ClassSchedules(eosub \dres eventOfferTable,roomTable)\} \\
+\end{schema}
+
+\noindent
+The slightly complex body of the schema is due to our decision that
+$ClassSchedules$ requires the domain of a class-schedule to be equal to
+the domain of the $eventOfferTable$, i.e.~$ClassSchedules$ admits only
+\emph{complete} solutions as ``legal''. This had to be relaxed to the
+set of all partial approximations.
+
+To initialize $ClassSchedulingSystem$ we define:
+%\begin{schema}{InitClassSchedulingSystem}
+%  ClassSchedulingSystem \\
+%  \where
+%  classScheduleTableInit = Invalid \\
+%  eventOfferTable = \emptyset \\
+%  roomTable = \emptyset \\
+%  maxVersions = 3 \\
+%  maxConflicts = (3,3,3,3) \\
+%\end{schema}
+\noindent
+$classScheduleTableInit$ is a flag that indicates whether class-schedules have
+been generated or not.
+
+Note that the equation for $actVersion$ has been omitted. This mean that
+$InitClassSchedulingSystem$ admits an arbitrary value for it; this is legal
+because of our strategy of setting and unsetting $classScheduleTableInit$.
+
+
+\section{The Operations of the Class-Scheduling-System}
+\zsection[state]{operations}
+
+\vspace{1ex}\noindent 
+In order to simplify the definitions of the operations, we introduce an
+auxiliary function $reduceSchedule$ that takes a class-schedule and eliminates
+all entries containing $RoomId$s or $EventOfferId$s that are not contained in
+two sets given as input.
+\begin{axdef}
+  reduceSchedule: \power EventOfferID \cross \power RoomID \fun ClassSchedule
+  \fun ClassSchedule \\ 
+  \where
+  \forall eoids: \power EventOfferID @ \forall rids: \power RoomID @ \forall cs:
+  ClassSchedule @ \\
+  \t1 reduceSchedule(eoids, rids) (cs) = \{e:eoids; S: \power (DayBeginDuration
+  \cross rids) | e \mapsto S \in cs \} \\
+\end{axdef}
+
+\begin{schema}{AddRoom}
+  \Delta ClassSchedulingSystem \\
+  r?: Room \\
+  \where 
+  \exists rid: RoomID @ (rid \notin \dom roomTable) \land (roomTable' =
+  roomTable \cup \{rid \mapsto r?\}) \\ 
+  eventOfferTable' = eventOfferTable \\
+  classScheduleTable' = classScheduleTable \\
+  classScheduleTableInit = Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts
+\end{schema}
+\begin{schema}{DeleteRoom}
+  \Delta ClassSchedulingSystem \\
+  rid?: RoomID \\
+  \where
+  rid? \in \dom roomTable \\
+  roomTable' = roomTable \setminus \{rid? \mapsto roomTable~rid?\} \\
+  eventOfferTable' = eventOfferTable \\
+  classScheduleTable' = classScheduleTable \comp reduceSchedule(\dom
+  eventOfferTable, \dom roomTable') \\ 
+  classScheduleTableInit'= Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts
+\end{schema}
+\begin{schema}{UpdateRoom}
+  \Delta ClassSchedulingSystem \\
+  rid?: RoomID \\
+  r?: Room \\
+  \where
+  rid? \in \dom roomTable \\
+  roomTable' = roomTable \oplus \{rid?  \mapsto r?\} \\
+  eventOfferTable' = eventOfferTable \\
+  classScheduleTable' = classScheduleTable \comp reduceSchedule(\dom
+  eventOfferTable, \dom roomTable \setminus \{rid?\}) \\
+  classScheduleTableInit' = Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+\begin{schema}{AddEventOffer}
+  \Delta ClassSchedulingSystem \\
+  eo?: EventOffer \\
+  \where 
+  \exists eoid: EventOfferID @ (eoid \notin \dom eventOfferTable) \land \\
+  \t1 (eventOfferTable' = eventOfferTable \cup \{eoid \mapsto eo?\}) \\ 
+  roomTable' = roomTable \\
+  classScheduleTable' = classScheduleTable \\
+  classScheduleTableInit = Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+\begin{schema}{DeleteEventOffer}
+  \Delta ClassSchedulingSystem \\
+  eoid?: EventOfferID \\
+  \where
+  eoid? \in \dom eventOfferTable \\
+  eventOfferTable' = eventOfferTable \setminus \{eoid? \mapsto
+  eventOfferTable~eoid?\} \\
+  roomTable' = roomTable \\
+  classScheduleTable' = classScheduleTable \comp reduceSchedule(\dom
+  eventOfferTable', \dom roomTable) \\
+  classScheduleTableInit = Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+\begin{schema}{UpdateEventOffer}
+  \Delta ClassSchedulingSystem \\
+  eoid?: EventOfferID \\
+  e?: EventOffer \\
+  \where
+  (eoid? \in \dom eventOfferTable) \\
+  eventOfferTable' = eventOfferTable \setminus \{eoid? \mapsto
+  eventOfferTable~eoid?\} \cup \{eoid? \mapsto e?\} \\
+  roomTable' = roomTable \\
+  classScheduleTable' = classScheduleTable \comp reduceSchedule(\dom
+  eventOfferTable \setminus \{eoid?\}, \dom roomTable) \\
+  classScheduleTableInit' = Valid \\
+  actVersion' =  actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+
+\noindent
+We now formalize the operations for creating class-schedules and for extending
+class-schedule-versions by sets of event-offers to be scheduled.
+
+\vspace{1ex}
+\zsection[state]{creation}
+\vspace{1ex}
+
+\begin{schema}{CreateClassSchedules}
+  \Delta ClassSchedulingSystem \\
+  eoid?: \power EventOfferID \\
+  \where
+  \exists sol: ClassScheduleID \pfun ClassSchedules(eoid? \dres eventOfferTable,
+  roomTable) @ \\ 
+  \t1 \exists hit: Hitlists(eoid? \dres eventOfferTable, roomTable,
+  maxConflicts, maxVersions) @ \\ 
+  \t2 \ran sol = \ran hit \land \\
+  \t2 classScheduleTable' = sol \land \\
+  \t2 classScheduleTable'~actVersion' = hit(1) \\
+  classScheduleTableInit' = Valid \\
+  eventOfferTable' = eventOfferTable \\
+  roomTable' = roomTable \\
+%actVersion' = actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+
+\noindent
+The following operation $AddEventsInClassSchedule$ can be seen as a more
+technical variant of the operation above: it extends the actual version of the
+class-schedule with a set of event-offers (given as input).
+\begin{schema}{AddEventsInClassSchedule}
+  \Delta ClassSchedulingSystem \\
+  eoid?: \power EventOfferID \\
+  \where
+  eoid? \cap \dom (classScheduleTable~actVersion) = \emptyset \\
+  \exists hit: Hitlists((eoid? \cup \dom (classScheduleTable~actVersion)) \dres
+  eventOfferTable, \\ 
+  \t1 roomTable,maxConflicts,maxVersions) @ \\
+  \t2 \exists sol: ClassScheduleID \pfun ClassSchedule @ \\
+  \t3 (\dom sol \cap \dom classScheduleTable = \emptyset) \land \\
+  \t3 (\forall i: (1 \upto \# hit) @ classScheduleTable~actVersion \subseteq
+  (hit~i) \land \\ 
+  \t3 (hit~i \in \ran sol)) \land \\
+  \t3 classScheduleTable' = classScheduleTable \cup sol \\
+  classScheduleTableInit' = Valid \\
+  eventOfferTable' = eventOfferTable \\
+  roomTable' = roomTable \\
+  actVersion' = actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+
+\noindent
+We conclude by giving an operation for removing events from the actual
+class-schedule version (i.e.~from the class-schedule actually selected), and an
+operation for removing events from all class-schedules.
+\begin{schema}{RemoveEventsFromActVersion}
+  \Delta ClassSchedulingSystem \\
+  eoid?: \power EventOfferID \\
+  \where
+  eoid? \subseteq \dom (classScheduleTable~actVersion) \\
+  \dom classScheduleTable' = \dom classScheduleTable \\
+  \forall csid: \dom classScheduleTable @ \\
+  \t1 (csid \neq actVersion) \implies (classScheduleTable'~csid =
+  classScheduleTable~csid) \\
+  (classScheduleTable'~actVersion) = (eoid? \ndres
+  (classScheduleTable~actVersion)) \\
+  classScheduleTableInit' = Valid \\
+  eventOfferTable' = eventOfferTable \\
+  roomTable' = roomTable \\
+  actVersion' = actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts \\
+\end{schema}
+\begin{schema}{RemoveEventsFromClassSchedules}
+  \Delta ClassSchedulingSystem \\
+  eoid?: \power EventOfferID \\
+  \where
+  eoid? \subseteq \dom (classScheduleTable~actVersion) \\
+  \forall csid: \dom classScheduleTable @ \\
+  \t1 (classScheduleTable'~csid) = (eoid? \ndres
+  (classScheduleTable~csid)) \\ 
+  classScheduleTableInit' = Valid \\
+  eventOfferTable' = eventOfferTable \\
+  roomTable' = roomTable \\
+  actVersion' = actVersion \\
+  maxVersions' = maxVersions \\
+  maxConflicts' = maxConflicts
+\end{schema}
+
+This completes the specification of the data-model of CSS. 
+
+\end{document}

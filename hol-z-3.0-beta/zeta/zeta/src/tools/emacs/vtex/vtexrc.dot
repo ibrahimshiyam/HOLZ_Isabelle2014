@@ -1,0 +1,617 @@
+;;; -*- Mode: Emacs-Lisp -*-
+;;;
+;;; Version $Id: vtexrc.dot,v 1.7 1998/12/15 18:23:46 wg Exp $
+
+;;; The .vtexrc file customizes the behavior of VTeX. This file, if not
+;;; existent in your home directory, is created automatically 
+;;; by VTeX. 
+
+;;; Changes to this file will not take effect until the next time you
+;;; start Emacs, or you run "Reload .vtexrc" from the VTeX menu.
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Behavioral Customization
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; If you delete a part of a decorated markup (such as e.g. the
+;; bottom line a a Z schema), VTeX deletes the entire
+;; markup structure. This behavior is controlled by the variable below:
+
+(setq vtex-auto-delete-markup t)
+
+
+;; Auto deletion of markups, though a useful feature, may conflict
+;; with certain commands of other modes which modify the buffer.
+;; An example is the command LaTeX-fill-paragraph, which reformats
+;; a paragraph. VTeX recognises a list of commands where auto deletion
+;; of markups shall be inhibited:
+
+(setq vtex-inhibit-auto-delete-markup-commands 
+      '(LaTeX-fill-paragraph))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Face Customization 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; --------------------------------------------------------------------------
+;; Basic Faces
+;; --------------------------------------------------------------------------
+
+;; VTeX uses a collection of faces for displaying the contents of its
+;; buffer. Below the basic faces are given with their default
+;; definitions. Versions of these faces (bold, italic, smaller,
+;; larger, ...) are derived from them later on. 
+
+;; The face 'vtex-text is used to display basic text. This is the
+;; only face which is referred to by VTeX internals, so it must be
+;; defined (all other faces are local to this customization file):
+
+(vtex-make-face 'vtex-text)
+(set-face-font 'vtex-text
+	       "-*-helvetica-medium-r-*-*-*-120-*-*-*-*-iso8859-1")
+
+
+;; The face 'vtex-tty is used to display text in verbatim mode:
+
+(vtex-make-face 'vtex-tty)
+(set-face-font 'vtex-tty
+	       "-*-courier-medium-r-*-*-*-120-*-*-*-*-iso8859-1")
+(set-face-foreground 'vtex-tty "DarkBlue")
+
+
+;; The face 'vtex-math is used to display text in math mode. 
+;; NOTE: other sizes then 12pt will not look nice with the Z symbol font, 
+;; which is currently provided only in this size.
+
+(vtex-make-face 'vtex-math)
+(set-face-font 'vtex-math
+	       "-*-times-medium-i-*-*-*-140-*-*-*-*-iso8859-1")
+(set-face-foreground 'vtex-math "DarkGreen")
+
+
+;; The face 'vtex-symbol is used for math symbols. It is expected to
+;; have an encoding of an Adobe symbol font. NOTE: for XEmacs 20/MULE,
+;; we have to fake an encoding as iso8859-1. If you run XEmacs 20
+;; without MULE, you can insert the actual font encoding
+;; (see xlsfonts).
+
+(vtex-make-nonstandard-face 'vtex-symbol)
+(set-face-font 'vtex-symbol
+	       "-*-symbol-medium-r-*-*-*-140-*-*-*-*-iso8859-1")
+(set-face-foreground 'vtex-symbol "DarkGreen")
+
+
+;; The face 'vtex-zed is used for special Z symbols which are not
+;; found in the usual symbol font. It is has a private encoding (which
+;; has to be faked to be iso8859-1 for XEmacs 20/MULE). 
+;; NOTE: this font is still incomplete, and Z/Emacs enthusiasts/font
+;; artists are asked to to complete it! Codes for the missing entries
+;; are already assigned, see the out-commented symbol definitions
+;; below.  NOTE ALSO: reusing existing Type1 Z fonts here is hopeless,
+;; since the quality is to poor under X with 12pt / 75dpi.
+
+(vtex-make-nonstandard-face 'vtex-zed)
+(set-face-font 'vtex-zed 
+	       "-tub-zsymbol-medium-r-*-*-*-120-*-*-*-*-iso8859-1")
+(set-face-foreground 'vtex-zed "DarkGreen")
+
+
+;; --------------------------------------------------------------------------
+;; Derived Faces
+;; --------------------------------------------------------------------------
+
+;; From the basic faces defined above, some derived versions are
+;; defined below. These are used only throughout this customization
+;; file.  Note that derived faces are not symbols, but objects holding
+;; "anonymous" face symbols, so we use setq to define them.
+;;
+;; Auxiliary functions to derive faces are provided:
+;;
+;; - (vtex-derive-bold FACE ...)   : return a new derived bold version of face
+;; - (vtex-derive-unbold FACE ...) : return a new derived bold version of face
+;; - (vtex-derive-italic FACE ...) : ...
+;; - (vtex-derive-unitalic FACE ...) : ...
+;; - (vtex-derive-size FACE MAG ...) : ...
+;;  
+;; For more information on these functions see the online help
+;; (C-h f <func-name>).
+
+(setq vtex-text-bold (vtex-derive-bold 'vtex-text 'vtex-text-bold))
+(setq vtex-text-large-bold (vtex-derive-size vtex-text-bold 1
+					     'vtex-text-large-bold))
+(setq vtex-text-Large-bold (vtex-derive-size vtex-text-bold 2
+					     'vtex-text-Large-bold))
+(setq vtex-text-italic (vtex-derive-italic 'vtex-text 'vtex-text-italic))
+(setq vtex-text-large-italic (vtex-derive-size vtex-text-italic 1
+					       'vtex-text-large-italic))
+(setq vtex-text-Large-italic (vtex-derive-size vtex-text-italic 2
+					       'vtex-text-Large-italic))
+(setq vtex-text-Small (vtex-derive-size 'vtex-text -4 'vtex-text-Small))
+
+(setq vtex-math-keyword (vtex-derive-bold (vtex-derive-unitalic 'vtex-math)
+					  'vtex-math-keyword))
+(setq vtex-math-operator (vtex-derive-unitalic 'vtex-math
+					       'vtex-math-operator))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Templates
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; A template tells VTeX how to decorate a particular LaTeX structure.
+;; VTeX provides several functions for defining templates:
+;;
+;; - (vtex-def-section TOKEN FACE) : define a section-command template
+;; - (vtex-def-style TOKEN FACE)   : define a style-command template
+;; - (vtex-def-env NAME FACE)      : define an environment template
+;; - (vtex-def-list-env NAME FACE NUM GEN FACE)
+;;                                 : define a list-like environment
+;; - (vtex-def-sym NAME FACE CODE) : define a symbol
+;; - ...
+;;
+;; See C-h f vtex-def-<TAB> for all available template functions
+;; and their documentation.
+
+;; Before starting defining templates, we reset any previously defined
+;; templates, such that reloading .vtexrc works properly:
+(vtex-reset-tmpls)
+
+
+;; -------------------------------------------------------------------------
+;; Basic LaTeX Structures
+;; -------------------------------------------------------------------------
+
+;; here we define the some basic LaTeX structures
+
+(vtex-def-section "\\title" vtex-text-Large-bold)
+(vtex-def-section "\\author" vtex-text-bold)
+(vtex-def-section "\\section" vtex-text-Large-bold)
+(vtex-def-section "\\subsection" vtex-text-large-bold)
+(vtex-def-section "\\subsubsection" vtex-text-bold)
+(vtex-def-section "\\paragraph" vtex-text-italic)
+
+(vtex-def-style "\\emph" vtex-text-italic)
+(vtex-def-style "\\textbf" vtex-text-bold)
+(vtex-def-style "\\texttt" 'vtex-tty)
+
+(vtex-def-list-env "itemize" 'vtex-text 
+		   (lambda (dummy) (concat (char-to-string 183) " "))
+		   'vtex-symbol ;; 183 prints a spot in this font
+		   )
+(vtex-def-list-env "enumerate" 'vtex-text 
+		   (lambda (num) (concat (number-to-string num) "."))
+		   'vtex-text
+		   )
+(vtex-def-env "verbatim" 'vtex-tty)
+
+
+;; -------------------------------------------------------------------------
+;; Acronyms
+;; -------------------------------------------------------------------------
+
+;; here we define the some basic acronyms
+
+(vtex-def-special "\\LaTeX" vtex-math-operator "LaTeX" 1)
+(vtex-def-special "\\ZETA" vtex-math-operator "ZETA" 1)
+(vtex-def-special "\\Z" vtex-math-operator "Z" 1)
+
+;; here is how we define a special composed from several fonts
+(let ((mu (make-glyph (vector 'string :data "m"))))
+  (set-glyph-face mu 'vtex-symbol) 
+  (vtex-def-special "\\MSZ" vtex-math-operator (vector mu "SZ") 1))
+
+
+;; -------------------------------------------------------------------------
+;; Math Environments and Commands
+;; -------------------------------------------------------------------------
+
+(vtex-def-env "math" 'vtex-math nil t)
+(vtex-def-env "displaymath" 'vtex-math nil t)
+
+(vtex-def-style "\\mathbf" vtex-math-keyword nil nil 1)
+(vtex-def-style "\\mathrm" vtex-math-operator nil nil 1)
+
+
+;; -------------------------------------------------------------------------
+;; Z Environments and Commands
+;; -------------------------------------------------------------------------
+
+
+(vtex-def-env "zed" 'vtex-math 1 t)
+(vtex-def-env "zdirectives" 'vtex-math 1 t)
+(vtex-def-env "syntax" 'vtex-math 1 t)
+
+(vtex-def-zbox "schema" 'vtex-math nil nil t) 
+(vtex-def-zbox "schema*" 'vtex-math nil t t)
+(vtex-def-zbox-axdef "axdef" 'vtex-math t)
+(vtex-def-zbox-axdef "gendef" 'vtex-math t)
+					; gendef is currently not implemented,
+					; and mapped to axdef
+
+(vtex-def-zbox "andstate" 'vtex-math "AND" nil t)
+(vtex-def-zbox "xorstate" 'vtex-math "XOR" nil t)
+
+(vtex-def-command "\\zfunction" 
+		  'vtex-math 
+		  vtex-math-keyword 
+		  (concat (char-to-string 173) "function ")
+		  173
+		  nil nil 1)
+
+(vtex-def-command "\\zrelation" 
+		  'vtex-math 
+		  vtex-math-keyword 
+		  (concat (char-to-string 173) "relation ")
+		  173
+		  nil nil 1)
+
+(vtex-def-command "\\zgeneric" 
+		  'vtex-math 
+		  vtex-math-keyword 
+		  (concat (char-to-string 173) "generic ")
+		  173
+		  nil nil 1)
+
+(vtex-def-sym "\\leftassoc" vtex-math-keyword "leftassoc")
+(vtex-def-sym "\\rightassoc" vtex-math-keyword "rightassoc")
+(vtex-def-sym "\\_" 'vtex-text 95)
+
+
+;; the problem with sections is that the parents are
+;; in an option 
+(vtex-def-special "\\zsection" vtex-math-keyword "section" 1)
+;(vtex-def-command "\\zsection" 
+;		  'vtex-math 
+;		  vtex-math-keyword 
+;		  (concat (char-to-string 173) "section ")
+;		  173
+;		  nil nil 1)
+
+
+
+;; -------------------------------------------------------------------------
+;; Math and Z Symbols 
+;; -------------------------------------------------------------------------
+
+;; Numbers, Strokes and Separators have to be defined as symbols to let 
+;; them appear non-italic if an italic 'vtex-math font is chosen. If 
+;; a non-italic font is used for math, speed can be gained by treating 
+;; these tokens not as symbols. 
+
+(setq vtex-treat-separators t)
+
+(if (not vtex-treat-separators)
+    ()
+  (vtex-def-sym "0" 'vtex-symbol "0")
+  (vtex-def-sym "1" 'vtex-symbol "1")
+  (vtex-def-sym "2" 'vtex-symbol "2")
+  (vtex-def-sym "3" 'vtex-symbol "3")
+  (vtex-def-sym "4" 'vtex-symbol "4")
+  (vtex-def-sym "5" 'vtex-symbol "5")
+  (vtex-def-sym "6" 'vtex-symbol "6")
+  (vtex-def-sym "7" 'vtex-symbol "7")
+  (vtex-def-sym "8" 'vtex-symbol "8")
+  (vtex-def-sym "9" 'vtex-symbol "9")
+  (vtex-def-sym "!" 'vtex-symbol "!")
+  (vtex-def-sym "?" 'vtex-symbol "?")
+  (vtex-def-sym "'" 'vtex-symbol "'")
+
+  (vtex-def-sym "," 'vtex-symbol 44) 
+  (vtex-def-sym ";" 'vtex-symbol 59) 
+  (vtex-def-sym ":" 'vtex-symbol 58) 
+  
+  (vtex-def-sym "(" 'vtex-symbol 40) 
+  (vtex-def-sym ")" 'vtex-symbol 41) 
+  (vtex-def-sym "[" 'vtex-symbol 91) 
+  (vtex-def-sym "]" 'vtex-symbol 93)
+  ) 
+
+
+;; Keywords
+
+(vtex-def-sym "\\{" 'vtex-symbol 123) 
+(vtex-def-sym "\\}" 'vtex-symbol 125) 
+(vtex-def-sym "\\langle" 'vtex-symbol 225) 
+(vtex-def-sym "\\rangle" 'vtex-symbol 241) 
+;;(vtex-def-sym "\\limg" 'vtex-zed 34) 
+(vtex-def-sym "\\limg" 'vtex-symbol "(|") 
+;;(vtex-def-sym "\\rimg" 'vtex-zed 35) 
+(vtex-def-sym "\\rimg" 'vtex-symbol "|)") 
+;;(vtex-def-sym "\\ldata" 'vtex-zed 36) 
+(vtex-def-sym "\\ldata" 'vtex-symbol [225 225]) 
+;;(vtex-def-sym "\\rdata" 'vtex-zed 37) 
+(vtex-def-sym "\\rdata" 'vtex-symbol [241 241])
+;;(vtex-def-sym "\\lbag" 'vtex-zed 38) 
+(vtex-def-sym "\\lbag" 'vtex-symbol "[|") 
+;;(vtex-def-sym "\\rbag" 'vtex-zed 39) 
+(vtex-def-sym "\\rbag" 'vtex-symbol "|]") 
+
+(vtex-def-sym "\\lbind" 'vtex-symbol "<|") 
+(vtex-def-sym "\\lblot" 'vtex-symbol "<|") 
+(vtex-def-sym "\\rbind" 'vtex-symbol "|>") 
+(vtex-def-sym "\\rblot" 'vtex-symbol "|>") 
+
+(vtex-def-sym "\\spot" 'vtex-symbol 183) 
+(vtex-def-sym "@" 'vtex-symbol 183) ;;@? 
+(vtex-def-sym "\\mid" 'vtex-symbol 124) 
+(vtex-def-sym "|" 'vtex-symbol 124) 
+
+;;(vtex-def-sym "\\defs" 'vtex-zed 40) 
+(vtex-def-sym "\\defs" vtex-math-operator "=^=") 
+
+(vtex-def-sym "/" 'vtex-symbol 47) 
+
+(vtex-def-sym "\\IF" vtex-math-keyword "if") 
+(vtex-def-sym "\\THEN" vtex-math-keyword "then") 
+(vtex-def-sym "\\ELSE" vtex-math-keyword "else") 
+(vtex-def-sym "\\LET" vtex-math-keyword "let") 
+
+(vtex-def-sym "\\exists" 'vtex-symbol 36) 
+(vtex-def-sym "\\forall" 'vtex-symbol 34) 
+(vtex-def-sym "\\lnot" 'vtex-symbol 216) 
+(vtex-def-sym "\\land" 'vtex-symbol 217) 
+(vtex-def-sym "\\lor" 'vtex-symbol 218) 
+(vtex-def-sym "\\implies" 'vtex-symbol 222) 
+(vtex-def-sym "\\iff" 'vtex-symbol 219) 
+
+;;(vtex-def-sym "\\project" 'vtex-zed 43) 
+(vtex-def-sym "\\project" 'vtex-symbol 233) 
+(vtex-def-sym "\\hide" 'vtex-math-operator "\\") 
+;;(vtex-def-sym "\\semi" 'vtex-zed 44) 
+(vtex-def-sym "\\semi" vtex-math-keyword ";") 
+;;(vtex-def-sym "\\pipe" 'vtex-zed 45) 
+(vtex-def-sym "\\pipe" 'vtex-symbol ">>") 
+
+(vtex-def-sym "\\lambda" 'vtex-symbol 108) 
+(vtex-def-sym "\\mu" 'vtex-symbol 109) 
+(vtex-def-sym "\\pre" vtex-math-operator "pre")
+(vtex-def-sym "\\cross" 'vtex-symbol 180)
+(vtex-def-sym "\\theta" 'vtex-symbol 113)
+(vtex-def-sym "\\Delta" 'vtex-symbol 68)
+(vtex-def-sym "\\Xi" 'vtex-symbol 88)
+(vtex-def-sym "\\Pi" 'vtex-symbol 80)
+
+
+;; Words
+
+(vtex-def-sym "\\num" 'vtex-zed 46) 
+(vtex-def-sym "\\nat" 'vtex-zed 47) 
+(vtex-def-sym "\\rat" 'vtex-zed 48)
+(vtex-def-sym "\\real" 'vtex-zed 49) 
+;;(vtex-def-sym "\\wrat" 'vtex-zed 50)
+;;(vtex-def-sym "\\wreal" 'vtex-zed 51) 
+
+(vtex-def-sym "\\emptyset" 'vtex-symbol 198) 
+
+(vtex-def-sym "\\dom" vtex-math-operator "dom") 
+(vtex-def-sym "\\ran" vtex-math-operator "ran") 
+
+
+;; Inop1
+
+;;(vtex-def-sym "\\mapsto" 'vtex-zed 52) 
+(vtex-def-sym "\\mapsto" 'vtex-symbol "|->") 
+
+
+;; Inop2 
+
+;;(vtex-def-sym "\\upto" 'vtex-zed 53) 
+(vtex-def-sym "\\upto" vtex-math-keyword "..") 
+
+
+;; Inop3 
+
+(vtex-def-sym "+" 'vtex-symbol 43) 
+(vtex-def-sym "-" 'vtex-symbol 45) 
+(vtex-def-sym "\\cup" 'vtex-symbol 200) 
+;;(vtex-def-sym "\\setminus" 'vtex-zed 54) 
+(vtex-def-sym "\\setminus" vtex-math-operator "\\")
+;;(vtex-def-sym "\\cat" 'vtex-zed 55) 
+(vtex-def-sym "\\cat" vtex-math-keyword "^") 
+;;(vtex-def-sym "\\uplus" 'vtex-zed 56) 
+;;(vtex-def-sym "\\uminus" 'vtex-zed 57) 
+
+
+;; Inop4
+
+(vtex-def-sym "*" 'vtex-symbol 42) 
+(vtex-def-sym "\\div" vtex-math-operator "div")
+(vtex-def-sym "\\mod" vtex-math-operator "mod")
+(vtex-def-sym "\\cap" 'vtex-symbol 199)
+(vtex-def-sym "\\circ" 'vtex-symbol 176) ;;@?
+;;(vtex-def-sym "\\comp" 'vtex-zed 58) 
+(vtex-def-sym "\\comp" vtex-math-operator ";") 
+;;(vtex-def-sym "\\filter" 'vtex-zed 59) 
+;;(vtex-def-sym "\\extract" 'vtex-zed 60) 
+(vtex-def-sym "\\otimes" 'vtex-symbol 196)
+
+
+;; Inop5
+
+(vtex-def-sym "\\oplus" 'vtex-symbol 197)
+;;(vtex-def-sym "\\bcount" 'vtex-zed 61)
+
+
+;; Inop6
+
+;;(vtex-def-sym "\\dres" 'vtex-zed 62)
+;;(vtex-def-sym "\\rres" 'vtex-zed 63)
+;;(vtex-def-sym "\\ndres" 'vtex-zed 64)
+;;(vtex-def-sym "\\nrres" 'vtex-zed 65)
+;;(vtex-def-sym "\\plus" 'vtex-zed 66)
+;;(vtex-def-sym "\\star" 'vtex-zed 67)
+;;(vtex-def-sym "\\inv" 'vtex-zed 68)
+
+
+
+;; Inrel
+
+(vtex-def-sym "=" 'vtex-symbol 61)
+(vtex-def-sym "\\in" 'vtex-symbol 206)
+(vtex-def-sym "\\neq" 'vtex-symbol 185)
+(vtex-def-sym "\\notin" 'vtex-symbol 207)
+(vtex-def-sym "\\subseteq" 'vtex-symbol 205)
+(vtex-def-sym "\\subset" 'vtex-symbol 204)
+(vtex-def-sym "<" 'vtex-symbol 60)
+(vtex-def-sym "\\leq" 'vtex-symbol 163)
+(vtex-def-sym ">" 'vtex-symbol 62)
+(vtex-def-sym "\\geq" 'vtex-symbol 179)
+;;(vtex-def-sym "\\inbag" 'vtex-zed 69)
+(vtex-def-sym "\\partition" vtex-math-operator "partition")
+(vtex-def-sym "\\prefix" vtex-math-operator "prefix")
+;;(vtex-def-sym "\\subbageq" 'vtex-zed 70)
+(vtex-def-sym "\\suffix" vtex-math-operator "suffix")
+(vtex-def-sym "\\inseq" vtex-math-operator "in")
+(vtex-def-sym "\\disjoint" vtex-math-operator "disjoint")
+
+
+;; Ingen
+
+(vtex-def-sym "\\rel" 'vtex-symbol 171)
+(vtex-def-sym "\\pfun" 'vtex-zed 71)
+(vtex-def-sym "\\fun" 'vtex-symbol 174)
+(vtex-def-sym "\\pinj" 'vtex-zed 72)
+(vtex-def-sym "\\inj" 'vtex-zed 73)
+(vtex-def-sym "\\psurj" 'vtex-zed 74)
+(vtex-def-sym "\\surj" 'vtex-zed 75)
+(vtex-def-sym "\\bij" 'vtex-zed 76)
+(vtex-def-sym "\\ffun" 'vtex-zed 77)
+(vtex-def-sym "\\finj" 'vtex-zed 78)
+
+
+;; Pregen
+
+(vtex-def-sym "\\power" 'vtex-zed 79)
+(vtex-def-sym "\\finset" 'vtex-zed 80)
+(vtex-def-sym "\\id" vtex-math-operator "id")
+(vtex-def-sym "\\seq" vtex-math-operator "seq")
+(vtex-def-sym "\\iseq" vtex-math-operator "iseq")
+(vtex-def-sym "\\bag" vtex-math-operator "bag")
+
+
+;; Unit-Weighted numbers
+
+(vtex-def-sym "\\unit" 'vtex-math-operator "U")
+(vtex-def-sym "\\val" vtex-math-operator "val")
+(vtex-def-sym "\\weight" vtex-math-operator "weight")
+;;(vtex-def-sym "\\recipro" 'vtex-zed 81)
+(vtex-def-sym "\\abs" vtex-math-operator "abs")
+(vtex-def-sym "\\nom" vtex-math-operator "nom")
+(vtex-def-sym "\\dnom" vtex-math-operator "dnom")
+(vtex-def-sym "\\floor" vtex-math-operator "floor")
+(vtex-def-sym "\\ceil" vtex-math-operator "ceil")
+(vtex-def-sym "\\m" vtex-math-operator "m")
+(vtex-def-sym "\\kg" vtex-math-operator "kg")
+(vtex-def-sym "\\s" vtex-math-operator "s")
+(vtex-def-sym "\\amp" vtex-math-operator "amp")
+(vtex-def-sym "\\kel" vtex-math-operator "kel")
+(vtex-def-sym "\\can" vtex-math-operator "can")
+(vtex-def-sym "\\mol" vtex-math-operator "mol")
+;;(vtex-def-sym "\\interv" 'vtex-zed 82)
+(vtex-def-sym "\\wplus" vtex-math-operator "$")
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Markup Symbols and Math Layout
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; If VTeX decorates a LaTeX structure, it replaces some LaTeX
+;; components by certain markup symbols (such as << ... >> for
+;; $ ... $. These are defined below.
+
+(vtex-def-style-markup 'vtex-text 173 173)
+(vtex-def-section-markup 'vtex-text 173 173)
+(vtex-def-env-markup 'vtex-text 171 187)
+
+;; The rulers for Z boxes are define below:
+(vtex-def-zbox-rulers 'vtex-zed 102 104 103 101 100)
+;(vtex-def-zbox-rulers 'vtex-symbol 230 235 233 233 190)
+
+;; The face used to display the type of a Z box (as used for mSZ and
+;; Dynamic Z) is defined next:
+(vtex-def-zbox-type-face vtex-math-operator)
+
+
+;; VTeX will treat layout in math mode specifically if the following
+;; definition is given. See the online help for explanations of the
+;; possible parameters.
+
+(vtex-def-math-layout 
+ ;; the marker for \\. Change the number to an empty string to omit it:
+ 'vtex-math 183
+ ;; this determines how a single tab step is visualised. (FIXME:
+ ;; haven't yet checked how the width of a tab step confirms to
+ ;; what is resulted by LaTeX)
+ ;; 'vtex-math (concat (char-to-string 183) "         ")
+ 'vtex-math "            "
+ ;; uncomment the next line if you don't want space compression.
+ 'vtex-math " "       
+ )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ZAP 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; (vtex-def-sym "\\assumed" 'vtex-symbol 92)
+(vtex-def-sym "\\assumed" 'vtex-math-keyword "assumed")
+(vtex-def-env "zapeval" 'vtex-math nil t)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; $\mu$SZ, the ESPRESS Notation
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(setq vtex-include-msz t)
+
+(if (not vtex-include-msz)
+    ()
+  (vtex-def-sym "\\RefState" 'vtex-math-operator "RefState")
+  (vtex-def-sym "\\BasicState" 'vtex-math-operator "BasicState")
+  (vtex-def-sym "\\SuperState" 'vtex-math-operator "SuperState")
+  (vtex-def-sym "\\instate" 'vtex-math-operator "instate")
+  (vtex-def-sym "\\DATA" 'vtex-math-operator "DATA")
+  (vtex-def-sym "\\Control" 'vtex-math-operator "Control")
+  (vtex-def-sym "\\:" 'vtex-math-operator "::")
+  (vtex-def-sym "\\root" 'vtex-math-operator "root")
+  (vtex-def-sym "\\always" 'vtex-math-operator "always")
+  (vtex-def-sym "\\sometimes" 'vtex-math-operator "sometimes")
+  (vtex-def-sym "\\until" 'vtex-math-operator "until")
+  (vtex-def-sym "\\Op" 'vtex-math-operator "OP")
+  (vtex-def-sym "\\Trans" 'vtex-math-operator "TRANS")
+  (vtex-def-sym "\\Port" 'vtex-math-operator "PORT")
+  (vtex-def-sym "\\Guard" 'vtex-math-operator "GUARD")
+  (vtex-def-sym "\\Data" 'vtex-math-operator "DATA")
+  (vtex-def-sym "\\Init" 'vtex-math-operator "INIT")
+  (vtex-def-sym "\\Property" 'vtex-math-operator "PROPERTY")
+  (vtex-def-sym "\\Dyn" 'vtex-math-operator "DYN")
+  (vtex-def-sym "\\signal" 'vtex-math-operator "signal")
+  (vtex-def-sym "\\event" 'vtex-math-operator "event")
+  (vtex-def-sym "\\df" 'vtex-math-operator "df")
+  (vtex-def-sym "\\vl" 'vtex-math-operator "vl")
+  (vtex-def-sym "\\emit" 'vtex-symbol 173)
+  (vtex-def-zbox "class" 'vtex-math)
+  (vtex-def-zbox "op" 'vtex-math "OP" nil t) 
+  (vtex-def-zbox "trans" 'vtex-math "TRANS" nil t) 
+  (vtex-def-zbox "port" 'vtex-math "PORT" nil t) 
+  (vtex-def-zbox "guard" 'vtex-math "GUARD" nil t)
+  (vtex-def-zbox "data" 'vtex-math "DATA" nil t)
+  (vtex-def-zbox "init" 'vtex-math "INIT" nil t)
+  (vtex-def-zbox "property" 'vtex-math "PROPERTY" nil t)
+  ;; complete me ...
+  )
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; MODEL INCLUSION
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(vtex-def-figure "\\IncludeModel" 
+		  'vtex-math-operator 
+		  (lambda (msl)
+		    (funcall vtex-msl-glyph-fun msl))
+		  nil nil 1)
+
+(defvar vtex-msl-glyph-fun 
+  (lambda (msl) 
+    (make-glyph (vector 'string :data " <preview not available>"))))

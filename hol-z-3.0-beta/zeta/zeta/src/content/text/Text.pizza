@@ -1,0 +1,88 @@
+package zeta.content.text;
+
+/** The representation of specification text. <p>
+  *
+  * A top-level document is given by a value of the
+  * document markup variant.
+  *
+  * @version $Id: Text.pizza,v 1.3 1998/09/06 15:25:40 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import zeta.util.Name;
+import zeta.util.Term;
+import zeta.session.Locator;
+import zeta.content.zirp.Fixity;
+
+public class Text extends Term {
+
+  /** A literal text, with <code>contents</code> not broken into
+    * further sub-texts. The contents may be an arbitrary string
+    * (including newlines and such).
+    */
+  public case Literal(String contents);
+
+  /** A document markup, grouping subtexts. */
+  public case DocMarkup(String name, String[] params, Text[] subtexts);
+
+  /** A reference to the context-depend content of the named unit. */
+  public case ModelInclusion(Name name);
+
+  /** A Z section. */
+  public case ZedSection(Name name, Name[] parents, 
+			 Text[] subtexts); 
+
+  /** A mSZ class. */
+  public case ZedClass(Name name, Name[] parents, 
+		       Name[] formals, Text[] subtexts);
+
+  /** A Z fixity. */
+  public case ZedFixity(Fixity fixity);
+
+  /** A Z macro. */
+  public case ZedMacro(Name name, int argc, Lexem[] def);
+
+  /** A Z pragma. */
+  public case ZedPragma(Name name, Text[] subtexts);
+
+  /** A Z or MSZ paragraph. */
+  public case ZedMarkup(ZedMarkupKind kind, 
+			Text[] header, 
+			Text[] decls,
+			Text[] props);
+
+  /** The class of kinds of Z and MSZ paragraphs. */
+  public static class ZedMarkupKind extends Term {
+    public case Unboxed;
+    public case Schema;
+    public case AxiomaticDef;
+    public case XorState;
+    public case AndState;
+    public case Config;
+    public case Reaction;
+    public case Transition;
+  }
+
+  /** A token, with <code>lexem</code> describing its lexical value. */
+  public case ZedToken(Lexem lexem);
+
+  /** Layout: format groups. */
+  public case FormatBegin(FormatKind kind);
+  public case FormatEnd;
+
+
+  /** Layout: kinds of format groups. */
+  public static class FormatKind {
+    public case Block(int indent);
+    public case Group(int indent);
+    public case Beside(int indent);
+    public case Beneath(int indent);
+    public case Append(int indent);
+    public case Line(int indent);
+  }
+
+  /** Field common to all texts. If non-null, describes the locator
+    * of this piece of text. */
+  public Locator locator = null;
+
+}

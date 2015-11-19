@@ -1,0 +1,22 @@
+package zeta.session;
+
+/**
+ * Message listeners.
+ *
+ * @see Message
+ * @see Session#registerListener
+ *
+ * @version $Id: Listener.pizza,v 1.2 1998/09/06 15:26:35 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.util.Name;
+
+public interface Listener {
+
+  /**
+   * Receive a message.
+   */
+  public void receive(Name sender, Message message);
+
+}

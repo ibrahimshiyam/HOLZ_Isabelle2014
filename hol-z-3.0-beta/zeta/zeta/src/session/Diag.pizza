@@ -1,0 +1,213 @@
+package zeta.session;
+
+/** 
+ * Diagnostics, a kind of messages representing a set of items
+ * carrying a locator, a category, and a description.
+ *
+ * @see Locator
+ * 
+ * @version $Id: Diag.pizza,v 1.4 1998/12/14 09:34:05 wg Exp $ 
+ *
+ */
+
+import java.io.StringWriter;
+import java.io.PrintWriter;
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
+import java.io.IOException;
+
+import zeta.format.*;
+import zeta.agl.*;
+
+import zeta.util.*;
+
+
+public class Diag extends Message {
+
+  private Seq<Item> items = new BufferSeq();
+  private Set<Category> categories = new HashSet();
+
+  /** The class of diagnostic categories. */
+  public static class Category extends Term {
+    /** Indicates an error, a fatal situation which lead to
+	aborting the current operation. */
+    public case Error;
+    /** Indicates a warning, a critical situation which the user should
+	notify. */
+    public case Warning;
+    /** Indicates a hint, additional information for the user. */
+    public case Hint;
+    /** Indicates a verbosity message, showing progress of operation. */
+
+    /** */
+    public Format toFormat(FormatInfo info){
+      switch (this){
+      case Error: return Format.literal("ERROR");
+      case Warning: return Format.literal("WARNING");
+      case Hint: return Format.literal("HINT");
+      }
+    }
+
+    /** */
+    public boolean equals(Object other){
+      if (other instanceof Category){
+	switch ((Category)other){
+	case Error: 
+	  switch (this) {
+	  case Error: return true;
+	  default: return false;
+	  }
+	case Warning: 
+	  switch (this) {
+	  case Warning: return true;
+	  default: return false;
+	  }
+	case Hint: 
+	  switch (this) {
+	  case Hint: return true;
+	  default: return false;
+	  }
+	}
+      } else
+	return false;
+    }
+
+    /** */
+    public int hashCode(){
+      switch (this){
+      case Error: return 1;
+      case Warning: return 2;
+      case Hint: return 3;
+      }
+    }
+
+  }
+
+  /**
+   * An item, an element of diagnostics.
+   */
+  public static class Item extends Term {
+    /**
+     * @param locator  the locator of this diagnostic item
+     * @param category the category
+     * @param message  additional information describing this item.
+     */
+    public case Item(Locator locator, Category category, Format message);
+
+    /** */
+    public Format toFormat(FormatInfo info){
+      return
+	Format.block(
+	  Format.append(
+	    category.toFormat(info),
+	    locator != null ?
+	    Format.append(Format.literal("["),
+			  Format.buildFormat(locator),
+			  Format.literal("]: ")) : Format.literal(": ")
+	  ),
+	  Format.indent(message)
+	);
+    }
+  }
+
+  /** Construct from sequence of items. */
+  private Diag(Seq<Item> items, Set<Category> categories){
+    this.items = items;
+    this.categories = categories;
+  }
+
+  /** Construct empty diagnostic containing no items. */
+  public Diag(){
+  }
+
+  /** Construct singelton diagnostic, containg just one item. The item
+    * message is given as a format, allowing the diagnostic to be
+    * printed for different line-widthes.  */
+  public Diag(Locator locator, Category category, Format message){
+    items = items.append(new Item(locator, category, message));
+    categories = categories.include(category);
+  }
+
+  /** Construct singleton diagnostic, containing just one item. The
+    * item message is given as a string. The string is going to be
+    * broken at whitespace (\t, \n, \r and \f) if necessary.
+    *
+    * @see zeta.format.Format#text 
+    */
+  public Diag(Locator locator, Category category, String message){
+    this(locator, category, Format.text(message, " \t\f"));
+  }
+
+  /** Add an item to diagnostics.
+    * @see Diag
+    */
+  public Diag add(Locator locator, Category category, Format message){
+    return new Diag(items.append(new Item(locator, category, message)),
+		    categories.include(category));
+  }
+
+  /** Add an item to diagnostics.
+    * @see Diag
+    */
+  public Diag add(Locator locator, Category category, String message){
+    return new Diag(items.append(new Item(locator, category, 
+				     Format.text(message, " \t\f"))),
+		    categories.include(category));
+  }
+
+  /** Combine other diagnostic with this diagnostic. */
+  public Diag combine(Diag other){
+    return new Diag(items.appendAll(other.items),
+		    categories.includeAll(other.categories));
+  }
+
+  /** Give the number of items in diagnostic. */
+  public int size(){
+    return items.size();
+  }
+
+  /** Return true iff diagnostics are empty. */
+  public boolean isEmpty(){
+    return items.isEmpty();
+  }
+
+  /** Test whether an item if the given category is present. */
+  public boolean contains(Category category){
+    return categories.contains(category);
+  }
+
+  /** Return the items in diagnostics.
+   */
+  public Item[] getItems(){
+    return items.toArray(Item.class);
+  }
+
+  /** Format diagnostics. */
+  public Format toFormat(FormatInfo info){
+    return Format.beneath(items.map(Format.build));
+  }
+
+
+  /** Make string of diagnostics. */
+  public String toString(){
+    Format fmt = toFormat(new FormatInfo());
+    StringWriter buf = new StringWriter();
+    fmt.printFormat(new PrintWriter(buf), 75);
+    return buf.toString();
+  }
+
+  /** */
+  private void writeObject(ObjectOutputStream s) 
+  throws IOException {
+    s.writeObject(items.toArray(Item.class));
+    s.writeObject(categories.toArray(Category.class));
+  }
+
+  /** */
+  private void readObject(ObjectInputStream s) 
+  throws IOException, ClassNotFoundException {
+    items = new ArraySeq((Item[])s.readObject());
+    categories = HashSet.from(new ArraySeq((Category[])s.readObject()));
+  }
+
+}

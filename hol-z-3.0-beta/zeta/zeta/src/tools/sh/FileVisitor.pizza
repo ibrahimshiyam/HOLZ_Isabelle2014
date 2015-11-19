@@ -1,0 +1,254 @@
+package zeta.tools.sh;
+
+/**
+ * Object for representing a file locator visitor.
+ *
+ * @version $Id: FileVisitor.pizza,v 1.9 2000/05/14 17:43:32 wg Exp $
+ */
+
+import zeta.format.*;
+import zeta.util.*;
+import zeta.session.*;
+import zeta.agl.*;
+
+import java.io.IOException;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.tree.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+import javax.swing.text.*;
+
+
+class FileVisitor {
+
+  /**
+   * The shell state.
+   */
+  private final ShellState state;
+
+  /**
+   * A class for representing a locator proxy.
+   */
+  static class Proxy {
+    case Proxy(Locator.VisitCapability.FileVisit cap);
+  }
+
+  /**
+   * The list of registered locators.
+   */
+  private Seq<Proxy> registered = new BufferSeq();
+
+  /**
+   * The list of entered locators.
+   */
+  private Seq<Proxy> entered = new BufferSeq();
+
+  /**
+   * Whether we have set a selection.
+   */
+  private boolean selection = false;
+
+
+  /**
+   * Create a new file visitor.
+   */
+  FileVisitor(ShellState state){
+    this.state = state;
+  }
+
+  /**
+   * Enter the given visit capability.
+   */
+  Proxy enter(Locator.VisitCapability.FileVisit cap){
+    Proxy p = new Proxy(cap);
+    entered = entered.append(p);
+    return p;
+  }
+
+  /**
+   * Register all entered visit capabilitys now.
+   */
+  boolean register(){
+    if (entered.size() > 0 &&
+	GuiOptions.active.registerFileLocatorsProg != null){
+      String cmd = GuiOptions.active.registerFileLocatorsProg;
+      if (cmd.startsWith("@")){
+	// hack for WIN: register one-by-one
+	boolean okay = true;
+	entered.apply(
+	  fun (Proxy p)->void {
+	    String[] args = new String[6];
+	    args[0] = cmd;
+	    loadCap(args, 1, p.cap);
+	    if (!execVisitor(args)) okay = false;
+	  } 
+	);
+	if (okay){
+	  registered = registered.appendAll(entered);
+	  entered = new BufferSeq();
+	  return true;
+	} else
+	  return false;
+      } else {
+	String[] args = new String[1 + entered.size()*5];
+	args[0] = GuiOptions.active.registerFileLocatorsProg;
+	int i = 1;
+	entered.apply(
+	  fun (Proxy p)->void {
+	    i = loadCap(args, i, p.cap);
+	  }
+	);
+	if (execVisitor(args)){
+	  registered = registered.appendAll(entered);
+	  entered = new BufferSeq();
+	  return true;
+	} else
+	  return false;
+      } 
+    } else
+      return true;
+  }
+
+  private static int loadCap(String[] args, int i, 
+			     Locator.VisitCapability.FileVisit c){
+    args[i++] = c.file.getAbsolutePath();
+    args[i++] = Integer.toString(c.firstRow);
+    args[i++] = Integer.toString(c.firstCol);
+    args[i++] = Integer.toString(c.lastRow);
+    args[i++] = Integer.toString(c.lastCol);
+    return i;
+  }
+
+
+
+
+
+  /**
+   * Visit locator via proxy. Return false if visiting fails.
+   */
+  boolean visit(Proxy proxy){
+    if (!register()) return false;
+    if (GuiOptions.active.visitFileLocatorProg != null){
+      String[] args = new String[6];
+      args[0] = GuiOptions.active.visitFileLocatorProg;
+      loadCap(args, 1, proxy.cap);
+      selection = true;
+      if (!execVisitor(args)){
+	// requeue for registering
+	// entered = registered;
+	// registered = new BufferSeq();
+	return false;
+      } else
+	return true;
+    } else
+      return false;
+  }
+
+  /**
+   * Clear any selections in visitor.
+   */
+  void clear(){
+    if (selection && GuiOptions.active.clearFileLocatorsProg != null){
+      String[] args = new String[1];
+      args[0] = GuiOptions.active.clearFileLocatorsProg;
+      execVisitor(args);
+      selection = false;
+    }
+  }
+  
+  /** Execute file visitor. */
+  private boolean execVisitor(String[] args){
+    Process proc;
+    try {
+      if (args[0].startsWith("@")){
+	// quote backspaces
+	args[0] = args[0].substring(1);
+	for (int i = 1; i < args.length; i++){
+	  args[i] = quote(args[i]);
+	}
+      }
+      proc = Runtime.getRuntime().exec(args);
+      // proc.getInputStream().close();
+      // proc.getErrorStream().close();
+      String output = readResult(proc.getInputStream()).trim();
+      int p = proc.waitFor();
+      if (p != 0){
+	Format error = 
+	  Format.block(
+	    Format.literal("locator visiting: "),
+	    Format.indent(Format.text(output,""))
+	  );
+	state.sendDebug(error);
+	JOptionPane.showMessageDialog(
+	  state.master != null && 
+	  state.master instanceof Component ?
+	  (Component)state.master : null,
+	  error.toString(40),
+	  "Error",
+	  JOptionPane.WARNING_MESSAGE
+	);
+	return false;
+      } else {
+	return true; // return readResult(proc.getInputStream());
+      }
+    }
+    catch (Exception ex){
+      String msg = "locator visiting: cannot execute " + args[0];
+      state.sendDebug(msg);
+      JOptionPane.showMessageDialog(
+	state.master != null && 
+	state.master instanceof Component ?
+	(Component)state.master : null,
+	msg,
+	"Error",
+	JOptionPane.WARNING_MESSAGE
+      );
+      return false;
+    }
+  }
+
+  private static String readResult(InputStream stream){
+    String res = null;
+    try {
+      BufferedReader reader = 
+	new BufferedReader(new InputStreamReader(stream));
+      String line;
+      while ((line = reader.readLine()) != null){
+	if (res != null)
+	  res += System.getProperty("line.separator") + line;
+	else
+	  res = line;
+      }
+      reader.close();
+    }
+    catch (IOException e){
+    }
+    return res == null ? "failed" : res;
+  }
+
+  private static String quote(String s){
+    StringBuffer res = new StringBuffer();
+    int n = s.length();
+    for (int i = 0; i < n; i++){
+      char c = s.charAt(i);
+      switch (c) {
+      case '\\':
+	res.append("\\\\");
+	break;
+      default:
+	res.append(c);
+      }
+    }
+    return res.toString();
+  }
+
+
+}
+

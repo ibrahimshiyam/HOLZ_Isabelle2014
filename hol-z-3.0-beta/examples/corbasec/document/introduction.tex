@@ -1,0 +1,123 @@
+
+%% SECTION
+\section{Introduction} \label{sec:intro}
+
+This document is based on the OMG CORBA\index{CORBA} Specification version
+2.4~\cite{omg:CORBA:2.4:2000} and the OMG Security Service Secification, version
+1.5~\cite{omg:Security:1.5:2000}.  Although there are
+newer specifications available by the OMG, we stay with the ones mentioned above
+because:
+\begin{itemize}
+\item we already formalized great parts of it, 
+\item we have it printed out, and
+\item most current open source implementations (JacORB, MICO) are based on the
+  older ones (Tao uses the new one, but the security service implementation is
+  very partial\dots).
+\end{itemize}
+
+In the following, we will use the term ``\corbasec'' to refer to the OMG
+specification of the CORBA Security Service, v1.5~\cite{omg:Security:1.5:2000}.
+
+
+\subsection{Access to Security Service objects}
+
+The following two quotes from the CORBA-specifcation and the Security Service
+specification should motivate that other CORBA-objects (i.e. in another thread
+of execution) can only access very limited information and are especially unable
+to alter directly data of the current thread.
+
+\begin{quote}
+  Operations on interfaces derived from \texttt{Current} access state associated
+  with the thread in which they are invoked, not state associated with the
+  thread from which the Current was obtained. This prevents one thread from
+  manipulating another thread's state, and avoids the need to obtain and narrow
+  a new Current in each method's thread context.  Current objects must not be
+  exported to other processes, or externalized with
+  \texttt{ORB::object\_to\_string}. If any attempt is made to do so, the
+  offending operation will raise a \texttt{MARSHAL} system exception.  Currents
+  are per-process singleton objects, so no destroy operation is needed.
+  \hspace{3ex} \emph{(4.7 Current Object, p.4--31, Common Object Request Broker
+    Architecture (CORBA)~\cite{omg:CORBA:2.4:2000})}
+\end{quote}
+
+\begin{quote}
+  Certain interfaces are identified as ``Locality Constrained''. These
+  interfaces are intended to be accessible only from within the context (e.g.,
+  process or RM-ODP capsule) in which they are instantiated (i.e., from within
+  the protection boundary around that context). No object reference to these
+  interfaces can therefore be passed meaningfully outside of that context. The
+  exact details of how this protection boundary is implemented is an
+  implementation detail that the implementor of the service will need to provide
+  in order to establish that the implementation is secure. Locality Constrained
+  objects may not be accessible through the DII/DSI facilities, and they may not
+  appear in the Interface Repository. Any attempt to pass a reference to a
+  locality constrained object outside its locality, or any attempt to
+  externalize it using \texttt{ORB::object\_to\_string} will result in the
+  raising of the \texttt{CORBA::NO\_MARSHAL} exception.  \hspace{3ex}
+  \emph{(2.2.1.5 Object System Implementor's View, p.2--31, Security
+    Service~\cite{omg:Security:1.5:2000})}
+\end{quote}
+
+
+\subsection{Items not included in the OMG Specification}
+\label{sec:not-included}
+
+The administration of principals (i.e. the creation and destruction of
+principals and the mapping of attributes to principals) and the management of
+policy domains and moving objects between domains is out of scope of the
+specification,
+
+
+\subsection{Static features}
+
+The following features are fixed at runtime: Rights, security attribute types,
+interfaces (i.e. we do not use the DII).
+
+\note{The RequiredRights object can be changed at runtime by principals that
+  have the right permissions.}
+
+
+\subsection{Relevant interfaces}
+
+Question: which interfaces of the security service are subject to access
+control? \\
+Only those that can be accessed by objects, and not the ones that are internal
+to the security service.  An object gets access to interfaces of the security
+service through a call to
+\texttt{resolve\_initial\_references(``SecurityCurrent'')} and all interfaces
+that are accessible through this, and so on.  In short, these are all the
+interfaces of the SecurityLevel2 and Administration modules.  Although, it does
+not make a lot sense to restrict access to these operations.  The security
+depends on the parameters of these operations.  This question is only important
+for the interfaces that give access to the internal security data, like
+\texttt{RequiredRights} or the domain policy objects or the underlying security
+technologies, i.e. the administration of principals.
+
+\begin{itemize}
+\item Access control needed:
+  \begin{itemize}
+  \item RequiredRights
+  \item all kinds of Policies
+  \item Plus administrational interfaces not defined by the OMG specification.
+  \end{itemize}
+\item No access control needed:
+  \begin{itemize}
+  \item Vault
+  \item SecurityContext
+  \end{itemize}
+\item Check of parameters needed:
+  \begin{itemize}
+  \item PrincipalAuthenticator
+  \item AccessDecision
+  \item Rights
+  \item Current
+  \item Credentials
+  \end{itemize}
+\end{itemize}
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "model"
+%%% End: 

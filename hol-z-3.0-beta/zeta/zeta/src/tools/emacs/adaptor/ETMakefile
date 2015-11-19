@@ -1,0 +1,7 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= EditorAdaptor.pizza 
+JAVA_FILES 	= 
+NODEKIND	= java
+
+inst:
+	$(ET_INSTALL) lib/images xemacs.gif

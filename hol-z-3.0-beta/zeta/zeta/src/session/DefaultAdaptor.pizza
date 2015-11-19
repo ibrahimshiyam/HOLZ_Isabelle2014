@@ -1,0 +1,206 @@
+package zeta.session;
+
+/** Default Adaptor.<p>
+ *
+ * Default adaptor implementation.  Gives default (dummy) implementations
+ * of most adaptor functions.  <em>Function adaptors</em> have to implement
+ * the abstract methods <code>getName</code>, <code>getContentType</code>, and
+ * <code>tryCompute</code>.  Additionally <em>source adaptors</code> have to
+ * override the given implementations of <code>isUptodate</code> and
+ * <code>lookupUnit</code>.  The other methods are overridden as needed. <p>
+ *
+ * This class also provides some auxiliar methods methods for diagnostic,
+ * error, and progress messages: <p>
+ *
+ * @see DefaultAdaptor#sendDiag
+ * @see DefaultAdaptor#sendProgress
+ * @see DefaultAdaptor#sendError
+ * @version $Id: DefaultAdaptor.pizza,v 1.5 2000/05/16 08:10:47 wg Exp $
+ * @author <a href="http://swt.cs.tu-berlin.de/~buessow">Robert Buessow</a>
+ * <p>
+ */
+
+import java.util.Date;
+import zeta.util.Name;
+import zeta.format.*;
+import zeta.session.*;
+
+public abstract class DefaultAdaptor implements Adaptor {
+
+    /** 
+     * Holds the session object passed to this adaptor at
+     * initialization time.
+     */
+    protected Session session;
+
+    /** 
+     * Holds the storage handle passed to this adaptor at
+     * initialization time.
+     */
+    protected StorageHandle handle;
+
+    /**
+     * Initialize adaptor.  By default, initializes the <code>session</code>
+     * and <code>handle</code> fields. Override, if custom initialization 
+     * is needed, but note that you either have to call 
+     * <code>super.initialize(session, handle)</code> or to initialize
+     * the session and handle fields by yourself in order to let the 
+     * generic functionality of this adaptor work.
+     *
+     * @see Adaptor#initialize
+     */
+    public void initialize(Session session, StorageHandle handle) {
+      this.session = session;
+      this.handle = handle;
+    }
+
+    /**
+     * Adaptor name.  Give name of the adaptor as it is used in, e.g.,
+     * unit names. 
+     *
+     * @see Adaptor#getName
+     */
+    public abstract Name getName();
+
+    /**
+     * Computes content types.  Return content types, computed by this
+     * adaptor.
+     *
+     * @see Adaptor#getName
+     */
+    public abstract ContentType[] computedTypes();
+
+    /**
+     * Try to compute a content.  @see Adatpor#tryCompute */
+    public abstract void tryCompute(Target target)
+      throws Failures.ComputationFailed, Failures.CannotCompute; 
+
+    /**
+     * Flush persistent data.  Override if persistency of data is needed.
+     * @see Adaptor#flush
+     */
+    public void flush() {}
+
+
+    /**
+     * Check if content is uptodate.  Source adaptors override this method.
+     * @see Adaptor#isUptodate
+     */
+    public boolean isUptodate(Target spec, Date definedAt) {
+      return true;
+    }
+
+    /**
+     * Check external data.  @see Adaptor#checkExternalData */
+    public void checkExternalData() {}
+
+    /**
+     * Notify outdated.  @see Adaptor#notifyOutdate */
+    public boolean
+    notifyOutdate(Target target, Date define_at, StorageHandle handle) {
+      return false;
+    }
+
+    /**
+     * Lookup a unit that does not yes exist in the repository.  Overriden
+     * by source adaptors.
+     * @see Adaptor#lookupUnit */
+    public Unit
+    lookupUnit(Name specifier) 
+    throws Failures.UnresolvableName, Failures.AmbigiousName {
+      throw new Failures.UnresolvableName(specifier);
+    }
+
+    /**
+     * Ask the adaptor to return a locator for the given unit.
+     * @see Adaptor#unitLocator */
+    public Locator 
+    unitLocator(Unit unit){
+      return null;
+    }
+
+  
+
+    /* MESSAGES */
+
+    /** Default locator.  Used for diagnostics, if no locator is given. */
+    public Locator default_locator = new DefaultLocator();
+
+    private class DefaultLocator extends Locator {
+      public Name getTool() {
+	return getName();
+      }
+      public Format toFormat(FormatInfo info) {
+	return getName().toFormat(info);
+      }
+    }
+
+
+    /** Send progress message.  */
+    public void sendProgress(String msg) {
+      session.send(getName(),
+		   new ProgressMessage(Format.literal(msg)));
+    }
+
+    /**
+     * Send diagnostic.  Sends a diagnostic message to inform the user about
+     * errors .  Uses the <code>default_locator</code> as locator. */
+    public void sendDiag(String msg) {
+      session.send(getName(),
+		   new Diag(default_locator, Diag.Category.Error, msg));
+    }
+
+    /**
+     * Send diagnostic.  Sends a diagnostic message to inform the user about
+     * warnings.  Uses the <code>default_locator</code> as locator. */
+    public void sendWarning(String msg) {
+      session.send(getName(),
+		   new Diag(default_locator, Diag.Category.Warning, msg));
+    }
+
+    /**
+     * Send diagnostic.  Sends a diagnostic message to inform the user about
+     * errors.  Uses the <code>default_locator</code> as locator. */
+    public void sendError(String msg) {
+      session.send(getName(),
+		   new Diag(default_locator, Diag.Category.Error, msg));
+    }
+
+    /**
+     * Send given diagnostic message.
+     */
+    public void sendDiag(Diag diag) {
+      session.send(getName(), diag);
+    }
+
+    /**
+     * Send diagnostic.  Sends a diagnostic message to inform the user about
+     * errors and warnings (as given by the error category) that were found
+     * at the specificied locator. */
+    public void sendDiag(Locator locator, Diag.Category cat, String msg) {
+      session.send(getName(), new Diag(locator, cat, msg));
+    }
+
+    /**
+     * Sends the result of some computation.  Result messages are used by
+     * commands to communicate the result of the command execution */
+    public void sendResult(String msg) {
+      session.send(getName(), new ResultMessage(Format.literal(msg)));
+    }
+
+    /**
+     * Sends the result of some computation.  Result messages are used by
+     * commands to communicate the result of the command execution */
+    public void sendResult(Format fmt) {
+      session.send(getName(), new ResultMessage(fmt));
+    }
+
+    /**
+     * Send debug message.
+     */
+    public void sendDebug(String msg) {
+      session.send(getName(), new DebugMessage(Format.literal(msg)));
+    }
+}
+      
+	    

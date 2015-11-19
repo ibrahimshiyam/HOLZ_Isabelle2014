@@ -1,0 +1,18 @@
+package zeta.content.text;
+
+import java.io.Serializable;
+import zeta.session.ContentType;
+import zeta.util.Name;
+
+public class LaTeXFragment implements Serializable {
+
+  /** LaTeX fragment.
+    * A LaTeX fragment consists of two strings containing LaTeX commands.
+    * The <code>header</code> contains additional header commands to load 
+    * packages needed for the <code>content</pre> (e.g. 
+    * <pre>\usepackage{epsfig}</pre>).  <code>content</code> conains the
+    * actual code to display the specific content.  Usually, this will be an
+    * <pre>\input</pred> or <pre>\epsfig</pre> command.
+    */
+  public case LaTeXFragment(String header, String content);
+}

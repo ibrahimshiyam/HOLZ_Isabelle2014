@@ -1,0 +1,19 @@
+package zeta.content.zirp;
+
+/** A NameDecl is an annotated term which aggregates a Name. In the
+ * abstract syntax of ZIRP, it appears at places where a name is introduced.
+ *
+ * @version $Id: NameDecl.pizza,v 1.1.1.1 1998/09/01 10:51:17 wg Exp $
+ *
+ */
+
+import zeta.util.Name;
+import zeta.util.AnnotatedTerm;
+
+public class NameDecl extends AnnotatedTerm {
+
+  public case NameDecl(Name name);
+
+}
+
+

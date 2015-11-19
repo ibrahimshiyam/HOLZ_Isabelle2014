@@ -1,0 +1,32 @@
+package zeta.tools.sh;
+
+/**
+ * The class of locators used by the shell.
+ *
+ * @version $Id: ShellLocator.pizza,v 1.1 1998/10/22 09:02:34 wg Exp $
+ */
+
+import zeta.format.*;
+import zeta.util.*;
+import zeta.session.*;
+
+class ShellLocator extends Locator {
+
+  case ShellLocator(String msg);
+
+  public Format toFormat(FormatInfo info){
+    return Format.literal(msg);
+  }
+
+  public Name getTool(){
+    return ShellState.shellName;
+  }
+
+  public boolean equals(Object other){
+    if (other instanceof ShellLocator)
+      return msg.equals(((ShellLocator)other).msg);
+    else
+      return false;
+  }
+
+}

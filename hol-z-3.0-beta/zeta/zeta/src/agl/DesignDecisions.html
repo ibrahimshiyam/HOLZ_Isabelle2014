@@ -1,0 +1,362 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+<head>
+<title>Remarks on an Aggregate Library for Pizza</title>
+</head>
+
+
+<body bgcolor=FFFFFF>
+
+<h1>Remarks on an Aggregate Library for Pizza</h1>
+<h4> by Robert B&uuml;ssow and Wolfgang Grieskamp, 10-97</h4>
+
+This is a collection of remarks on design decisions taken for an
+aggregate library for Pizza.<p>
+
+
+<hr>
+<h3>Supported Aggregates</h3>
+
+<blockquote><cite>
+      The basic aggregate types of interest are
+      <em>sequences</em>, <em>sets</em>, and (finite)
+      <em>mappings</em>.
+</cite></blockquote>
+    
+Sometimes also bags (multi-sets) are considered as useful.  Since in
+our experience bags are needed very seldom, and in order to keep the
+library small, bags are not included currently. <p>
+ 
+A graph is perhaps a basic aggregate, but since of its many logical
+variants and even more possible representations, graphs are out of our
+scope. (But note that a convenient representation of Graphs is given
+by the mapping Map&lt;Node,Set&lt;Node&gt;&gt.). <p>
+
+So we end up with just the named three basic aggregate types.  Lists,
+arrays, vectors, search trees, hash-tables and so on are just variants
+of different implementations of these types.<p>
+
+<hr>
+<h3>Aggregates are Values</h3>
+
+
+<blockquote><cite>
+      Aggregates are always values that is objects
+      with immutable state (just as java.lang.String).
+</cite></blockquote>
+
+Programming with immutable aggregates is usually more convenient and
+always less error-prone then with mutable ones. This has been
+demonstrated by functional languages, but also scripting languages
+such as Perl. So immutable variants of the aggregate types should be
+provided in any case.<p>
+
+For reasons of efficiency, one might think it is in addition necessary
+to provide mutable versions of aggregates, such as e.g. done for
+strings with <code>StringBuffer</code> in Java. We believe such a
+design significantly overloads the concept space, providing technical
+different interfaces for conceptual identical things. <p>
+
+The efficiency problem is not as large as usually supposed. In
+particular, the <em> costs of immutability can be constant</em> if an
+aggregate value is used single-threaded.  To illustrate the basic
+principle, consider a loop such as
+
+<pre>
+  Seq&lt;A&gt; s = new ... ;
+  while (...) s = s.append(...);
+</pre>
+
+In the loop, the program exclusively works on the ``newest'' variant
+of <code>s</code>. An implementation can support this common
+situation, by propagating owner ship on internal storage of aggregates
+as they are transformed to new ones. Only if ``old'' values are going
+to be accessed again, copying of internal storage may become
+necessary. This has been demonstrated e.g. by techniques known under
+the catchword of <em>version arrays</em> (used for the implementation
+of monolithic arrays in pure functional languages), or by so-called
+<em>mbuf</em>'s (used for representing enveloped messages in the
+TCP/IP implementation of BSD unices). <p>
+
+Though the costs of immutability are in average constant, they are of
+course existent. Here are some benchmarks, comparing the
+current implementation of immutable aggregates with mutable ones in
+Java and Pizza:<p>
+
+<center>
+<table border>
+<tr>
+  <th> benchmark </th>
+  <th> java.util </th>
+  <th> pizza.util </th>
+  <th> pizza.agl </th>
+  <th> costs </th>
+</tr>
+<tr>
+  <td>appending (Vector / BufferSeq)</td>
+  <td align=right>136</td>
+  <td align=right>194</td>
+  <td align=right>240</td>
+  <td align=center>1.7 / 1.2</td>
+</tr>
+<tr>
+  <td>including (mutable Set / HashSet)</td>
+  <td align=right>-</td>
+  <td align=right>334</td>
+  <td align=right>658</td>
+  <td align=center>- / 2.0</td>
+</tr>
+<tr>
+  <td>defining (Hashtable / HashMap)</td>
+  <td align=right>355</td>
+  <td align=right>371</td>
+  <td align=right>707</td>
+  <td align=center>2.0 / 1.9</td>
+</tr>
+</table>
+</center>
+<p>
+
+We append/include/define 10000 elements, respectivly. Absolut timings
+are in milliseconds with JDK 1.1.3 on a Pentium
+200. <code>BufferSeq</code> is an implementation variant of immutable
+sequences using the mbuf technique.  <code>HashSet</code> is a variant
+of immutable sets based on hashing and version array techniques, as is
+<code>HashMap</code> for finite mappings.<p>
+
+The results should be taken with care, since the costs of garbage
+collection are not explicitely measured. Immutable aggregates create a
+lot of more intermediate objects as mutable ones do. Techniques such
+as generational copying GC have less problems with such temporary
+objects on the heap, but mark&scan (used in the JDK, as far as we know,)
+will need to touch them.<p>
+
+<hr>
+<h3>Implementation Variants</h3>
+
+<blockquote><cite>
+      Aggregates come in several semantic
+      equivalent <em>implementation variants</em> which 
+      extend one of the basic aggregate types (sequence, set,
+      or mapping).
+</cite></blockquote>
+
+Different implementations of the same basic aggregate type have
+different efficiency according to how they are applied.  For example,
+if sets are small and operations such as union and intersection are
+frequently performed, a representation as an ordered list is more
+efficient then as a hash-table or as a balanced tree. <p>
+
+We model these different representations by so-called
+<em>implementation variants</em>, which extend one one of the basic
+aggregate types, sequence, set, or mapping. Thereby, an important
+assertion is that implementation variants are semantically
+equivalent. So a user may prototype a program don't caring about the
+efficiency of aggregate implementations, adding decisions about this
+in a later stage. <p>
+
+Choosing an implementation variant is achieved by calling the
+constructor of its class.  In declarations, one always uses the
+abstract superclass of the basic aggregate type. For example
+
+<pre>
+  Seq&lt;A&gt; s = new BufferSeq(...);
+</pre>
+
+where <code>BufferSeq</code> is the constructor of the class of
+implementation variants for sequences based on mbufs. <p>
+
+Methods which deliver new aggregates are typed to return a value of
+the abstract superclass, not of the implementation variant. Thus the
+missing covariance in Pizzas/Java's type system doesn't causes a
+problem.  For example:
+
+<pre>
+  abstract class Seq&lt;A&gt; extends Aggregate&lt;A&gt; {
+    ...
+    abstract Seq&lt;A&gt; append(...);
+    ...
+  }
+  class BufferSeq&lt;A&gt; extends Seq&lt;A&gt; {
+    ...
+    Seq&lt;A&gt; append(...);
+    ...
+  }
+</pre>
+
+To model conversion between different implementation variants, each
+variant supplies a constructor which takes an other variant and
+converts it to its own representation. For the class
+<code>BufferSeq</code>, this would be
+
+<pre>
+  class BufferSeq&lt;A&gt; extends Seq&lt;A&gt; {
+    ...
+    BufferSeq(Seq&lt;A&gt; other){...}
+    ...
+  }
+</pre>
+
+In general, the implementation of these conversion constructors is
+optimized with respect to what variant is actually passed (using
+dynamic type tests). In particular, if the passed aggregate is an
+instance of the same implementation variant, then the constructor
+behaves as an identity on the representation. This supports
+code such as
+<pre>
+  Seq&lt;A&gt; s;                         // s with some unknown implementation
+  ...
+  s = new BufferSeq(s);             // ensure s is represented as a buffer 
+  while (...) s = s.append(...);    // add elements to s
+  ...
+</pre>
+
+<hr>
+<h3>Parameter Constraints</h3>
+
+<blockquote><cite>
+      Both styles of defining properties of element
+      types of aggregates have to be supported: by the type system,
+      using interface constraints, and by passing additional
+      information to constructors.
+</cite></blockquote>
+
+Some implementation variants demand properties from their generic
+parameters, such as that their exists a total ordering on the
+aggregated elements. Such properties are naturally expressed by
+interface constraints, such as in
+
+<pre>
+  class AvlSet&lt;A implements Ordered&lt;A&gt;&gt; extends Set&lt;A&gt; {...}
+</pre>
+  
+Unfortunately, this approach is problematic since (1) given types from
+other packages do not implement the <code>Ordered</code> interface,
+and their is no possibility to attach such implementations a posteriori (2)
+Pizza/Java does not supports a way to propagate interface constraints
+(``if A is Ordered, then Seq&lt;A&gt; is Ordered'').<p>
+
+We hope that future versions of Pizza/Java will give solutions to
+these problems, and for the moment use a compromise, where we
+introduce for each implementation variant with parameter constraints
+two versions, which are conceptually related as illustrated below:
+
+<pre>
+  class AvlSetP&lt;A&gt; extends Set&lt;A&gt;{
+    AvlSetP((A,A)->int,...){...}
+    ...
+  }
+  class AvlSet&lt;A implements Ordered&lt;A&gt;&gt; extends AvlSetP&lt;A&gt;{
+    AvlSet(...){ 
+      super(fun (A x,A y)->int{ return x.compare(y); }, ...);
+    }
+    ...
+  }
+</pre>
+
+<hr>
+<h3>Similarity between the basic Aggregate Types</h3>
+
+<blockquote><cite> It is not necessary and not even
+desirable to express maximal similarity between the basic aggregates
+by inheritance.  </cite></blockquote>
+
+A typical inheritance relation found in the literature is
+<code>Set&lt;A&gt; extends Seq&lt;A&gt;</code>, and
+<code>Map&lt;A,B&gt; extends Set&lt;Pair&lt;A,B&gt;&gt;</code>.  We
+don't think that it is necessary to represent this relation in the
+aggregate library. On the programming level, a set is a different
+concept then a sequence, and a map is a different concept then a
+set. A programmer should decide which of these concepts is going to be
+used in an early design stage.<p>
+
+Yet, similarity is expressed by a common superclass of all aggregate
+types. This leads to the following inheritance hierarchy of depth 3:
+
+<pre>
+			     Aggregate
+	  Seq		       Set		     Map
+ ArraySeq BufferSeq ...   HashSet AvlSet ...     HashMap AvlMap ... 
+</pre>
+
+Thereby, the abstract class Aggregate provides unified methods
+for <em>traversing</em> aggregates:
+<pre>
+  abstract class Aggregate&lt;A&gt; {
+    abstract Enum&lt;A&gt; enum();
+    abstract &lt;B&gt; B reduce(B zero, (B,A)->B cons);
+    ...
+  }
+</pre>
+
+We have also considered a variant where <code>Aggregate</code> is in fact an
+interface, which is parameterized over the aggregate representation,
+such that we can also define unique methods which construct aggregates:
+
+<pre>
+  interface Aggregate&lt;AGG,A&gt;{
+    abstract Enum&lt;A&gt; enum();
+    abstract &lt;B&gt; B reduce(B zero, (B,A)->B cons);
+    &lt;AGGB> AGG insert(Aggregate&lt;AGGB,A&gt; agg);
+    ...
+  }
+
+  abstract class Set&lt;A&gt; implements Aggregate&lt;Set&lt;A&gt;,A&gt; {
+    &lt;AGGB&gt; Set&lt;A&gt; insert(Aggregate&lt;AGGB,A&gt; agg);
+    ...
+  }
+</pre>  
+
+We have turned down this alternative approach since first we are not
+sure about its actual value (algorithms which <em>construct</em>
+aggregates and are independent of whether the logical structure is a
+sequence, a set or a map don't come to our mind), and second since we
+believe the construction is to sophisticated for beginners to
+understand.<p>
+
+
+<hr>
+<h3>Enumerations</h3>
+
+<blockquote><cite>
+      The enumeration interface is revised.
+      Functionals on enumerations are not provided.
+</cite></blockquote>	
+
+Since enumerations have state, they should be only used as temporary
+objects for formulating loops in method bodys. We believe it is not a
+good programming style to pass enumerations as parameters or store
+them in fields.  To enforce this restricted use of enumerations, the
+functionals as known from <code>pizza.util.Enumerator</code> are not
+supported.<p>
+
+Furthermore, we propose a different interface for enumerations,
+which emphasizes the state view, and uses shorter names (since
+enumerations are used quite often in practice):
+
+<pre>
+  interface Enum&lt;A&gt;{
+    boolean more(); A current(); void advance();
+  }
+</pre>	
+
+This leads to code such as
+<pre>
+  for (Enum&lt;A&gt; e = agg.enumerate(); e.more(); e.advance()){
+    // do something with e.current()
+  }
+</pre>
+
+instead of the <code>while</code> loops induced by the current
+enumeration interface.<p>
+
+
+<hr>
+<address><a href="mailto:wg@cs.tu-berlin.de">Wolfgang Grieskamp</a>,
+<a href="mailto:buessow@cs.tu-berlin.de">Robert B&uuml;ssow</a></address>
+<!-- Created: Fri Oct 10 21:50:37 MET DST 1997 -->
+<!-- hhmts start -->
+Last modified: Mon Oct 13 00:23:01 MET DST 1997
+<!-- hhmts end -->
+</body>
+</html>

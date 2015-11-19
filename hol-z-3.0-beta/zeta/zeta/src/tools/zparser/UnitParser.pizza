@@ -1,0 +1,418 @@
+package zeta.tools.zparser;
+
+/** The Unit Parser.
+  *
+  * @version $Id: UnitParser.pizza,v 1.7 1998/12/08 09:30:28 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import java.util.Date;
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.content.text.*;
+import zeta.content.zirp.*;
+
+
+public class UnitParser {
+  
+  // FIELDS
+
+  /**
+   * Field holding the language configuration. 
+   */
+  private final Config config;
+
+  /**
+   * Field holding the unit environment.
+   */
+  private final UnitEnv env;
+
+  /** 
+   * Field holding the preprocessor instance.
+   */
+  private Preprocessor prepro = null;
+
+  /** 
+   * Field holding the item parser instance.
+   */
+  private ItemParser itemParser = null;
+
+  /**
+   * Field holding the accumulated Z items.
+   */
+  private Seq<Item> items = new BufferSeq();
+
+  /**
+   * Field holding diagnostics.
+   */
+  private Diag diag = new Diag();
+
+  /** 
+   * Field holding inclusion map.
+   */
+  private Map<Name,UnitAbsy> inclusionMap;
+
+
+
+  // CONSTRUCTION
+
+  /**
+   * Extract the enriched class units found in the given class
+   * text. These are needed for building the initial environment
+   * of a unit parser working on a class. 
+   */
+  public static Name[] extractEnriched(Text.ZedClass text){
+    return extract(text.subtexts).toArray(Name.class);
+  }
+  private static Set<Name> extract(Text[] texts){
+    Set<Name> enriched = new HashSet();
+    for (int i = 0; i < texts.length; i++){
+      switch (texts[i]) {
+      case DocMarkup(_,_, Text[] subtexts):
+	enriched = enriched.includeAll(extract(subtexts));
+	break;
+      case ZedMarkup(Unboxed, _, _, Text[] subtexts):
+	enriched = enriched.includeAll(extract(subtexts));
+	break;
+      case ZedToken(Enrich):
+	i++;
+	// skip layout, preprocessor hasn't run!
+	do {
+	  switch (texts[i]){
+	  case ZedToken(Linesep):
+	    i++;
+	    continue;
+	  default:
+	    break;
+	  }
+	  break;
+	} while (true);
+	switch (texts[i]){
+	case ZedToken(Word(String image)):
+	  // found some usable info
+	  enriched = enriched.include(new Name(image));
+	}
+      }
+    }
+    return enriched;
+  }
+
+  /**
+   * Extract the included  units.
+   */
+  public static Set<Name> extractInclusions(Text[] texts){
+    Set<Name> incs = new HashSet();
+    for (int i = 0; i < texts.length; i++){
+      switch (texts[i]){
+      case DocMarkup(_, _, Text[] subtexts):
+	incs = incs.includeAll(extractInclusions(texts));
+	break;
+      case ModelInclusion(Name name):
+	incs = incs.include(name);
+      }
+    }
+    return incs;
+  }
+
+    
+  /**
+   * Create a new unit parser, basing on the given language configuration
+   * and unit environment. The environment is expected to hold
+   * syntactic information about macros and fixities of the imported units
+   * and enriched classes.
+   */
+  public UnitParser(Config config, UnitEnv env, Map<Name,UnitAbsy> incMap){
+    this.config = config;
+    this.env = env;
+    this.inclusionMap = incMap;
+  }
+     
+  // METHODS
+
+  /**
+   * Get and clear diagnostics of the last run of the unit parser.
+   */
+  public Diag getAndClearDiag(){
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+
+  /**
+   * Parse the given text under the initialized language configuration
+   * and unit environment. Returns the absy of the parsed unit, or null, 
+   * if parsing fails.
+   */
+  public UnitAbsy run(Text text){
+    
+    // enter directives of this unit
+    preparse(text);
+
+    // now create preprocessor and parser instance 
+    prepro = new Preprocessor(config, env);
+    itemParser = new ItemParser(env);
+      
+    // parse text of this unit
+    parse(text);
+
+    // check for items only allowed in class
+    switch (text){
+    case ZedSection(Name name, Name[] parents, Text[] subtexts):
+      items.apply(
+	fun (Item item)->void {
+	  if (item != null)
+	    checkOnlyClassItem(item);
+	}
+      );
+    }
+
+    // return contents if no errors have occured
+    if (!diag.contains(Diag.Category.Error)){
+      switch (text){
+      case ZedSection(Name name, Name[] parents, _):
+	UnitAbsy absy = UnitAbsy.Section(
+			  env.getName(), 
+			  env.getParents(), items.toArray(Item.class));
+	Locator.put(absy.an, text.locator);
+	return absy;
+      case ZedClass(Name name, Name[] parents, Name[] formals, _):
+	UnitAbsy absy = UnitAbsy.ClassDef(env.getName(), 
+					  env.getParents(), 
+					  formals,
+					  items.toArray(Item.class));
+	Locator.put(absy.an, text.locator);
+	return absy;
+      default:
+	throw FatalError.assertionFailed("unexpected text kind of unit");
+      }
+    } else
+      return null;
+  }
+
+  /**
+   * Preparse - declare fixity and macro declarations.
+   */
+  private void preparse(Text text){
+    switch (text){
+    case DocMarkup(_,_,Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	preparse(subtexts[i]);
+      break;
+    case ZedSection(_,_,Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	preparse(subtexts[i]);
+      break;
+    case ZedClass(_,_,_,Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	preparse(subtexts[i]);
+      break;
+    case ZedPragma(Name name, Text[] subtexts):
+      Seq<Lexem> value = new BufferSeq();
+      for (int i = 0; i < subtexts.length; i++){
+	switch (subtexts[i]){
+	case ZedToken(Lexem lexem):
+	  value = value.append(lexem);
+	}
+      }
+      env.addPragma(text.locator, name, value.toArray(Lexem.class));
+      break;
+    case ZedFixity(Fixity fixity):
+      env.declareFixity(text.locator, fixity);
+      checkDiag(env.getAndClearDiag());
+      break;
+    case ZedMacro(Name name, int argc, Lexem[] subs):
+      env.declareMacro(text.locator, name, argc, subs);
+      checkDiag(env.getAndClearDiag());
+      break;
+    case ModelInclusion(Name name):
+      if (inclusionMap.defines(name)){
+	UnitAbsy absy = inclusionMap.get(name);
+	// FIXME: import fixities and macros
+      }
+    }
+  }
+
+  /**
+   * Parse a text
+   */
+  private void parse(Text text){
+    switch (text){
+    case DocMarkup(_, _, Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	parse(subtexts[i]);
+      break;
+    case ZedSection(_,_,Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	parse(subtexts[i]);
+      break;
+    case ZedClass(_,_,_,Text[] subtexts):
+      for (int i = 0; i < subtexts.length; i++)
+	parse(subtexts[i]);
+      break;
+    case ModelInclusion(Name name):
+      Item etext = Item.EmbeddedText(text);
+      Locator.put(etext.an, text.locator);
+      items = items.append(etext);
+      if (inclusionMap.defines(name)){
+	UnitAbsy absy = inclusionMap.get(name);
+	switch (absy) {
+	case Section(_, _, Item[] its):
+	  items = items.appendAll(new ArraySeq(its));
+	  break;
+	case ClassDef(_,_,_, Item[] its):
+	  items = items.appendAll(new ArraySeq(its));
+	}
+      }
+      break;
+    case ZedPragma(_, _): case ZedFixity(_): case ZedMacro(_,_,_):
+      Item etext = Item.EmbeddedText(text);
+      Locator.put(etext.an, text.locator);
+      items = items.append(etext);
+      break;
+    case ZedMarkup(Text.ZedMarkupKind kind, 
+		   Text[] header, Text[] decls, Text[] props):
+      Text.ZedToken[] headerTokens = prepro.run(header);
+      Text.ZedToken[] declTokens = prepro.run(decls);
+      Text.ZedToken[] propTokens = prepro.run(props);
+      if (checkDiag(prepro.getAndClearDiag())){
+	switch (kind){
+	case Unboxed:
+	  items = 
+	    items.appendAll(
+	      new ArraySeq(itemParser.parseUnboxedItems(propTokens))
+	    );
+	  break;
+	case Schema:
+	  items = 
+	    items.append(itemParser.parseSchemaBox(text.locator,
+						   headerTokens,
+						   declTokens,
+						   propTokens));
+	  break;
+	case AxiomaticDef:
+	  items = 
+	    items.append(itemParser.parseAxiomaticBox(text.locator,
+						      headerTokens,
+						      declTokens,
+						      propTokens));
+	  break;
+	case XorState:
+	  items = 
+	    items.append(itemParser.parseStateBox(State.StateKind.Xor,
+						  text.locator,
+						  headerTokens,
+						  declTokens,
+						  propTokens));
+	  break;
+	case AndState:
+	  items = 
+	    items.append(itemParser.parseStateBox(State.StateKind.And,
+						  text.locator,
+						  headerTokens,
+						  declTokens,
+						  propTokens));
+	  break;
+	case Config:
+	  diag = 
+	    diag.combine(new Diag(text.locator,
+				  Diag.Category.Warning,
+				  "mSZ configurations currently unsupported"));
+	  break;
+	case Reaction:
+	  items = 
+	    items.append(itemParser.parseReactionBox(text.locator,
+						     headerTokens,
+						     declTokens,
+						     propTokens));
+	  break;
+	case Transition:
+	  diag = 
+	    diag.add(text.locator,
+		     Diag.Category.Warning,
+		     "mSZ transitions unsupported");
+	  break;
+	  /*
+	default:
+	  diag = 
+	    diag.add(text.locator,
+		     Diag.Category.Warning,
+		     "paragraph kind unsupported");
+	  */
+	  
+	}
+	checkDiag(itemParser.getAndClearDiag());
+      }
+      break;
+    default:
+      // ignore other texts
+      break;
+    }
+  }
+
+  /**
+   * Check if a item is allowed in a section.
+   */
+  private void checkOnlyClassItem(Item item){
+    switch (item) {
+    case AxiomaticDef(_, Expr def):
+      // check if this doesn't contains a Port-or-so declaration attribute
+      switch (def){
+      case Text(Expr.Decl[] decls, _):
+	for (int i = 0; i < decls.length; i++){
+	  NameDecl[] nameDecls;
+	  switch (decls[i]){
+	  case Direct(NameDecl[] ndecls, _):
+	    nameDecls = ndecls;
+	    break;
+	  case Eqn(NameDecl ndecl, _):
+	    nameDecls = new NameDecl[]{ndecl};
+	    break;
+	  default:
+	    continue;
+	  }
+	  for (int j = 0; j < nameDecls.length; j++){
+	    DeclAttr attr = DeclAttr.get(nameDecls[j].an);
+	    if (attr != null){
+	      switch (attr) {
+	      case Data: case Port: case Init: case Property: 
+	      case Alias(_,_):
+		diag = diag.add(Locator.get(nameDecls[j].an),
+				Diag.Category.Error,
+		"mSZ schema role not allowed outside of a class definition"
+				);
+	      }
+	    }
+	  }
+	}
+      }
+      break;
+    case FixityDef(_): case EmbeddedText(_):
+      break;
+    default:
+      // the remaning are mSZ items currently
+      // MAYFIXME: if other pure Z items are added
+      diag = diag.add(Locator.get(item.an),
+		      Diag.Category.Error,
+		      "mSZ paragraph not allowed outside of a class definiton"
+		     );
+    }
+  }
+      
+  /**
+   * Accumulate diagnostics, return true if no errors in this
+   * diagnostics.
+   */
+  private boolean checkDiag(Diag d){
+    if (!d.isEmpty()){
+      diag = diag.combine(d);
+      return !d.contains(Diag.Category.Error);
+    } else
+      return true;
+  }
+
+}

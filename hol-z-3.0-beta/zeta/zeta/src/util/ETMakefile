@@ -1,0 +1,10 @@
+NODEKIND	= java javagroup
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	Annotation.pizza Slot.pizza \
+	Term.pizza AnnotatedTerm.pizza \
+	Name.pizza \
+	FatalError.pizza DebugWriter.pizza VerboseWriter.pizza \
+	Impure.pizza ImpureUnix.java
+JAVA_FILES 	= 
+JAVAFLAGS	= 

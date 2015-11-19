@@ -1,0 +1,553 @@
+
+%% SECTION
+\section{Introducing RBAC into \corbasec} \label{sec:rbac}
+
+%\zsection[LTX:ZSaccessDecision#specification]{ZSrbac}\vspace{2ex}
+\zsection[ZSaccessDecision]{ZSrbac}\vspace{2ex}
+
+\noindent
+In this section, we introduce role-based access control into \corbasec.
+
+
+\subsection{Mapping \rbaci{} to \corbasec}
+
+For this mapping, we follow closely the approach
+of~\cite{beznosov.ea:framework:1999}.
+
+\subsubsection{The \rbaci{} Model}
+As a reference for \rbaci, we use the definitions given
+in~\cite{sandhu.ea:RBAC:1996}:
+\begin{itemize}
+\item Users $U$; roles $R$; permissions $P$; and sessions $S$.
+\item $PA \subseteq P \cross R$: Permission to role assignment.
+\item $UA \subseteq U \cross R$: User to role assignment.
+\item $RH \subseteq R \cross R$: Partial order on roles, called the role
+  hierarchy.
+\item $user: S \fun U$: A function, mapping a session to a single user.
+\item $roles: S \fun \power R$: A function, mapping each session to a set of
+  roles (with some constraints).
+\end{itemize}
+In order to define a refinement relation, we give a definition of \rbaci{} as a
+Z schema:
+\begin{zed}
+  [ USER, ROLE, PERMISSION, SESSION ]
+\end{zed}
+\begin{schema}{RBAC1}
+  U: \power USER; R: \power ROLE; P: \power PERMISSION; S: \power SESSION \\
+  UA: USER \rel ROLE; RH : ROLE \rel ROLE \\
+  PA: PERMISSION \rel ROLE \\
+  user: SESSION \pfun USER; roles: SESSION \pfun \power ROLE \\
+  \where
+  user \in S \fun U \land roles \in S \fun \power R \land UA \in U \rel R \land
+  PA \in P \rel R \\ 
+  RH \in R \rel R \land \id R \subseteq RH \land RH \comp RH \subseteq RH \land
+  RH \cap RH\inv \subseteq \id R \\ 
+\end{schema}
+
+The access control for \rbaci{} can then be defined as a schema
+$checkPermission$, which checks whether a session has certain permissions:
+\begin{schema}{checkPermission}
+  RBAC1 \\
+  session?: SESSION \\
+  permission?: PERMISSION \\
+  \where
+  session? \in S \\
+  permission? \in ( RH \comp PA\inv ) \limg roles(session?) \rimg \\
+\end{schema}
+%In the context of \corbasec, roles are defined as security attributes of type
+%$Role$ and permissions are defined through rights (for now, the standard rights
+%of \corbasec{}).  Sessions can be identied with principals, although this is not
+%so straight forward, as will be explained in an instance.  The relations and
+%functions are then defined accordingly as follows:
+%\begin{itemize}
+%\item Users $U$; attributes of type roles $A$; rights $R$; and principals $P$.
+%\item $PA \subseteq R \cross A$: Granted rights to security attributes of type
+%  role.
+%\item $UA \subseteq U \cross A$: User to security attributes of type role.
+%\item $RH \subseteq A \cross A$: Partial order on $A$, called the role hierarchy.
+%\item $user: P \fun U$: Mapping a principal to a single user.
+%\item $roles: P \fun \power A$: A function mapping each principal to a set of
+%  privilege attributes.
+%\end{itemize}
+
+\subsection{Refining \rbaci{} to \corbasec}
+
+In our concrete mapping, we deviate from the mapping, which was given
+in~\cite{beznosov.ea:framework:1999} in two aspects:
+\begin{itemize}
+\item Beznosov makes no distinction between interface instances and references
+  to such interfaces.  Actually, there could be several references to the same
+  instance and these references could be in different policy domains.  Initially
+  all references to an object will be in the same domain, but given operations
+  for administration of domains, these references could be moved into different
+  domains.  We set rules for object references, not only for interfaces.
+\item We do not identify sessions with principals but with the current object
+  that was created for a specific client, and resembles the runtime environment
+  of that client.
+\end{itemize}
+The following enumeration defines our mapping of the components of \rbaci{} to
+components in \corbasec:
+\begin{itemize}
+\item Users $U$ are users (i.e. security names) in \corbasec.  They are
+  represented by the set $Users.Uprincipals$.  We define a function $urbac$ that
+  maps each possible user of \rbaci{} to a user name in \corbasec.
+  \begin{axdef}
+    urbac: USER \bij SecurityName \\
+  \end{axdef}
+\item Roles $R$ are security attributes of type $Role$.  The function $rrbac$
+  assigns a security attribute of type $Role$ to each role of \rbaci:
+  \begin{axdef}
+    rrbac: ROLE \bij SecAttribute \\    
+  \end{axdef}
+\item Permissions could be simply represented by rights if we restrict our
+  \corba -model to only one domain.  Then the relation $PA$ would correspond to
+  the $GrantedRights$-table of this domain.  Since we want to be more general
+  and allow for different domains, we must encode permissions depending on
+  domains.
+  
+  Permissions $P$ must be encoded such that a permission incorporates whether an
+  operation of some interface may be invoked in some domain.  The functions
+  $getOp$ and $getPolicy$ are only accessor functions for the triple $Perm$.
+  \begin{zed}
+    Perm == Identifier \cross RepositoryId \cross DomainAccessPolicy \\
+  \end{zed}
+  \begin{axdef}
+    prbac: PERMISSION \fun Perm \\
+    getOp: Perm \fun (Identifier \cross RepositoryId) \\
+    getPolicy: Perm \fun DomainAccessPolicy \\
+  \end{axdef}
+  
+\item Sessions $S$ are represented by the Current object that is created for a
+  client or a target object.  This resembles the runtime environment, or thread
+  in OMG terms and seems similar to the session concept of \rbaci.  The function
+  $srbac$ defines a bijection between sessions and Current objects.
+  \begin{axdef}
+    srbac: SESSION \bij Current \\    
+  \end{axdef}
+\item $PA: P \cross R$ is the assignment of permissions to security attributes.
+  This is represented by different constructs of \corbasec, e.g.\ RequiredRights
+  and GrantedRights \dots
+  
+  This is represented by the domain access policies ($DomainAccessPolicy$) which
+  define the rights that are granted to certain attributes.  These policy
+  objects provide operations for granting, revoking and getting rights for given
+  attributes.
+
+\item $UA: U \cross R$ is represented by the function $Users.Uprivileges$ which
+  defines all privilege attributes (not just of type $Role$) for every user.
+\item $user: S \fun U$ is represented by the component $Current.CUinitiator$
+  which defines the user which initiated the thread of this Current object.
+\item $roles: S \fun \power R$ determines the privilege attributes of type
+  $Role$ of the given Current object.  This is a subset of the attributes of
+  $Current.CUown\_credentials$.
+\item $RH: H \cross H$ is represented by a relation $RH_c$ which must be added
+  to our \corbasec{} model.  Additionally, we define the define the set $R_c$ of
+  all roles that are currently known, and an auxiliary function $getRoles$ for
+  retrieving all role attributes from a set of Credentials.
+  \begin{schema}{RoleHierarchy}
+    R_{c} : \power SecAttribute \\
+    RH_{c}: SecAttribute \rel SecAttribute \\
+    getRoles: \power Credentials \pfun \power SecAttribute \\
+    \where \forall a: R_{c} @ Role = \\
+    \t1 AttributeType\_attribute\_type(SecAttribute\_attribute\_type(a)) \\
+    RH_{c} \in  R_{c} \rel R_{c} \land \id R_{c} \subseteq RH_{c} \\
+    RH_{c} \comp RH_{c} \subseteq RH_{c} \land RH_{c} \cap RH_{c}\inv \subseteq
+    \id R_{c} \\
+
+    \forall cl: \power Credentials @ getRoles(cl) =  \{ a: R_{c} | (\exists c: cl
+    @ a \in c.Cprivileges) \} \\
+ \end{schema}
+\end{itemize}
+Additionally we must define administration operations for roles and users.
+
+
+\subsubsection{Refinement Relation $RBACtoCORBA$}
+This refinement schema relates the definitions of the \rbaci{} schema and the
+\corbasec{} specification.  Please note that, to get a shorter specification, we
+only consider the $SecAllRights$ rights combinator whenever the combinator is of
+concern.
+\begin{schema}{RBACtoCORBA}
+  RBAC1 \\
+  Users \\
+  RequiredRightsS \\
+  CurrentS \\
+  CredentialsS \\
+  RoleHierarchy \\
+  InterfaceRepository \\
+  PolicyS \\
+  \where
+  urbac \limg U \rimg = Uprincipals \\
+  rrbac \limg R \rimg =  R_{c} \\
+  srbac \limg S \rimg = \ran CUcurrentId \\
+
+  \forall i: Identifier; rid: RepositoryId; dap: DomainAccessPolicy; p: prbac
+  \limg P \rimg | \\
+  \t1 p = (i, rid, dap) @ rid \in \dom IRinterface \land i \in IRinterface(rid) \\
+  \t2 \land dap \in \ran PdomainAccessPolicy \\
+
+  \forall u: U @ rrbac \limg ( UA \limg \{ u \} \rimg )  \rimg =
+  Uprivileges(urbac~u) \\
+  
+  \forall r_1, r_2: R @ (r_1, r_2) \in RH \iff (rrbac(r_1), rrbac(r_1)) \in
+  RH_{c} \\ 
+  
+  \forall s: S; u: U @ (s, u) \in user \iff urbac(u) = (srbac~s).CUinitiator \\
+
+  \forall s: S; rs: \power R @ (s, rs) \in roles \iff rrbac \limg rs \rimg = \\
+  \t1 getRoles(CcredentialsId \limg \ran (srbac~s).CUown\_credentials \rimg ) \\
+
+  \forall p: P; r: R @ \exists ds: DelegationState @ \\
+  \t1 (p,r) \in PA \iff \ran (first(requiredRights(getOp(prbac~p))))
+  \subseteq \\
+  \t2 (getPolicy(prbac~p)).PgrantedRights(rrbac(r), ds)
+  
+%  \forall p: PERMISSION; r: ROLE; d: DomainAccessPolicy @ \exists ds:
+%  DelegationState @ \\
+%  \t1 ((second(prbac~p) = SecAllRights) \implies ((p,r) \in PA(d) \\
+%  \t2 \iff (\ran (first(prbac~p)) = d.grantedRights(rrbac(r), ds)))) \\
+%  \t1 \land ((second(prbac~p) = SecAnyRight) \implies ((p,r) \in PA(d) \\
+%  \t2 \iff (\exists s: \ran (first(prbac~p)) @ s \in
+%  d.grantedRights(rrbac(r), ds)))) \\
+\end{schema}
+
+%\zsection{ref}
+\paragraph{Proof obligation:} The proof obligation to show that our
+configuration of \corbasec{} indeed realizes \rbaci{} is that \corbasec{} allows
+access iff \rbaci{} allows access:
+\zcomment{
+\begin{zed}
+  \forall PolicyS; RBAC1; Domains; RequiredRightsS; CredentialsS; \\
+  \t2 AccessParams; RBACtoCORBA; session?: SESSION; \\
+  \t3 cuid?: CURRENT; permission?: PERMISSION; \\
+  \t4 operation?: Identifier | \\
+  \t5 first(getOp(prbac(permission?))) = operation? \\
+  \t5 \land srbac(session?) = CUcurrentId(cuid?) @ \\
+  \t6 checkPermission \iff AccessAllowed \\
+\end{zed}
+}
+
+\subsubsection{Administration Operations for RBAC}
+
+\zsection[ZSrbac]{ZSrbacAdmin}
+
+\begin{zedgroup}
+  \begin{schema}{createSession}
+    \Delta RBAC1\\
+    user? : USER\\
+    roles? : \power ROLE\\
+    session! : SESSION\\
+    \where
+    session! \notin S\\
+    S'  = S \cup \{session!\}\\
+    U'  = U\\
+    R'  = R\\
+    P'  = P\\
+    PA' = PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user? \in U\\
+    user' = user \oplus \{ session! \mapsto user? \}\\
+    roles? \subseteq  (UA \comp RH) \limg \{ user? \}  \rimg\\
+    roles' = roles \oplus \{ session! \mapsto roles? \}\\
+  \end{schema}
+  \begin{schema}{deleteSession}
+    \Delta RBAC1\\
+    session? : SESSION\\
+    \where
+    session? \notin S\\
+    S' = S \setminus \{ session? \}\\
+    U' = U\\
+    R' = R\\
+    P' = P\\
+    PA' = PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = \{ session? \} \ndres user\\
+    roles' = \{ session? \} \ndres roles\\
+  \end{schema}
+\end{zedgroup}
+We need operations to administrate the RBAC. For instance, we need operations to
+add and delete associations of users to roles.
+
+\begin{zedgroup}
+  \begin{schema}{addUser}
+    \Delta RBAC1\\
+    usr? : USER\\
+    \where
+    S' = S\\
+    usr? \notin U\\
+    U' = U \cup \{ usr? \}\\
+    R' = R\\
+    P' = P\\
+    PA' = PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+  \begin{schema}{deleteUser}
+    \Delta RBAC1\\
+    usr? : USER\\
+    \where
+    S' = S\\
+    usr? \in U\\
+    usr? \notin user \limg S \rimg\\
+    U' = U \setminus \{ usr? \}\\
+    R' = R\\
+    P' = P\\
+    PA' = PA\\
+    UA' = \{ usr? \} \ndres UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+\end{zedgroup}  
+
+\begin{zedgroup}
+  \begin{schema}{addRole}
+    \Delta RBAC1\\
+    role? : ROLE\\
+    \where
+    S' = S\\
+    U' = U\\
+    role? \notin R\\
+    R' = R \cup \{ role? \}\\
+    P' = P\\
+    PA' = PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+  \begin{schema}{deleteRole}
+    \Delta RBAC1\\
+    role? : ROLE\\
+    \where
+    S' = S\\
+    U' = U\\
+    role? \in R\\
+    role? \notin RH \limg \bigcup(roles \limg S \rimg) \rimg\\
+    R' = R \setminus \{ role? \}\\
+    P' = P\\
+    PA' = PA \nrres \{ role? \}\\
+    UA' = UA \nrres \{ role? \}\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+\end{zedgroup}  
+
+\begin{zedgroup}
+  \begin{schema}{addPermission}
+    \Delta RBAC1\\
+    permission? : PERMISSION\\
+    \where
+    S' = S\\
+    U' = U\\
+    R' = R\\
+    permission? \notin P\\
+    P' = P \cup \{ permission? \}\\
+    PA' = PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+  \begin{schema}{deletePermission}
+    \Delta RBAC1\\
+    permission? : PERMISSION\\
+    \where
+    S' = S\\
+    U' = U\\
+    R' = R\\
+    permission? \in P\\
+    permission? \notin (RH \comp PA\inv) \limg \bigcup(roles \limg S \rimg) \rimg\\
+    P' = P  \setminus \{ permission? \}\\
+    PA' = \{ permission? \} \ndres PA\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+\end{zedgroup}  
+
+\begin{zedgroup}
+  \begin{schema}{assignUser}
+    \Delta RBAC1\\
+    user? : USER\\
+    role? : ROLE\\
+    \where
+    user? \in U\\
+    user? \notin user \limg S \rimg\\
+    role? \in R\\
+    S' = S\\
+    U' = U\\
+    R' = R\\
+    P' = P\\
+    PA' = PA\\
+    UA' = UA \oplus \{ user? \mapsto role? \}\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+  \begin{schema}{deassignUser}
+    \Delta RBAC1\\
+    user? : USER\\
+    role? : ROLE\\
+    \where
+    user? \in U\\
+    user? \notin user \limg S \rimg\\
+    role? \in R\\
+    S' = S\\
+    U' = U\\
+    R' = R\\
+    P' = P\\
+    PA' = PA\\
+    (user? \mapsto role?) \in UA\\
+    UA' = UA \setminus \{ user? \mapsto role? \}\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+\end{zedgroup}
+
+\begin{zedgroup}
+  \begin{schema}{grantPermission}
+    \Delta RBAC1\\
+    role? : ROLE\\
+    permission? : PERMISSION\\
+    \where
+    S' = S\\
+    U' = U\\
+    role? \in R\\
+    R' = R\\
+    permission? \in P\\
+    P' = P\\
+    (permission? \mapsto role?) \notin PA\\
+    PA' = PA \oplus \{ permission? \mapsto role? \}\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+  \begin{schema}{revokePermission}
+    \Delta RBAC1\\
+    role? : ROLE\\
+    permission? : PERMISSION\\
+    \where
+    S' = S\\
+    U' = U\\
+    role? \in R\\
+    role? \notin RH \limg \bigcup(roles \limg S \rimg) \rimg\\
+    R' = R\\
+    permission? \in P\\
+    permission? \notin (RH \comp PA\inv) \limg \bigcup(roles \limg S \rimg) \rimg\\
+    P' = P\\
+    (permission? \mapsto role?) \in PA\\
+    PA' = PA \setminus \{ permission? \mapsto role? \}\\
+    UA' = UA\\
+    RH' = RH\\
+    user' = user\\
+    roles' = roles\\
+  \end{schema}
+\end{zedgroup}
+
+
+\subsubsection{Administration Operations for CORBAsec}
+
+In this section, we map the administration operations that were defined in the
+last section to administration operations for \corbasec{}.  In \corba{} we
+define an \rbaci{} administration interface similar to UserAdmin (actually these
+operations could be added to UserAdmin).
+
+\index{CcreateSession}
+\begin{zed}
+  CcreateSession == StartClient \land PA\_authenticate \\
+%  CdeleteSession ==
+\end{zed}
+
+We only change user data, if the corresponding user is not looged in into the
+system and has open sessions (this precondition is copied from the pure \rbaci{}
+model).
+\begin{schema}{CassignUser}
+  \Xi CurrentS \\
+  \Xi RoleHierarchy \\
+  \Delta Users \\
+  s?: SecurityName \\
+  r?: SecAttribute \\
+  \where
+  r? \in R_{c} \\
+  s? \in Uprincipals \\
+
+  \forall c: \ran CUcurrentId @ c.CUinitiator \neq s? \\
+
+  Uprivileges' = Uprivileges \oplus \{ s? \mapsto ( Uprivileges(s?) \cup \{ r?
+  \} ) \} \\
+  Uattributes' = Uattributes \oplus \{ s? \mapsto ( Uattributes(s?) \cup \{ r?
+  \} ) \} \\
+  Uprincipals' = Uprincipals \\
+  Uauthenticates' = Uauthenticates \\
+\end{schema}
+
+It is not clear how to handle this operation:  One could imagine to quit all
+sessions of this user, or to simply remove the roles and use all issued
+Credentials as long as they are valid, and don't revalidate them.
+%\begin{schema}{CdeassignUser}
+  
+%\end{schema}
+
+\begin{schema}{CgrantPermission}
+  \Xi InterfaceRepository \\
+  \Xi RequiredRightsS \\
+  DAP\_grant\_rights \\
+  op?: Identifier \\
+  iface?: RepositoryId \\
+  \where
+  iface? \in \dom IRinterface \\
+  op? \in IRinterface( iface? ) \\
+
+  \ran ( first( requiredRights( op?, iface? ))) \subseteq \ran rights? \\
+\end{schema}
+We are assuming that we always have a RightsCombinator of ``ALL''.  This is
+justifiable since it is more rigorous, i.e. more secure, to always require all
+rights to be met.
+\begin{schema}{CrevokePermission}
+  \Xi InterfaceRepository \\
+  \Xi RequiredRightsS \\
+  DAP\_revoke\_rights \\
+  op?: Identifier \\
+  iface?: RepositoryId \\
+  \where
+  iface? \in \dom IRinterface \\
+  op? \in IRinterface( iface? )
+\end{schema}
+
+
+\subsubsection{Refinement Proofs}
+
+\zsection{proofs}
+
+\paragraph{Weakening the precondition / Termination}
+\begin{zed}
+  \forall CredentialsS; InterfaceRepository; PolicyS; RequiredRightsS; \\
+  \t1 RBAC1; CurrentS; RoleHierarchy; Users; s?: SecurityName; \\
+  \t1 r?: SecAttribute; user?: USER; role?: ROLE @ \\
+  \t2 \pre assignUser \land RBACtoCORBA \implies \pre CassignUser
+\end{zed}
+
+\paragraph{Consistency}
+\begin{zed}
+  \forall CredentialsS; InterfaceRepository; PolicyS; RequiredRightsS; \\
+  \t1 RBAC1; CurrentS; RoleHierarchy; Users; s?: SecurityName; \\
+  \t1 r?: SecAttribute; user?: USER; role?: ROLE; \\
+  \t1 CurrentS '; RoleHierarchy '; Users '; \\
+  \t1 CredentialsS '; InterfaceRepository '; PolicyS '; RequiredRightsS ' @ \\
+  \t2 \pre assignUser \land RBACtoCORBA \land CassignUser \implies \\
+  \t3 (\exists RBAC1 ' @ assignUser \land RBACtoCORBA ' )
+\end{zed}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "model"
+%%% End: 

@@ -1,0 +1,242 @@
+package zeta.tools.zparser;
+
+/** The Z/DZ/mSZ parser adaptor. 
+  *
+  * @version $Id: ParserAdaptor.pizza,v 1.14 2000/07/21 06:45:15 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import java.util.Date;
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.content.text.*;
+import zeta.content.zirp.*;
+
+
+public class ParserAdaptor extends DefaultAdaptor {
+
+  
+  // CONSTANTS
+
+  /*
+   * The name of this adaptor.
+   */
+  static final Name thisAdaptor = new Name("ZPARSER");
+
+  /*
+   * The startup message of this adaptor.
+   */
+  private static final String startupMessage = 
+    "installed Z parser v1.5";
+
+  /**
+   * Whether we should issue timing messages.
+   */
+  private static final boolean timing = 
+    System.getProperty("zeta.debug.timing") != null;
+
+
+
+
+  // ADAPTOR INITIALIZATION
+
+  /** 
+   * Initialize a newly created instance of this adaptor.
+   */
+  public void initialize(Session session, StorageHandle handle){
+    super.initialize(session, handle);
+    this.session = session;
+    sendProgress(startupMessage);
+    session.registerContentType(ZirpContentTypes.uncheckedAbsy);
+    session.registerContentType(ZirpContentTypes.uncheckedEnv);
+    session.registerContentType(ZirpContentTypes.checkedEnv);
+  }
+
+
+  // ADAPTOR METHODS
+  
+  /**
+   * Get the descriptive name of this adaptor. 
+   */
+  public Name getName() {
+    return thisAdaptor;
+  }
+
+  /** Always throws. */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName, Failures.AmbigiousName {
+    throw new Failures.UnresolvableName(name);
+  }
+
+  /** 
+   * Return the content types which this adaptor can generally
+   * compute.
+   */
+  public ContentType[] computedTypes() {
+    return new ContentType[]{ ZirpContentTypes.uncheckedAbsy, 
+			      ZirpContentTypes.uncheckedEnv   };
+  }
+
+  /**
+   * Run the adaptor to compute the specified content.  
+   */
+  public void tryCompute(Target spec)
+  throws Failures.ComputationFailed, Failures.CannotCompute {
+    Seq<Target> deps = new BufferSeq();
+
+    // query for the lexical unit contents
+    Text text = (Text)spec.unit.query(TextContentTypes.text);
+    Config config = (Config)spec.unit.query(TextContentTypes.config);
+    deps = deps.append(new Target(spec.unit, TextContentTypes.text))
+           .append(new Target(spec.unit, TextContentTypes.config));
+
+    // build initial unit environment from imports
+    UnitEnv env;
+    Name[] parents;
+    Set<Name> included;
+    switch (text) {
+    case ZedSection(_, Name[] prts, Text[] subtexts):
+      included = UnitParser.extractInclusions(subtexts);
+      env = UnitEnv.newSection(spec.unit.getName(), text.locator);
+      parents = HashSet.from(new ArraySeq(prts))
+		       .toArray(Name.class);
+      
+      break;
+    case ZedClass(_, Name[] prts, Name[] formals, Text[] subtexts):
+      included = UnitParser.extractInclusions(subtexts);
+      env = UnitEnv.newClass(spec.unit.getName(), text.locator, formals);
+      parents = HashSet.from(new ArraySeq(prts))
+		       .includeAll(HashSet.from(
+				     new ArraySeq(
+		UnitParser.extractEnriched((Text.ZedClass)text))))
+		       .toArray(Name.class);
+      break;
+    default:
+      throw FatalError.assertionFailed("unexpected text kind of unit");
+    }
+
+    // query imported environments
+    for (int i = 0; i < parents.length; i++){
+      try {
+	Unit imp = session.lookupUnit(parents[i]);
+	// query unchecked environment and import it
+	UnitEnv impEnv = (UnitEnv)imp.query(ZirpContentTypes.uncheckedEnv);
+	env.importSyntaxFrom(impEnv);
+	deps = deps.append(new Target(imp,
+				      ZirpContentTypes.uncheckedEnv));
+      }
+     catch (Failures.UnresolvableName e){
+       reportUnresolvable(env, env.getLocator(), parents[i]);
+     }
+     catch (Failures.AmbigiousName e){
+       reportAmbigious(env, env.getLocator(), parents[i], e.fullNames);
+     }  
+    }
+    
+    // query included absys
+    Map<Name,UnitAbsy> inclusionMap = new HashMap();
+    for (zeta.agl.Enum<Name> en = included.enumerate(); en.more(); en.advance()){
+      Name name = en.current();
+      try {
+	Unit imp = session.lookupUnit(name);
+	UnitAbsy incAbsy = (UnitAbsy)imp.query(ZirpContentTypes.uncheckedAbsy);
+	inclusionMap = inclusionMap.define(name, incAbsy);
+	deps = deps.append(new Target(imp,
+				      ZirpContentTypes.uncheckedAbsy));
+      }
+     catch (Failures.UnresolvableName e){
+       reportUnresolvable(env, env.getLocator(), name);
+     }
+     catch (Failures.AmbigiousName e){
+       reportAmbigious(env, env.getLocator(), name, e.fullNames);
+     }  
+    }
+
+
+    // run the unit parser
+    Diag diag = env.getAndClearDiag();
+    Date date = new Date();
+    switch (text) {
+    case ZedSection(_, _, _):
+      sendProgress("parsing section " + spec.unit.getName());
+      break;
+    default:
+      sendProgress("parsing class " + spec.unit.getName());
+    }
+    long start = 0;
+    if (timing)
+      start = System.currentTimeMillis();
+    UnitParser unitParser = new UnitParser(config, env, inclusionMap);
+    UnitAbsy absy = unitParser.run(text);
+    if (timing)
+      sendDebug("parsing " + 
+		(System.currentTimeMillis()-start) + "ms");
+    sendDiag(diag.combine(unitParser.getAndClearDiag()));
+
+    // define contents if no errors have occured
+    if (!diag.contains(Diag.Category.Error) && absy != null){
+      spec.unit.define(ZirpContentTypes.uncheckedAbsy,
+		       absy,
+		       true,
+		       date,
+		       deps.toArray(Target.class),
+		       ParserAdaptor.this
+		      );
+      spec.unit.define(ZirpContentTypes.uncheckedEnv,
+		       env,
+		       true,
+		       date,
+		       deps.toArray(Target.class),
+		       ParserAdaptor.this
+		      );
+    } else {
+      // throw failure 
+      throw new Failures.ComputationFailed(spec);
+    }
+  }
+
+  private void reportUnresolvable(UnitEnv env, Locator loc, Name name){
+    env.addDiag(new Diag(loc,
+			 Diag.Category.Error,
+			 "`" + name + "' cannot be resolved as a unit"));
+  }
+
+  private void reportAmbigious(UnitEnv env, Locator loc, 
+			       Name name, Name[] fullNames){
+    env.addDiag(new Diag(loc,
+			 Diag.Category.Error,
+			 Format.describe(
+			   "`" + name + "' is ambigious",
+			   "possible completions",
+			   Format.list(Format.empty,
+				       Format.literal(", "),
+				       Format.empty,
+				       fullNames))));
+  }
+
+
+  /** */
+  public boolean isUptodate(Target spec, Date definedAt){
+    return true;
+  }
+
+  /** */
+  public boolean notifyOutdate(Target spec, Date definedAt,
+			       StorageHandle handle){
+    return false;
+  }
+
+  /** */
+  public void checkExternalData(){
+  }
+
+  /** */
+  public void flush(){
+  }
+
+
+}

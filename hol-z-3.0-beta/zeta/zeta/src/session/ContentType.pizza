@@ -1,0 +1,48 @@
+package zeta.session;
+
+/**
+ * A class describing content types.
+ *
+ * @version $Id: ContentType.pizza,v 1.1.1.1 1998/09/01 10:51:20 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.format.*;
+import zeta.util.Name;
+import zeta.util.Term;
+
+public class ContentType extends Term {
+
+  /**
+   * Construct a content type. 
+   * @param name  the name of this content type
+   * @param type  the least class each content of this type has
+   */
+  public case ContentType(final Name name, final Class type);
+
+  /**
+   * Equality on content types.
+   */
+  public boolean equals(Object object){
+    if (object instanceof ContentType){
+      ContentType other = (ContentType)object;
+      return name.equals(other.name);
+    } else
+      return false;
+  }
+
+  /**
+   * Hashcode of content types.
+   */
+  public int hashCode(){
+    return name.hashCode();
+  }
+
+  /**
+   * Produce format.
+   */
+  public Format toFormat(FormatInfo info){
+    return Format.literal(name.toString());
+  }
+
+}

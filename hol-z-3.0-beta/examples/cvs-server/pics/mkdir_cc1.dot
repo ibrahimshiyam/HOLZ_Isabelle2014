@@ -1,0 +1,114 @@
+digraph "abs_ci_df" {                graph [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                label = "mkdir_cc1"
+                center = "true"
+                color = "black"
+               rankdir = "LR"
+        ]
+        node [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                shape = "ellipse"
+                color = "black"
+        ]
+        edge [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                color = "black"
+        ]
+        "mkdir_cc1" [
+                label = "mkdir_cc1"
+        ]
+        "lemma_1" [
+                label = "lemma 1"
+        ]
+        "lemma_2" [
+                label = "lemma 2"
+        ]
+        "lemma_3" [
+                label = "lemma 3"
+        ]
+        "mp" [
+                label = "Mp"
+                shape = "box"
+        ]
+        "subst" [
+                label = "Subst"
+                shape = "box"
+        ]
+        "bspec" [
+                label = "Bspec"
+                shape = "box"
+        ]
+        "impI" [
+                label = "ImpI"
+                shape = "box"
+        ]
+        "andel" [
+                label = "AndEl"
+                shape = "box"
+        ]
+        "(1.)" [
+                label = "(1.)"
+        ]
+        "(2.)" [
+                label = "(2.)"
+        ]
+        "(3.)" [
+                label = "(3.)"
+        ]
+        "(4.)" [
+                label = "(4.)"
+        ]
+        "(5.)" [
+                label = "(5.)"
+        ]
+        "(6.)" [
+                label = "(6.)"
+        ]
+
+        "mkdir_cc1" -> "lemma_1" [
+        ]
+        "mkdir_cc1" -> "lemma_2" [
+        ]
+        "mkdir_cc1" -> "lemma_3" [
+        ]
+        "mkdir_cc1" -> "(1.)" [
+        ]
+        "mkdir_cc1" -> "(6.)" [
+        ]
+        "mkdir_cc1" -> "mp" [
+        ]
+        "mkdir_cc1" -> "subst" [
+        ]
+        "lemma_1" -> "(5.)" [
+        ]
+        "lemma_1" -> "(4.)" [
+        ]
+        "lemma_1" -> "(2.)" [
+        ]
+        "lemma_1" -> "andel" [
+        ]
+        "lemma_1" -> "bspec" [
+        ]
+        "lemma_2" -> "(5.)" [
+        ]
+        "lemma_2" -> "(4.)" [
+        ]
+        "lemma_2" -> "(3.)" [
+        ]
+        "lemma_2" -> "andel" [
+        ]
+        "lemma_2" -> "bspec" [
+        ]
+        "lemma_3" -> "impI" [
+        ]
+        "lemma_3" -> "andel" [
+        ]
+        "lemma_3" -> "mp" [
+        ]
+        }

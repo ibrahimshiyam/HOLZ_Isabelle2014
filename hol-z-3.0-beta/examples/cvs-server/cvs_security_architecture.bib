@@ -1,0 +1,1043 @@
+%% bibtexfile{
+%%  author   = "Achim D. Brucker",
+%%  version  = "0.01",
+%%  cvs_id   = "$Id: cvs_security_architecture.bib,v 1.25 2003/12/04 15:03:06 brucker Exp $",
+%%  date     = "25 April 2001",
+%%  filename = "cvs_security_architecture.bib",
+%%  address  = "Institute of Computer Science
+%%              Chair for Software Engineering
+%%	        Georg-Koehler-Allee, Gebaeude 52
+%%	        79110 Freiburg im Breisgau
+%%	        Germany",
+%%  email    = "<brucker at informatik.uni-freiburg.de>" }
+%%
+%% publishers:
+%% ===========
+@STRING{pub-prentice={Prentice Hall, Inc.} }
+@STRING{pub-prentice:adr={Englewood Cliffs, New Jersey 07632} }
+@STRING{pub-atlantic={North Atlantic Books} }
+@STRING{pub-atlantic:adr={P.O. Box 12327, Berkeley, California 94701, USA} }
+@STRING{pub-aw	= {Addison-Wesley} }
+@STRING{pub-aw:adr={Reading, MA, USA} }
+@STRING{pub-awe	= {Addison-Wesley Europe} }
+@STRING{pub-awe:adr={Amsterdam, The Netherlands} }
+@STRING{pub-awv	= {Addison-Wesley Verlag} }
+@STRING{pub-awv:adr={Bonn, Germany} }
+@STRING{pub-awl	= {Addison-Wesley Longman, Inc.} }
+@STRING{pub-awl:adr={Reading, MA, USA} }
+@STRING{pub-ora	= {O'Reilly \& {Associates, Inc.}} }
+@STRING{pub-ora:adr={103a Morris Street, Sebastopol, CA 95472, USA, Tel: +1
+		  707 829 0515, and 90 Sherman Street, Cambridge, MA 02140,
+		  USA, Tel: +1 617 354 5800} }
+@STRING{pub-coriolis={The Coriolis Group} }
+@STRING{pub-coriolis:adr={14455 N. Hayden Road, Suite 220 Scottsdale, AZ
+		  85260, USA} }
+@STRING{pub-springer={Springer-Verlag} }
+@STRING{pub-springer:adr={Heidelberg} }
+@STRING{pub-heinz-heise="Verlag Heinz Heise" }
+@STRING{pub-heinz-heise:adr="Helsdorfer Stra{\ss}e 7, D-30625, Hannover,
+		  Germany" }
+@STRING{j-lect-notes-comp-sci="Lecture Notes in Computer Science" }
+
+@Book{		  fogel:cvs:1999,
+  bibkey	= {fogel:cvs:1999},
+  abstract	= {This book teaches best practices of open source software
+		  development and uses CVS as its implementation tool. CVS is
+		  covered in detail, as is the GNU license, software design
+		  and development, coding styles, documentation procedures,
+		  testing, release of software, and troubleshooting.},
+  author	= {Karl Franz Fogel},
+  isbn		= {1-576-10490-7},
+  language	= {USenglish},
+  publisher	= pub-coriolis,
+  address	= pub-coriolis:adr,
+  title		= {{Open source development with {CVS}}},
+  url		= {\url{http://cvsbook.red-bean.com}},
+  year		= 1999,
+  num_pages	= 316,
+  price		= {39.99},
+  currency	= {USD},
+  library	= {Frei 163: RZ 4777}
+}
+
+@Manual{	  cederqvist.ea:cvs:2000,
+  bibkey	= {cederqvist.ea:cvs:2000},
+  title		= {Version Management with {CVS}},
+  author	= {Per Cederqvist and others},
+  year		= 2000,
+  url		= {\url{http://cvshome.org/docs/}}
+}
+
+@Misc{		  vogt:cvsauth:2001,
+  bibkey	= {vogt:cvsauth:2001},
+  title		= {cvsauth},
+  author	= {Martin Vogt},
+  url		= {\url{http://cvsauth.sourceforge.net}},
+  year		= 2001,
+  month		= apr
+}
+
+@Misc{		  cvshome:2001,
+  bibkey	= {cvshome:2001},
+  key		= {CVS},
+  title		= {Concurrent Version System},
+  url		= {\url{http://www.cvshome.org}},
+  year		= 2001,
+  month		= apr
+}
+
+@Misc{		  idealx:chroot:2001,
+  bibkey	= {idealix:chroot:2001},
+  key		= {idealix},
+  title		= {{Chrooted SSH CVS server How-to}},
+  institution	= {Idealx},
+  url		= {\url{http://www.idealx.org/prj/idx-chrooted-ssh-cvs/dist/chrooted-ssh-cvs-server.html}}
+		  ,
+  year		= 2001,
+  month		= jun
+}
+
+@Misc{		  hess:anonymous:2001,
+  bibkey	= {hess:anonymous:2001},
+  title		= {{Anonymous CVS access via ssh}},
+  author	= {Joey Hess},
+  url		= {\url{http://www.kitenet.net/programs/sshcvs/}},
+  year		= 2001,
+  month		= jun
+}
+
+@Misc{		  berezin:tunnel:2001,
+  bibkey	= {hess:anonymous:2001},
+  title		= {{Chrooted tunneled read--write CVS server: How-To}},
+  author	= {Anton Berezin},
+  url		= {\url{http://www.prima.eu.org/tobez/cvs-howto.html}},
+  year		= 2001,
+  month		= jun
+}
+
+@Misc{		  osdn:sourceforge:2001,
+  bibkey	= {osdn:sourceforge:2001},
+  title		= {{Sourceforge}},
+  key		= {open source development network},
+  institution	= {open source development network},
+  url		= {\url{http://www.sourceforge.net}},
+  year		= 2001,
+  month		= jun
+}
+
+@Misc{		  fsf:savannah:2001,
+  bibkey	= {fsf:savannah:2001},
+  key		= {free software foundation},
+  title		= {{Savannah}},
+  institution	= {Free Software Foundation},
+  url		= {\url{savannah.gnu.org}},
+  year		= 2001,
+  month		= jun
+}
+
+@Article{ tichy85rcs,
+    bibkey	= {tichy85rcs:1985},
+    author = "Walter F. Tichy",
+    title = "{RCS} - A System for Version Control",
+    journal = "Software - Practice and Experience",
+    volume = "15",
+    number = "7",
+    pages = "637-654",
+    year = "1985",
+    url = "citeseer.nj.nec.com/tichy91rcs.html" }
+
+@Article{	  heisel:specification:1995,
+  bibkey	= {heisel:specification:1995},
+  author	= {Maritta Heisel},
+  title		= {Specification of the {Unix} File System: {A} Comparative
+		  Case Study},
+  journal	= {Lecture Notes in Computer Science},
+  volume	= 936,
+  pages		= {475--488},
+  year		= 1995,
+  issn		= {0302-9743},
+  url		= {\url{http://ivs.cs.uni-magdeburg.de/~heisel/publications.html}}
+		  ,
+  abstract	= {The starting point of this investigation are two different
+		  formal specifications of the user's view of the Unix file
+		  system, one algebraic and one model-based. The different
+		  features exhibited by the specifications give rise to a
+		  discussion of desirable and undesirable properties of
+		  formal specifications. 1 Why yet another specification of
+		  the Unix file system? The Unix file system is one of the
+		  best (or at least most) specified software systems. Several
+		  versions have been published: [1, 3, 5] 1 . All of these
+		  versions are distinguished in important aspects, e.g. in
+		  the view that is considered or the executability of the
+		  specification. }
+}
+
+@Article{	  morgan.ea:unix-filesystem:1984,
+  bibkey	= {morgan.ea:unix-filesystem:1984},
+  author	= {Carroll Morgan and Bernard Sufrin},
+  title		= {Specification of the {UNIX} Filing System},
+  journal	= {IEEE Transactions on Software Engineering},
+  volume	= {SE-10},
+  number	= 2,
+  pages		= {128--142},
+  month		= mar,
+  year		= 1984
+}
+
+@Booklet{	  iso:z:2000,
+  key           = {ISOZ},
+  institution   = {ISO},
+  language      = {USenglish},
+  title         = "{Z} Formal Specification Notation --- Syntax, Type System
+                  and Semantics",
+  note          = "ISO/IEC 13568:2002, International Standard",
+  year          = 2002
+}
+:
+@Book{		  roscoe:csp:98,
+  author	= {A.W. Roscoe},
+  title		= {Theory and Practice of Concurrency},
+  publisher	= {Prentice-Hall},
+  address	= {Englewood Cliffs, NJ},
+  year		= 1998
+}
+
+@Misc{		  zeta,
+  bibkey	= {zeta},
+  key		= {zeta},
+  url		= {\url{http://uebb.cs.tu-berlin.de/zeta/}},
+  title		= {The {ZETA} System},
+}
+
+@Book{		  woodcock.ea:using:1996,
+  abstract	= {This book contains enough material for three complete
+		  courses of study. It provides an introduction to the world
+		  of logic, sets and relations. It explains the use of the
+		  Znotation in the specification of realistic systems. It
+		  shows how Z specifications may be refined to produce
+		  executable code; this is demonstrated in a selection of
+		  casestudies.This book is both authoritative and
+		  comprehensive. It strikes the right balance between the
+		  formality of mathematics and the practical needs of
+		  industrial softwaredevelopment. It is faithful to the draft
+		  ISO standard for Z. It covers the essentials of
+		  specification, refinement, and proof, revealing techniques
+		  never previouslypublished.},
+  author	= {Jim Woodock and Jim Davies},
+  price		= {{\pounds}18.95 or \$37.95},
+  length	= 391,
+  isbn		= {0-13-948472-8},
+  language	= {USenglish},
+  public	= {yes},
+  publisher	= {Prentice Hall},
+  title		= {Using Z},
+  localurl	= {\url{papers/1996/zedbook.pdf.gz}},
+  topic		= {formalism},
+  keywords	= {formal methods, Z},
+  library	= {FAW (25/91): 91: CD/3.2/125},
+  url		= {\url{http://softeng.comlab.ox.ac.uk/usingz/}},
+  year		= 1996,
+  timestamp	= 962966715
+}
+
+@Book{		  spivey:z_notation:1992,
+  bibkey	= {spivey:z_notation:92},
+  author	= {J. M. Spivey},
+  title		= {The {Z} Notation: A Reference Manual},
+  publisher	= {Prentice Hall International Series in Computer Science},
+  edition	= {2nd},
+  length	= 150,
+  year		= 1992,
+  isbn		= {013-978529-9},
+  price		= {{\pounds}18.99 (\$32.00) paperback},
+  localurl	= {\url{papers/1992/zrm.ps.gz}},
+  url		= {\url{http://spivey.oriel.ox.ac.uk/~mike/zrm/}},
+  annote	= {This is a revised edition of the first widely available
+		  reference manual on Z originally published in 1989. The
+		  book provides a complete and definitive guide to the use of
+		  Z in specifying information systems, writing specifications
+		  and designing implementations. \par Contents: Tutorial
+		  introduction; Background; The Z language; The mathematical
+		  tool-kit; Sequential systems; Syntax summary; Changes from
+		  the first edition; Glossary.}
+}
+
+@Misc{		  open:unix:1997,
+  key		= {Unix98},
+  bibkey	= {open:unix:1998},
+  year		= 1997,
+  institution	= {The Open Group},
+  title		= {{The Single {UNIX} Specification, Version 2: {Unix 98}}},
+  url		= {\url{http://www.unix-systems.org/}}
+}
+
+@Misc{		  open:unix:2002,
+  key		= {open:unix:2002},
+  year		= 2002,
+  institution	= {The Open Group and IEEE},
+  title		= {The Single {UNIX} Specification Version 3},
+  note		= {This standard superseeds the ``Single UNIX Specification
+		  Version 2'' (Unix 98) and the ``IEEE Std 1003.1-2001''
+		  (POSIX.1).},
+  abstract	= {This standard defines a standard operating system
+		  interface and environment, including a command interpreter
+		  (or "shell"), and common utility programs to support
+		  applications portability at the source code level. This
+		  standard is the single common revision to IEEE Std
+		  1003.1-1996, IEEE Std 1003.2-1992, and the Base
+		  Specifications of The Open Group Single UNIX Specification,
+		  Version 2. This standard is intended to be used by both
+		  applications developers and system implementors. It
+		  comprises four major components (each in an associated
+		  volume)},
+  url		= {\url{http://www.opengroup.org/onlinepubs/007904975/toc.htm}}
+		  
+}
+
+@Misc{		  itef:rfc2246:1999,
+  bibkey	= {itef:rfc2246:1999},
+  author	= {T. Dierks and C. Allen},
+  title		= {{RFC 2246}: The {TLS} Protocol Version 1},
+  month		= jan,
+  year		= 1999,
+  bibdate	= {Mon Sep 11 10:26:46 2000},
+  note		= {Status: proposed standard, supersedes SSL version 3.0
+		  available at \url{http://www.netscape.com/eng/ssl3/}},
+  url		= {\url{ftp://ftp.internic.net/rfc/rfc2246.txt}},
+  acknowledgement=ack-nhfb,
+  format	= {TXT=170401 bytes},
+  online	= {yes},
+  status	= {PROPOSED STANDARD}
+}
+
+@Article{	  santen:HOL:1998,
+  bibkey	= {santen:HOL:1998},
+  author	= {T. Santen},
+  title		= {On the Semantic Relation of {Z} and {HOL}},
+  journal	= j-lect-notes-comp-sci,
+  volume	= 1493,
+  pages		= {96--115},
+  year		= 1998,
+  coden		= {LNCSD9},
+  issn		= {0302-9743},
+  url		= {\url{http://swt.cs.tu-berlin.de/~santen/pub/zum98.html}},
+  abstract	= {We investigate the relation between the semantic models of
+		  Z, as proposed by the Z draft standard, and of the
+		  polymorphic version of higher-order logic that is the basis
+		  for proof systems such as HOL and Isabelle/HOL.
+		  Disregarding the names in schema types, the type models of
+		  the two systems can be identified up to isomorphism. That
+		  isomorphism determines to a large extent how terms of Z can
+		  be represented in higher-order logic. This justifies the
+		  soundness of proof support for Z based on higher-order
+		  logic, such as the encoding HOL-Z of Z in Isabelle/HOL. The
+		  comparison of the two semantic models also motivates a
+		  discussion of open issues in the development of a complete
+		  semantics of Z, in particular concerning the type system,
+		  generic constructs, and approaches to base the semantics of
+		  Z on a small kernel language. },
+  bibdate	= {Tue Jan 5 08:21:58 MST 1999},
+  acknowledgement=ack-nhfb
+}
+
+@Article{	  sandhu.ea:role-based:1996,
+  author	= {Ravi S. Sandhu and Edward J. Coyne and Hal L. Feinstein
+		  and Charles E. Youman},
+  title		= {Role-Based Access Control Models},
+  journal	= {Computer},
+  year		= 1996,
+  volume	= 29,
+  number	= 2,
+  pages		= {38--47},
+  month		= feb,
+  url		= {\url{http://ite.gmu.edu/list/journals/computer/pdf_ver/i94rbac(org).pdf}}
+		  ,
+  localpdf	= {papers/1996/sandhu-rbac.pdf},
+  localps	= {papers/1996/sandhu-rbac.ps.gz},
+  abstract	= { Abstract This article introduces a family of reference
+		  models for rolebased acce ss control (RBAC) in which
+		  permissions are associated with roles, and users are made
+		  members of appropriate roles. This greatly simplifies
+		  management of permiss ions. Roles are closely related to
+		  the concept of user groups in access control. However, a
+		  role brings together a set of users on one side and a set
+		  of permiss ions on the other, whereas user groups are
+		  typically defined as a set of users only.
+		  
+		  The basic concepts of RBAC originated with early multi-user
+		  computer systems. Th e resurgence of interest in RBAC has
+		  been driven by the need for general-purpose customizable
+		  facilities for RBAC and the need to manage the
+		  administration of R BAC itself. As a consequence RBAC
+		  facilities range from simple to complex. This article
+		  describes a novel framework of reference models to
+		  systematically addres s the diverse components of RBAC, and
+		  their interactions.},
+  issn		= {0018-9162},
+  keywords	= {Computational linguistics; Computer control systems;
+		  Computer simulation; Computer software; Data abstraction;
+		  Database systems; Discretionary access control; Encoding
+		  (symbols); Integration; Mandator access control; Role based
+		  access control; Semantics; Software encoding; User
+		  interfaces}
+}
+
+@InCollection{	  kolyang.ea:hol:96,
+  author	= {Kolyang and T. Santen and B. Wolff},
+  title		= {A Structure Preserving Encoding of {Z} in
+		  {I}sabelle/{HOL}},
+  booktitle	= {Proceedings of {TPHOL}s'96},
+  editor	= {J. von Wright and J. Grundy and J. Harrison},
+  pages		= {283--298},
+  publisher	= {Springer},
+  address	= {Berlin},
+  series	= {LNCS 1125},
+  year		= 1996
+}
+
+@Book{		  frisch:administration:1995,
+  bibkey	= {frisch:administration:1995},
+  abstract	= {Covering all major versions of UNIX, this second edition
+		  of Essential System Administration provides a compact,
+		  manageable introduction to the tasks faced by everyone
+		  responsible for a UNIX system. Whether you use a
+		  stand-alone UNIX system, routinely provide administrative
+		  support for a larger shared system, or just want an
+		  understanding of basic administrative functions, this book
+		  is for you. Offers expanded sections on networking,
+		  electronic mail, security, and kernel configuration},
+  author	= {{\AE}leen Frisch},
+  address	= pub-ora:adr,
+  series	= {A Nutshell handbook},
+  publisher	= pub-ora,
+  isbn		= {1-56592-127-5},
+  lccn		= {QA76.76.O63F78 1995},
+  language	= {USenglish},
+  num_pages	= {xxvii + 758},
+  price		= {32.95},
+  currency	= {USD},
+  keywords	= {system administration; UNIX},
+  public	= {yes},
+  title		= {Essential System Administration},
+  subtitle	= {Help for {UNIX} System Administrators},
+  url		= {\url{http://www.oreilly.com/catalog/esa2}},
+  year		= 1995,
+  month		= dec,
+  edition	= {Second}
+}
+
+@InProceedings{	  paulson:isabelle:1988,
+  author	= {Lawrence C. Paulson},
+  title		= {Isabelle: The Next Seven Hundred Theorem Provers (system
+		  abstract)},
+  crossref	= {cade9},
+  pages		= {772--773},
+  url		= {\url{http://www.cl.cam.ac.uk/users/lcp/papers/CADE9.dvi.gz}}
+		  
+}
+
+@Book{		  paulson:isabelle:1994,
+  author	= {Lawrence C. Paulson},
+  title		= {Isabelle: a generic theorem prover},
+  volume	= 828,
+  publisher	= {Springer-Verlag Inc.},
+  address	= {New York, NY, USA},
+  isbn		= {3-540-58244-4, 0-387-58244-4},
+  pages		= {xvii + 321},
+  year		= 1994
+}
+
+@Book{		  shaw:arch:96,
+  author	= {Mary Shaw and David Garlan},
+  title		= {Software Architecture: Perspectives on an Emerging
+		  Discipline},
+  publisher	= {Prentice-Hall},
+  address	= {Englewood Cliffs, NJ},
+  year		= 1996
+}
+
+@InCollection{	  Allen94ICSE,
+  author	= {Robert Allen and David Garlan},
+  title		= {Formalizing Architectural Connection},
+  key		= {Allen},
+  booktitle	= {Proceedings of the Sixteenth International Conference on
+		  Software Engineering},
+  year		= 1994,
+  pages		= {71--80}
+}
+
+@InCollection{	  Abowd93FSE,
+  author	= {Gregory Abowd and Robert Allen and David Garlan},
+  title		= {Using Style to Understand Descriptions of Software
+		  Architecture},
+  key		= {Abowd},
+  booktitle	= {Proceedings of SIGSOFT'93: Foundations of Software
+		  Engineering},
+  year		= 1993,
+  publisher	= {ACM Press},
+  series	= {Software Engineering Notes 18(5)},
+  pages		= {9--20}
+}
+
+@InCollection{	  garlan:arch:93,
+  author	= {David Garlan and Mary Shaw},
+  title		= {An Introduction to Software Architecture},
+  key		= {Garlan},
+  booktitle	= {Advances in Software Engineering and Knowledge
+		  Engineering},
+  year		= 1993,
+  publisher	= {World Scientific Publishing Company},
+  editor	= {V.~Ambriola and G.~Tortora},
+  address	= {Singapore},
+  pages		= {1--39}
+}
+
+@Book{		  paulson:isabelle:1994-b,
+  author	= {Lawrence C. Paulson},
+  title		= {Isabelle: a generic theorem prover},
+  volume	= 828,
+  publisher	= {Springer-Verlag Inc.},
+  address	= {New York, NY, USA},
+  isbn		= {3-540-58244-4, 0-387-58244-4},
+  pages		= {xvii + 321},
+  year		= 1994
+}
+
+@Book{		  kruchten:rup:1998,
+  author	= {Philippe Kruchten},
+  title		= {The Rational Unified Process, An Introduction},
+  publisher	= {Addison-Wesley},
+  series	= {The Addison-Wesley Object Technology Series},
+  year		= 1998,
+  month		= dec,
+  isbn		= 0201604590
+}
+
+@Book{		  brohl.ea:vmodell:1995,
+  author	= {A.-P. Br{\"o}hl and W. Dr{\"o}schel (Hrsg.)},
+  title		= {Das V-Modell --- Der Standard f{\"u}r die
+		  Softwareentwicklung mit Praxisleitfaden},
+  series	= {Software --- Anwendungssysteme --- Informationssysteme},
+  edition	= {Second},
+  publisher	= {Oldenbourg},
+  address	= {M{\"u}nchen},
+  year		= 1995
+}
+
+@Book{		  shaw:arch:96-b,
+  author	= {Mary Shaw and David Garlan},
+  title		= {Software Architecture: Perspectives on an Emerging
+		  Discipline},
+  publisher	= {Prentice-Hall},
+  address	= {Englewood Cliffs, NJ},
+  year		= 1996
+}
+
+@InCollection{	  garlan:arch:93-b,
+  author	= {David Garlan and Mary Shaw},
+  title		= {An Introduction to Software Architecture},
+  key		= {Garlan},
+  booktitle	= {Advances in Software Engineering and Knowledge
+		  Engineering},
+  year		= 1993,
+  publisher	= {World Scientific Publishing Company},
+  editor	= {V. Ambriola and G. Tortora},
+  address	= {Singapore},
+  pages		= {1--39}
+}
+@Misc{miller:sudo:2002,
+  author = 	 {Todd Miller},
+  title = 	 {Sudo},
+  month = 	 jul,
+  year = 	 2002,
+  url = {\url{http://www.courtesan.com/sudo/}}
+}
+@Book{            gordon.ea:hol:1993,
+  bibkey        = {gordon.ea:hol:1993},
+  author        = {Mike J. C. Gordon and Tom F. Melham},
+  title         = {Introduction to {HOL}},
+  publisher     = {Cambridge University Press},
+  year          = 1993,
+  pages         = 472,
+  abstract      = { Currently being applied to a wide variety of problems,
+                  Higher-Order Logic (HOL) is a proof development system
+                  intended for applications to both hardware and software.
+                  This self-contained description contains a tutorial
+                  introduction and most of the material needed for day-to-day
+                  work.}
+}
+@InProceedings{Mantel:inp:2001,
+  author =       {Heiko Mantel},
+  title =        {{Preserving Information Flow Properties under Refinement}},
+  booktitle =    {Proceedings of the IEEE Symposium on Security and Privacy},
+  pages =        {78--91},
+  year =         {2001},
+  address =      {Oakland, CA, USA},
+  month =        {May 14--16},
+  publisher = {IEEE Computer Society}
+}
+@InProceedings{juerjens:secrecy-preserving:2001,
+  author = 	 {Jan J{\"u}rjens},
+  title = 	 {Secrecy-preserving Refinement},
+  booktitle = 	 {Formal Methods Europe (FME)},
+  year =	 2001,
+  volume =	 {LNCS 2021},
+  month =	 {12-16 March}
+}
+@InProceedings{santen:confidentiality-preserving:2002,
+  author = 	 {Thomas Santen and Maritta Heisel and Andreas Pfitzmann},
+  title = 	 {Confidentiality-Preserving
+Refinement is Compositional - Sometimes.},
+  booktitle = 	 {Proc.  7th European Symposium on
+Research in Computer Security (ESORICS)},
+  pages =	 {194--211},
+  year =	 2002,
+  volume =	 {LNCS 2502}
+}
+@InProceedings{jacobs:derivation:1998,
+  author = 	 {Jeremy Jacob},
+  title = 	 {On the Derivation of Secure Components.},
+  booktitle = 	 {IEEE Symposion on Security and Privacy},
+  pages =	 {242--247},
+  year =	 1989,
+  address =	 {Oakland, CA.}
+}
+
+@InProceedings{   sandhu.ea:decentralized:1998,
+  author        = {R. Sandhu and G-J. Ahn},
+  year          = 1998,
+  title         = {Decentralized Group Hierarchies in {UNIX}: An Experiment
+                  and Lessons Learned},
+  booktitle     = {Proc. 21st {NIST}-{NCSC} National Information Systems
+                  Security Conference},
+  pages         = {486--502},
+  abstract      = {Unix includes a simple group mechanism for access control.
+                  In this paper we describe an experiment to extend this
+                  mechanism in two significant ways that are valuable in
+                  managing group-based access control in large-scale systems.
+                  The goal of our experiment is to demonstrate how group
+                  hierarchies (where groups include other groups) and
+                  decentralized user-group assignment (where administrators
+                  are selectively delegated authority to assign selected
+                  users to selected groups) can be implemented by means of
+                  Unix setgid programs. In both respects the experimental
+                  goal is to implement previously published models,
+                  specifically RBAC96 for group hierarchies and URA97 for
+                  decentralized user-group assignment. Our results indicate
+                  that Unix has adequate flexibility to accommodate modern
+                  access control models to some extent, but that it also has
+                  critical limitations. The paper discusses how additional
+                  setgid based mechanisms could be implemented to make our
+                  implementation more scalable.},
+  url           = {\url{http://ite.gmu.edu/list/confrnc/nissc/pdf_ver/n98unix.pdf}}
+
+}
+@InProceedings{   kolyang.ea:z:96,
+  author        = {Kolyang and T. Santen and B. Wolff},
+  booktitle     = {Theorem Proving in Higher Order Logics},
+  editor        = {J. von Wright and J. Grundy and J. Harrison},
+  pages         = {283--298},
+  publisher     = {Springer Verlag},
+  series        = {LNCS 1125},
+  title         = {A Structure Preserving Encoding of {Z} in {Isabelle/HOL}},
+  year          = 1996,
+  language      = {USenglish}
+}
+@InProceedings{   henson.ea:logic:1998,
+  author        = {Martin C. Henson and Steve Reeves},
+  title         = {A Logic for the Schema Calculus},
+  booktitle     = {ZUM'98: The Z Formal Specification Notation},
+  editor        = {J. P. Bowen and A. Fett and M. G. Hinchey},
+  publisher     = {Springer-Verlag},
+  series        = {Lecture Notes in Computer Science},
+  volume        = 1493,
+  pages         = {172--191},
+  year          = 1998
+}
+
+@Misc{ subversion,
+  title={Subversion},
+  year=2002,
+  url={\url{http://subversion.tigris.org}}
+  }
+
+  @Misc{Linux-LSM,
+  title={Linux Security Module},
+  year=2002,
+  url={\url{http://lsm.immunix.org/}}
+  }
+
+  @Misc{nserver,
+  title={cvs-nserver},
+  year=2002,
+  url={\url{http://cvs-nserver.sourceforge.net/}}
+  }
+  @Misc{opencm,
+  title={{OpenCM}},
+  year=2002,
+  url={\url{http://www.opencm.org}}
+  }
+
+@Article{	  brucker.ea:hol-z:2002,
+  abstract	= { We present a new proof environment for the specification
+		  language Z. The basis is a semantic representation of Z in
+		  a structure-preserving, shallow embedding in Isabelle/HOL.
+		  On top of the embedding, new proof support for the Z schema
+		  calculus and for proof structuring are developed. Thus, we
+		  integrate Z into a well-known and trusted theorem prover
+		  with advanced deduction technology such as higher-order
+		  rewriting, tableaux-based provers and arithmetic decision
+		  procedures. A further achievement of this work is the
+		  integration of our embedding into a new tool-chain
+		  providing a Z-oriented type checker, documentation
+		  facilities and macro support for refinement proofs; as a
+		  result, the gap has been closed between a logical embedding
+		  proven correct and a \emph{tool} suited for applications of
+		  non-trivial size.},
+  author	= {Achim D. Brucker and Frank Rittinger and Burkhart Wolff},
+  journal	= {Journal of Universal Computer Science},
+  language	= {USenglish},
+  title		= {{HOL-Z 2.0}: A Proof Environment for {Z}-Specifications},
+  volume	= 9,
+  year		= 2003,
+  number	= 2,
+  pages		= {152--172},
+}
+
+@Manual{	  cederqvist.ea:cvs:2000,
+  bibkey	= {cederqvist.ea:cvs:2000},
+  title		= {Version Management with {CVS}},
+  author	= {Per Cederqvist and others},
+  year		= 2000
+}
+
+@Misc{		  cvshome:2001,
+  bibkey	= {cvshome:2001},
+  key		= {CVS},
+  note		= {{http://www.cvshome.org}}
+}
+
+@Book{		  fogel:cvs:1999,
+  bibkey	= {fogel:cvs:1999},
+  author	= {Karl Fogel},
+  isbn		= {1-576-10490-7},
+  language	= {USenglish},
+  publisher	= {The Coriolis Group},
+  title		= {Open source development with {CVS}},
+  year		= 1999
+}
+
+@Book{		  frisch:administration:1995,
+  bibkey	= {frisch:administration:1995},
+  author	= {{\AE}leen Frisch},
+  language	= {USenglish},
+  title		= {Essential System Administration},
+  subtitle	= {Help for {UNIX} System Administrators},
+  year		= 1995,
+  publisher	= {O'Reilly}
+}
+
+@InCollection{	  garlan:arch:93,
+  author	= {David Garlan and Mary Shaw},
+  title		= {An Introduction to Software Architecture},
+  booktitle	= {Advances in Software Engineering and Knowledge
+		  Engineering},
+  year		= 1993,
+  publisher	= {World Scientific Publishing Company},
+  editor	= {V.~Ambriola and G.~Tortora},
+  pages		= {1--39}
+}
+
+@InProceedings{	  heisel:specification:1995,
+  bibkey	= {heisel:specification:1995},
+  author	= {Maritta Heisel},
+  title		= {Specification of the {Unix} File System: {A} Comparative
+		  Case Study},
+  editor	= {V.S. Alagar and M. Nivat},
+  booktitle	= {Algebraic Methodology and Software Technology},
+  publisher	= {Springer Verlag},
+  language	= {USEnglish},
+  series	= {LNCS 936},
+  pages		= {475--488},
+  year		= 1995
+}
+
+@Booklet{	  iso:z:2000,
+  key		= {ISOZ},
+  institution	= {ISO},
+  language	= {USenglish},
+  title		= {{Z} Formal Specification Notation --- Syntax, Type System
+		  and Semantics},
+  note		= {{ISO/IEC} 13568:2002, International Standard},
+  year		= 2002
+}
+
+@InCollection{	  kolyang.ea:hol:96,
+  author	= {Kolyang and T. Santen and B. Wolff},
+  title		= {A Structure Preserving Encoding of {Z} in
+		  {I}sabelle/{HOL}},
+  booktitle	= {Proceedings of {TPHOL}s'96},
+  editor	= {J. von Wright and J. Grundy and J. Harrison},
+  pages		= {283--298},
+  publisher	= {Springer},
+  series	= {LNCS 1125},
+  year		= 1996
+}
+
+@Book{		  roscoe:csp:98,
+  author	= {A.W. Roscoe},
+  title		= {Theory and Practice of Concurrency},
+  publisher	= {Prentice Hall},
+  year		= 1998
+}
+
+@InProceedings{	  sandhu.ea:decentralized:1998,
+  author	= {R. Sandhu and G-J. Ahn},
+  year		= 1998,
+  title		= {Decentralized Group Hierarchies in {UNIX}: An Experiment
+		  and Lessons Learned},
+  booktitle	= {Proc. 21st {NIST}-{NCSC} National Information Systems
+		  Security Conference},
+  pages		= {486--502},
+  abstract	= {Unix includes a simple group mechanism for access control.
+		  In this paper we describe an experiment to extend this
+		  mechanism in two significant ways that are valuable in
+		  managing group-based access control in large-scale systems.
+		  The goal of our experiment is to demonstrate how group
+		  hierarchies (where groups include other groups) and
+		  decentralized user-group assignment (where administrators
+		  are selectively delegated authority to assign selected
+		  users to selected groups) can be implemented by means of
+		  Unix setgid programs. In both respects the experimental
+		  goal is to implement previously published models,
+		  specifically RBAC96 for group hierarchies and URA97 for
+		  decentralized user-group assignment. Our results indicate
+		  that Unix has adequate flexibility to accommodate modern
+		  access control models to some extent, but that it also has
+		  critical limitations. The paper discusses how additional
+		  setgid based mechanisms could be implemented to make our
+		  implementation more scalable.}
+}
+
+@Article{	  sandhu.ea:role-based:1996,
+  author	= {Ravi S. Sandhu and Edward J. Coyne and Hal L. Feinstein
+		  and Charles E. Youman},
+  title		= {Role-Based Access Control Models},
+  journal	= {Computer},
+  year		= 1996,
+  volume	= 29,
+  number	= 2,
+  pages		= {38--47}
+}
+
+@Book{		  shaw:arch:96,
+  author	= {Mary Shaw and David Garlan},
+  title		= {Software Architecture: Perspectives on an Emerging
+		  Discipline},
+  publisher	= {Prentice Hall},
+  year		= 1996
+}
+
+@TechReport{	  brucker.ea:cvs-server:2002,
+  author	= {Achim D. Brucker and Frank Rittinger and Burkhart Wolff},
+  institution	= {Albert-Ludwigs-Universit{\"a}t Freiburg},
+  language	= {USenglish},
+  number	= 182,
+  title		= {A {CVS-Server} Security Architecture --- Concepts and
+		  Formal Analysis},
+  abstract	= {We present a secure architecture of a CVS-server, its
+		  implementation (i.e. mainly its configuration) and its
+		  formal analysis. Our CVS-server is uses cvsauth, that
+		  provides protection of passwords and protection of some
+		  internal data of the CVS repository. In contrast to other
+		  (security oriented) CVS-architectures, our approach allows
+		  the CVS-server run on an open filesystem, i.e. a filesystem
+		  where users can have direct access both by CVS-commands and
+		  by standard UNIX/POSIX commands such as \unixcmd{mv}.
+		  
+		  For our secure architecture of the CVS-server, we provide a
+		  formal specification and security analysys. The latter is
+		  based on a refinement mapping high-level security
+		  requirements on the architecture on low-level security
+		  mechanisms on the UNIX/POSIX filesystem level.
+		  
+		  The purpose of the formal analysis of the secure CVS-server
+		  architecture is twofold: First, it is the bases for the
+		  specification of mutual security properties such as
+		  non-repudiation, authentication and access control for this
+		  architecture. Second, the mapping of the architecture on
+		  standard security implementation technology is described.
+		  
+		  Thus, our approach can be seen as a method to give a formal
+		  underpinning for the usually tricky business of system
+		  administrators.},
+  keywords	= {security architecture, Concurrent Versions System (CVS),
+		  Z, formal methods, refinement},
+  year		= 2002,
+  num_pages	= 100
+}
+
+@Book{		  paulson:isabelle:1994,
+  author	= {Lawrence C. Paulson},
+  title		= {Isabelle: a generic theorem prover},
+  series	= {LNCS 828},
+  publisher	= {Springer},
+  year		= 1994
+}
+
+@Book{		  spivey:z_notation:1992,
+  bibkey	= {spivey:z_notation:92},
+  author	= {J. M. Spivey},
+  series	= {Prentice Hall International Series in Computer Science},
+  title		= {The {Z} Notation: A Reference Manual},
+  publisher	= {Prentice Hall},
+  length	= 150,
+  year		= 1992,
+  isbn		= {013-978529-9}
+}
+
+@Book{		  woodcock.ea:using:1996,
+  author	= {Jim Woodcock and Jim Davies},
+  language	= {USenglish},
+  public	= {yes},
+  publisher	= {Prentice Hall},
+  title		= {Using Z: {S}pecification, {R}efinement, and {P}roof},
+  series	= {Prentice Hall International Series in Computer Science},
+  year		= 1996
+}
+
+@Misc{		  zeta,
+  bibkey	= {zeta},
+  key		= {Zeta},
+  note		= {{http://uebb.cs.tu-berlin.de/zeta/}}
+}
+
+@Book{		  open:unix:2002,
+  key		= {SUSV},
+  year		= 2002,
+  publisher	= {The Open Group and IEEE},
+  title		= {The Single {UNIX} Specification Version 3},
+  note		= {This standard superseeds the ``Single UNIX Specification
+		  Version 2'' (Unix 98) and the ``IEEE Standard 1003.1-2001''
+		  (POSIX.1).},
+  abstract	= {This standard defines a standard operating system
+		  interface and environment, including a command interpreter
+		  (or "shell"), and common utility programs to support
+		  applications portability at the source code level. This
+		  standard is the single common revision to IEEE Std
+		  1003.1-1996, IEEE Std 1003.2-1992, and the Base
+		  Specifications of The Open Group Single UNIX Specification,
+		  Version 2. This standard is intended to be used by both
+		  applications developers and system implementors. It
+		  comprises four major components (each in an associated
+		  volume)}
+}
+
+@Misc{		  pserverbug01,
+  title		= {{CERT} Advisory {CA-2003-02} Double-Free Bug in {CVS}
+		  Server},
+  url		= {http://www.cert.org/advisories/CA-2003-02.html},
+  instiution	= {CERT},
+  year		= 2003
+}
+
+@Misc{		  pserverbug02,
+  key		= {pserverbug},
+  mytitle	= {Security hole affects many CVS pserver installations},
+  note		= {\url{http://mail-index.netbsd.org/tech-security/1997/06/27/0009.html}}
+		  ,
+  myyear	= 1997
+}
+
+@Book{		  gordon.ea:hol:1993,
+  bibkey	= {gordon.ea:hol:1993},
+  author	= {Mike J. C. Gordon and Tom F. Melham},
+  title		= {Introduction to HOL},
+  publisher	= {Cambridge University Press},
+  year		= 1993,
+  pages		= 472,
+  isbn		= 0521441897,
+  abstract	= { Currently being applied to a wide variety of problems,
+		  Higher-Order Logic (HOL) is a proof development system
+		  intended for applications to both hardware and software.
+		  This self-contained description contains a tutorial
+		  introduction and most of the material needed for day-to-day
+		  work.}
+}
+
+@Article{	  paulson98inductive,
+  author	= {Lawrence C. Paulson},
+  title		= {The Inductive Approach to Verifying Cryptographic
+		  Protocols},
+  journal	= {Journal of Computer Security},
+  volume	= 6,
+  pages		= {85--128},
+  year		= 1998
+}
+
+@Book{		  nipkow.ea:isabelle:2002,
+  author	= {Tobias Nipkow and Lawrence C. Paulson and Markus Wenzel},
+  title		= {Isabelle/HOL --- A Proof Assistant for Higher-Order
+		  Logic},
+  publisher	= {Springer},
+  series	= {LNCS},
+  volume	= 2283,
+  abstract	= {This book is a self-contained introduction to interactive
+		  proof in higher-order logic (HOL), using the proof
+		  assistant Isabelle2002. It is a tutorial for potential
+		  users rather than a monograph for researchers. The book has
+		  three parts.
+		  
+		  1. Elementary Techniques shows how to model functional
+		  programs in higher-order logic. Early examples involve
+		  lists and the natural numbers. Most proofs are two steps
+		  long, consisting of induction on a chosen variable followed
+		  by the auto tactic. But even this elementary part covers
+		  such advanced topics as nested and mutual recursion. 2.
+		  Logic and Sets presents a collection of lower-level tactics
+		  that you can use to apply rules selectively. It also
+		  describes Isabelle/HOL's treatment of sets, functions and
+		  relations and explains how to define sets inductively. One
+		  of the examples concerns the theory of model checking, and
+		  another is drawn from a classic textbook on formal
+		  languages. 3. Advanced Material describes a variety of
+		  other topics. Among these are the real numbers, records and
+		  overloading. Advanced techniques are described involving
+		  induction and recursion. A whole chapter is devoted to an
+		  extended example: the verification of a security protocol.
+		  },
+  url		= {\url{http://www4.in.tum.de/~nipkow/LNCS2283/}},
+  year		= 2002,
+  localurl	= {\url{/papers/2002/tutorial.pdf}}
+}
+@InProceedings{juerjens:secrecy-preserving:2001,
+  author =       {Jan J{\"u}rjens},
+  title =        {Secrecy-preserving Refinement},
+  booktitle =    {Formal Methods Europe (FME)},
+  year =         2001,
+  volume =       {2021},
+  series={LNCS}
+}
+
+@InProceedings{santen:confidentiality-preserving:2002,
+  author =       {Thomas Santen and Maritta Heisel and Andreas Pfitzmann},
+  title =        {Confidentiality-Preserving
+	  Refinement is Compositional - Sometimes.},
+  booktitle =    {ESORICS},
+  pages =        {194--211},
+  year =         2002,
+  volume =       {LNCS 2502}
+}
+
+
+
+@InProceedings{	  brucker.ea:case:2003,
+  author	= {Achim D. Brucker and Burkhart Wolff},
+  title		= {A Case Study of a Formalized Security Architecture},
+  booktitle	= {Electronic Notes in Theoretical Computer Science},
+  volume	= 80,
+  publisher	= {Elsevier Science Publishers},
+  year		= 2003,
+  language	= {USenglish},
+}
+

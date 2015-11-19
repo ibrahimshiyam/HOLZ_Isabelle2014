@@ -1,0 +1,4 @@
+
+SUBJAVANODES	= text zirp nmz # graphics stmabsy
+SUBNODES	= $(SUBJAVANODES)
+NODEKIND	= javagroup

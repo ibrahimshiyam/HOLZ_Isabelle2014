@@ -1,0 +1,350 @@
+# The table of abstract lexems of Z / DZ / mSZ 
+# and their mapping to concrete languages.
+# $Id: LEXTABLE,v 1.7 2000/07/06 09:18:24 wg Exp $
+
+# This table is used to generate according Java and JavaCC 
+# files (by the program genlexis). 
+#
+# An entry in the table consists of sentences of the syntax
+#
+#  pizza-case ; AL; "Comment"; Token1 [:Flags1] ; .... ; TokenN [:FlagsN] .
+#
+# where \" may be used to escape " inside of "..." parts. Newline is not 
+# significant; sentences are terminated by a dot ("."). 
+# 
+# AL is the abstract language an entry belongs to (currently Z,
+# DZ, MSZ, LEX, and INTERN). It follows a sequence of tokens with 
+# optional flags for each concrete language. TokenI is a JavaCC regular 
+# expression. FlagsI gives lexical characteristcs of a token,
+# and is a sequence of letters as follows:
+#
+# L - newline to the left is offside 
+# R - newline to the right is offside 
+
+
+# Declare concrete language names
+#   in general a line such as "LaTeX; ASCII; HTML ... ."
+LaTeX.
+
+# The Table
+Aggreg                  ; MSZ; "Aggregation keyword (configurations)."
+                        ; "\\Aggreg":R
+                        .
+And                     ; Z; "Logical conjunction."
+                        ; "\\land":LR
+                        .
+AndState                ; MSZ; "And state declaration."
+                        ; "\\AndState"
+                        .
+Arg                     ; Z; "Argument placeholder."
+                        ; "\\_"
+                        .
+Assoc                   ; MSZ; "Association keyword (configurations)."
+                        ; "\\Assoc":R
+                        .
+Await                   ; DZ; "Await operator."
+                        ; "\\dawait":R
+                        .
+BasicState              ; MSZ; "Basic state declaration."
+                        ; "\\BasicState"
+                        .
+Choice                  ; DZ; "Choice operator."
+                        ; "\\dchoice":LR
+                        .
+Chop                    ; DZ; "Chop operator."
+                        ; "\\dchop":LR
+                        .
+Colon                   ; Z; "Colon."
+                        ; ":":LR
+                        .
+Comma                   ; Z; "Comma."
+                        ; ",":LR
+                        .
+Compose                 ; Z; "Sequential composition."
+                        ; "\\semi":LR
+                        .
+Compute                 ; DZ; "Computation."
+                        ; "\\dcompute":LR
+                        .
+Connector               ; MSZ; "Connector declaration (statecharts)."
+                        ; "\\Connector"
+                        .
+Cross                   ; Z; "Cartesian product."
+                        ; "\\cross":LR
+                        .
+Data                    ; MSZ; "Data role."
+                        ; "\\Data"
+                        .
+Defeq                   ; Z; "Definining equality."
+                        ; "==" | "\\defs" :LR
+                        .
+Defsyn                  ; Z; "Syntax (free type) definition equality."
+                        ; "::=":LR
+                        .
+Delta                   ; Z; "Delta (schema operator)."
+                        ; "\\Delta":R
+                        .
+Derived                 ; MSZ; "Derived attribute."
+                        ; "\\Derived":R
+                        .
+Dot                     ; Z; "Selection dot."
+                        ; ".":LR
+                        .
+Duration                ; DZ; "Duration predicate."
+                        ; "\\dDuration"
+                        .
+Dyn                     ; DZ; "Dynamic text."
+                        ; "\\Dyn":R
+                        .
+Else                    ; Z; "Else"
+                        ; "\\ELSE":LR
+                        .
+Enrich                  ; MSZ; "Enrichment."
+                        ; "\\Enrich":R
+                        .
+Everywhere              ; DZ; "Temporal everywhere."
+                        ; "\\deverywhere":R
+                        .
+Exists                  ; Z; "Existential quantor."
+                        ; "\\exists":R
+                        .
+Exists1                 ; Z; "Unique existential quantor."
+                        ; "\\exists_1":R
+                        .
+False                   ; Z; "False."
+                        ; "false"
+                        .
+Flow                    ; MSZ; "Flow Declaration (?)."
+                        ; "\\Flow":R
+                        .
+FollowedBy              ; DZ; "Overlapping chop operator."
+                        ; "\\dseq":LR
+                        .
+Forall                  ; Z; "Universal quantor."
+                        ; "\\forall":R
+                        .
+Goto                    ; MSZ; "Goto state."
+                        ; "\\Goto":LR
+                        .
+Hide                    ; Z; "Schema hiding."
+                        ; "\\hide":LR
+                        .
+If                      ; Z; "If."
+                        ; "\\IF":R
+                        .
+Iff                     ; Z; "If and only if."
+                        ; "\\iff":LR
+                        .
+Implies                 ; Z; "Implies."
+                        ; "\\implies":LR
+                        .
+Init                    ; MSZ; "Init role."
+                        ; "\\Init":R
+                        .
+Internflow              ; MSZ; "Internal flow declaration (?)."
+                        ; "\\InternFlow"
+                        .
+Input                   ; MSZ; "Input attribute."
+                        ; "\\Input":R
+                        .
+Lambda                  ; Z; "Lambda."
+                        ; "\\lambda":R
+                        .
+Lbind                   ; Z; "Left binding bracket."
+                        ; "\\lblot" | "\\lbind" :R
+                        .
+LeftAssoc               ; Z; "Left associtivity indicator."
+                        ; "\\leftassoc"
+                        .
+Lglue                   ; INTERN; "Left glueing bracket (for pretty printing)."
+                        ; "@@lglue@@"
+                        .
+Lbrack                  ; Z; "Left square bracket."
+                        ; "[":R
+                        .
+Ldata                   ; Z; "Left chevron bracket (free type)."
+                        ; "\\ldata":R
+                        .
+Leadsto                 ; DZ; "Temporal leadsto."
+                        ; "\\dleadsto":LR
+                        .
+Length                  ; DZ; "Length predicate."
+                        ; "\\dLength"
+                        .
+Let                     ; Z; "Let abbreviation."
+                        ; "\\LET":R
+                        .
+Lgroup                  ; LEX; "Left macro parameter group bracket."
+                        ; "{"
+                        .
+Linesep                 ; Z; "Line separator."
+                        ; "\\\\"
+                        .
+ListArg			; Z; "List argument place holder."
+			; ",,"
+			.
+Lparenth                ; Z; "Left parenth."
+                        ; "(":R
+                        .
+Lset                    ; Z; "Left set bracket."
+                        ; "\\{":R
+                        .
+Lstate                  ; DZ; "Left state predicate."
+                        ; "\\dlstate":R
+                        .
+Ltrans                  ; DZ; "Left transition predicate."
+                        ; "\\dltrans":R
+                        .
+Mid                     ; Z; "Mid."
+                        ; "|" | "\\mid":LR
+                        .
+Mu                      ; Z; "Mu."
+                        ; "\\mu":R
+                        .
+Not                     ; Z; "Logical not"
+                        ; "\\lnot":R
+                        .
+Or                      ; Z; "Logical or."
+                        ; "\\lor":LR
+                        .
+Pipe                    ; Z; "Schema piping."
+                        ; "\\pipe":LR
+                        .
+Pre                     ; Z; "Schema precondition."
+                        ; "\\pre":R
+                        .
+Preempt                 ; DZ; "Preemption."
+                        ; "\\dpreempt":LR
+                        .
+Port                    ; MSZ; "Port role."
+                        ; "\\Port":R
+                        .
+Power                   ; Z; "Power set."
+                        ; "\\power":R
+                        .
+Property                ; MSZ; "Property role."
+                        ; "\\Property":R
+                        .
+Prefix                  ; DZ; "Prefix predicate."
+                        ; "\\dprefix":R
+                        .
+Project                 ; Z; "Schema projection."
+                        ; "\\project":LR
+                        .
+Rbind                   ; Z; "Right binding bracket."
+                        ; "\\rblot" | "\\rbind" :L
+                        .
+Rbrack                  ; Z; "Right square bracket."
+                        ; "]":L
+                        .
+Rdata                   ; Z; "Right data bracket (free type)."
+                        ; "\\rdata":L
+                        .
+RefState                ; MSZ; "Referred state declaration."
+                        ; "\\RefState"
+                        .
+Repeat                  ; DZ; "Repetition predicate"
+                        ; "\\drepeat":R
+                        .
+Rglue                   ; INTERN; "Right glueing bracket."
+                        ; "@@rglue@@":L
+                        .
+Rgroup                  ; LEX; "Right macro parameter group bracket."
+                        ; "}"
+                        .
+RightAssoc              ; Z; "Right associtivity indicator."
+                        ; "\\rightassoc"
+                        .
+Rparenth                ; Z; "Right parenth bracket."
+                        ; ")":L
+                        .
+Rset                    ; Z; "Right set bracket."
+                        ; "\\}":L
+                        .
+Rstate                  ; DZ; "Right state predicate."
+                        ; "\\drstate":L
+                        .
+Rtrans                  ; DZ; "Right transition predicate."
+                        ; "\\drtrans":L
+                        .
+Semi                    ; Z; "Semicolon."
+                        ; ";":LR
+                        .
+Slash                   ; Z; "Slash (renaming)."
+                        ; "/":LR
+                        .
+Somewhere               ; DZ; "Somewhere predicate."
+                        ; "\\dsomewhere":R
+                        .
+Spot                    ; Z; "Spot."
+                        ; "@" | "\\spot" : LR
+                        .
+StrokeIn                ; Z; "Input stroke."
+                        ; "?"
+                        .
+StrokeOut               ; Z; "Output stroke."
+                        ; "!"
+                        .
+StrokePrime             ; Z; "Prime stroke."
+                        ; "'"
+                        .
+Then                    ; Z; "Then."
+                        ; "\\THEN":LR
+                        .
+Theta                   ; Z; "Theta."
+                        ; "\\theta":R
+                        .
+To                      ; MSZ; "Flow direction (?)."
+                        ; "\\To":LR
+                        .
+Trans                   ; DZ; "Transition."
+                        ; "\\dtr":LR
+                        .
+TransLabel              ; MSZ; "Transition label."
+                        ; "\\tr":LR
+                        .
+True                    ; Z; "True."
+                        ; "true"
+                        .
+When                    ; MSZ; "When condition."
+                        ; "\\When":LR
+                        .
+Xi                      ; Z; "Xi."
+                        ; "\\Xi":R
+                        .
+XorState                ; MSZ; "Xor state declaration."
+                        ; "\\XorState"
+                        .
+
+
+Number(String image)    ; Z; "Number."
+                        ; <LATEXNUMBER>
+                        .
+Denotation(String image)    ; Z; "Denotation."
+                        ; <LATEXDENOTATION>
+                        .
+StrokeIndex(String image) 
+                        ; Z; "Index stroke."
+                        ; <LATEXSTROKEINDEX>
+                        .
+Word(String image)      ; Z; "Word (basic identifier)."
+                        ; <LATEXWORD> 
+                        .
+Keyword(Name image)     ; INTERN; "Keyword (component of fixity)."
+                        ; "@@keyword@@"
+                        .
+Lkeyword(Name image)    ; INTERN; "Left open keyword (component of fixity)."
+                        ; "@@lkeyword@@"
+                        .
+Rkeyword(Name image)    ; INTERN; "Right close keyword (component of fixity)."
+                        ; "@@rkeyword@@"
+                        .
+Pkeyword(Name image)    ; INTERN; "Predicate keyword (component of fixity)."
+                        ; "@@pkeyword@@"
+                        .
+SimpleName(Name image)  ; INTERN; "Simple name."
+                        ; "@@simplename@@"
+                        .
+MacroArg(String image)  ; LEX; "Argument placeholder of a macro."
+                        ; <LATEXMACROARG>
+                        .

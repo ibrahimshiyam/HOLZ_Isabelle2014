@@ -1,0 +1,348 @@
+package zeta.content.text;
+
+/** 
+ * The abstract class of configurations associated with concrete languages. <p>
+ *
+ * Objects of this class give generic information about a concrete language,
+ * to be used by the parser and unparser. <p>
+ *
+ *
+ * @version $Id: Config.pizza,v 1.4 1998/12/08 09:30:09 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.session.Diag;
+import zeta.content.text.Text.*;
+import zeta.content.zirp.Fixity;
+
+import zeta.format.Format;
+
+import java.util.EmptyStackException;
+
+public abstract class Config extends Term {
+
+  /** 
+   * Accumulated diagnostics of directive evaluation. 
+   * Subclasses may add diagnostics to this field.
+   */
+  transient protected Diag diag = new Diag();
+
+  /**
+   * Make a copy of this configuration.
+   */
+  public Config copy(){
+    return this;
+  }
+
+  /** 
+   * Enter and evaluate directives found in given array of text. The
+   * configuration will be enriched if directives are found which have
+   * effect for the concrete language. 
+   */
+  public abstract void enter(Text[] texts);
+
+  /** 
+   * Get and clear accumulated diagnostics produced by directive
+   * evaluation. 
+   */
+  public Diag getAndClearDiag() {
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+
+  /** 
+   * Tell wether one ore more line separators (Lexem.Linesep) at the
+   * left of this lexem are `offside'. An offside line separator is
+   * ignored by the parser. (Resp. can be inserted as layout by the
+   * unparser). 
+   */
+  public boolean isLeftOffside(Lexem lexem){
+    return false;
+  }
+
+  /** 
+   * Tell wether one ore more line separators (Lexem.Linesep) at the
+   * right of this lexem are `offside'. An offside line separator is
+   * ignored by the parser. (Resp. can be inserted as layout by the
+   * unparser). 
+   */
+  public boolean isRightOffside(Lexem lexem) {
+    return false;
+  }
+
+  /** 
+   * Return wether there have to be spaces put between left and right 
+   * lexems. 
+   */
+  public boolean needSpaceBetween(Text left, Text right) {
+    return true;
+  }
+
+  /** 
+   * Return representation of the given lexem in the concrete language. 
+   */
+  public abstract String getRepr(Lexem lexem);
+
+  /** Compute a Text object into a Format of this configuration's language */
+  public Format prettyText(Text text) {
+    switch (text) {
+      case Literal(String contents):
+        return prettyLiteral(contents);
+      case DocMarkup(String name,
+                     String[] params,
+                     Text[] subtexts):
+        return prettyDocMarkup(name, params, subtexts);
+      case ModelInclusion(Name name):
+        return prettyModelInclusion(name);
+      case ZedSection(Name name,
+                      Name[] parents,
+                      Text[] subtexts):
+        return prettyZedSection(name, parents, subtexts);
+      case ZedClass(Name name,
+                    Name[] parents,
+                    Name[] formals,
+                    Text[] subtexts):
+        return prettyZedClass(name, parents, formals, subtexts);
+      case ZedFixity(Fixity fixity):
+        return prettyZedFixity(fixity);
+      case ZedMacro(Name name,
+                    int argc,
+                    Lexem[] def):
+        return prettyZedMacro(name, argc, def);
+      case ZedPragma(Name name,
+                     Text[] subtexts):
+        return prettyZedPragma(name, subtexts);
+      case ZedMarkup(Text.ZedMarkupKind kind,
+                     Text[] header,
+                     Text[] decls,
+                     Text[] props): 
+        return prettyZedMarkup(kind, header, decls, props);
+      case ZedToken(Lexem lexem):
+        return prettyZedToken(lexem);
+      case FormatBegin(FormatKind kind):
+      case FormatEnd:
+        return Format.empty;
+    }
+  }
+  
+  protected Format prettyLiteral(String contents) {
+    return Format.literal(contents);
+  }
+
+  /** Return a format for the given DocMarkup parameters */
+  protected Format prettyDocMarkup(String name,
+                                   String[] params,
+                                   Text[] subtexts) {
+    return Format.block(prettySubtexts(subtexts, FormatKind.Beneath(0)),
+                        Format.brk);
+  }
+
+  /** Return a model inclusion format for the given Name */
+  abstract protected Format prettyModelInclusion(Name name);
+
+  /** Return a zed section format with given name, parents and subtexts */
+  abstract protected Format prettyZedSection(Name name,
+                                             Name[] parents,
+                                             Text[] subtexts);
+
+  /** Return a zed class format with given name, parents, formal parameters
+      and subtexts */
+  abstract protected Format prettyZedClass(Name name,
+                                           Name[] parents,
+                                           Name[] formals,
+                                           Text[] subtexts);
+
+  /** Return a format for the given zed fixity */
+  abstract protected Format prettyZedFixity(Fixity fixity);
+
+  /** Return a zed macro format with given name, argument number
+      and definition */
+  abstract protected Format prettyZedMacro(Name name, int argc, Lexem[] def);
+
+  /** Return a format for the given ZedPragma */
+  abstract protected Format prettyZedPragma(Name name, Text[] subtexts);
+
+  /** Return a format for the given ZedMarkup parameters */
+  abstract protected Format prettyZedMarkup(Text.ZedMarkupKind kind,
+                                            Text[] header,
+                                            Text[] decls,
+                                            Text[] props);
+
+  /** Return a format for the given zed token */
+  protected Format prettyZedToken(Lexem lexem) {
+    return Format.literal(getRepr(lexem));
+  }
+
+  /** Return wether a break should be done between the left and right text */
+  abstract protected boolean needBreakBetween(Text left, Text right);
+
+  private <A implements Object,B> A rightmostLeaf(Tree<A,B> tree) {
+    switch (tree) {
+      case Leaf(A data):
+        return data;
+      case Root(Seq<Tree<A,B>> children, B info):
+	if (children.isEmpty()) 
+	  return null;
+	else
+	  return rightmostLeaf(children.at(children.size()-1));
+    }
+  }
+
+  private <A implements Object,B> A leftmostLeaf(Tree<A,B> tree) {
+    switch (tree) {
+      case Leaf(A data):
+        return data;
+      case Root(Seq<Tree<A,B>> children, B info):
+	if (children.isEmpty()) 
+	  return null;
+	else
+	  return leftmostLeaf(children.head());
+    }
+  }
+
+  private Format prettyTree(Tree<Text,FormatKind> tree) {
+    switch (tree) {
+      case Leaf(Text text):
+        return prettyText(text);
+      case Root(Seq<Tree<Text,FormatKind>> children,FormatKind kind):
+        zeta.agl.Enum<Tree<Text,FormatKind>> e = children.enumerate();
+        Seq<Format> formats = new BufferSeq();
+        if (e.more()) {
+          Tree<Text,FormatKind> last, current;
+          Text left, right;
+
+          last = e.current();
+          formats = formats.append(prettyTree(last));
+          for (e.advance(); e.more(); e.advance()) {
+            current = e.current();
+            left = rightmostLeaf(last);
+            right = leftmostLeaf(current);
+            if (left != null && right != null){
+	      if (needBreakBetween(left,right))
+		formats = formats.append(Format.brk);
+	      else if (needSpaceBetween(left,right))
+		formats = formats.append(Format.space);
+	    }
+            formats = formats.append(prettyTree(current));
+            last = current;
+          }
+          return wrapFormats(kind, formats.toArray(Format.class));
+        } else {
+          return Format.empty;
+        }
+    }
+  }
+
+  private Format wrapFormats(FormatKind kind, Format[] formats) {
+    switch (kind) {
+      case Block(int indent):
+        return Format.block(formats).indent(indent);
+      case Group(int indent):
+        return Format.group(formats).indent(indent);
+      case Line(int indent):
+        return Format.line(formats).indent(indent);
+      case Beneath(int indent):
+        return Format.beneath(formats).indent(indent);
+      case Append(int indent):
+        return Format.append(formats).indent(indent);
+      case Beside(int indent):
+        return Format.beside(formats).indent(indent);
+    }
+  }
+
+  private Tree<Text,FormatKind> buildTree(Text[] subtexts, FormatKind k) {
+    Stack<Seq<Tree<Text,FormatKind>>> stack = Stack.EmptyStack;
+    Seq<Tree<Text,FormatKind>> buffer = new BufferSeq();
+
+    for (int i = subtexts.length; i-->0; ) {
+      switch (subtexts[i]) {
+        case FormatBegin(FormatKind kind):
+          buffer = stack.top().prepend(Tree.Root(buffer,kind));
+          stack = stack.pop();
+          break;
+        case ZedToken(Lglue): // left grouping bracket
+          buffer = stack.top().prepend(Tree.Root(buffer,FormatKind.Block(2)));
+          stack = stack.pop();
+          break;
+        case FormatEnd:
+        case ZedToken(Rglue): // right grouping bracket
+          stack = stack.push(buffer);
+          buffer = new BufferSeq();
+          break;
+        default:
+          buffer = buffer.prepend(Tree.Leaf(subtexts[i]));
+      }
+    }
+    return Tree.Root(buffer,k);
+  }
+
+  /* compute a compound Format of the given kind from the given
+     array of subtexts */
+  public Format prettySubtexts(Text[] subtexts, FormatKind kind) {
+    return prettyTree(buildTree(subtexts,kind));
+  }
+
+  /* compute a compound Format of the given kind from the given 
+     sequence of subtexts (pizza) */
+  public Format prettySubtexts(Seq<Text> subtexts, FormatKind kind) {
+    return prettySubtexts(subtexts.toArray(Text.class), kind);
+  }
+
+  // INNER CLASSES
+
+  /** A tree of data.
+      Each node is either a leaf or has a Sequence of children and
+      additional info. */
+  private static class Tree<A,B> {
+    public case Root(Seq<Tree<A,B>> children, B nodeinfo);
+    public case Leaf(A data);
+  }
+
+  /** A stack of data. */
+  private static class Stack<A> {
+
+    /** Empty stack. */
+    public case EmptyStack;
+
+    /** Non empty stack, consisting of the top element and the rest stack. */
+    private case FullStack(A top, Stack<A> rest);
+
+    /** Get the top element of the stack. */
+    public A top() 
+      throws EmptyStackException {
+      switch (this) {
+        case EmptyStack:
+          throw new EmptyStackException();
+        case FullStack(A top, Stack<A> rest):
+          return top;
+      }
+    }
+
+    /** Push a new element on top of the stack. */
+    public Stack<A> push(A elem) {
+      return FullStack(elem, this);
+    }
+
+    /** Take top element from stack and return the rest. */
+    public Stack<A> pop() 
+      throws EmptyStackException {
+      switch (this) {
+        case EmptyStack:
+          throw new EmptyStackException();
+        case FullStack(A top, Stack<A> rest):
+          return rest;
+      }
+    }
+
+    /** Test wether stack is empty. */
+    public boolean isEmpty() {
+      return this == EmptyStack;
+    }
+
+  }
+
+}

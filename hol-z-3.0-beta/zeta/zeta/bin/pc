@@ -1,0 +1,4 @@
+#!/bin/sh
+# echo $CLASSPATH
+#java -ms16m net.sf.pizzacompiler.compiler.Main "$@"
+java net.sf.pizzacompiler.compiler.Main "$@"

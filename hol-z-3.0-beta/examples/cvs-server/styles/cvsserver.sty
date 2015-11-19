@@ -1,0 +1,154 @@
+\NeedsTeXFormat{LaTeX2e}\relax
+\ProvidesClass{cvsserver}[2002/12/24 v0.1 Achim D. Brucker]
+%
+\RequirePackage{ifthen}
+\RequirePackage{hyperref}
+\RequirePackage[notoday,nofancy]{rcsinfo}
+\RequirePackage{float}
+\RequirePackage[final]{listings}
+\newcommand{\metaall}{\bigwedge}
+\newcommand{\lsemantics}{\mathopen{\lbrack\mkern-3mu\lbrack}}
+\newcommand{\rsemantics}{\mathclose{\rbrack\mkern-3mu\rbrack}}
+\sloppy
+\lstloadlanguages{ML}
+\lstdefinestyle{holz}{xleftmargin=10pt,language=ML,showstringspaces=false,showspaces=false,showlines=fals
+e,columns=flexible,
+keywordstyle=\bfseries,morekeywords={by,zgoal,consts,defs,typedef,axdef,constdefs,arities,instance,aritie
+s,types}%
+  basicstyle=\rmfamily,keywordstyle=\bfseries,commentstyle=\itshape,%
+  literate = {'a}{$\alpha$}1%
+                   {->}{$\to$}1%
+                   {'b}{$\beta$}1%  
+                   {'d}{$\delta$}1%  
+                   {<==}{$\Leftarrow$}3%
+                   {==}{$\equiv$}1%
+                   {'c}{$\gamma$}1 %
+                   {\%}{$\lambda$}1 %
+                   {@}{$ \bullet $}1 %
+                   {\%A}{$ \forall $}1 %
+                   {\%Delta}{$ \Delta $}1 %
+                   {\%Xi}{$ \Xi $}1 %
+                   {SNAME}{}1 %
+                   {setDecl}{:}1 %
+%                  ^^^^^^^^^^^^^
+% (either insert these manually or make extended
+% translation mechanism using a stack or modes)
+%
+                   {!}{$\forall$}1 %
+                   {!!}{$\bigwedge$}1 %
+                   {\%!}{$ \exists $}1 %
+%                   {?i}{{${\exists i}$}}2 %
+                   {&}{$ \land $}2 %
+                   {\ \%^\ }{$ \; $}1 %
+                   {~:}{$ \not\in $}1 %  
+                   {:}{$\in$}1 %
+%                   {\%:}{$ : $}1 %
+%                   {[|}{{$\lsemantics$}}1 %
+%                   {|]}{{$\rsemantics$}}1 %
+                   {:-}{$:$}1%
+                   {::}{$::$}2%
+                   {/\\}{$ \land $}2 %
+                   {\\/}{$ \lor $}2 %
+                   {lambda}{$\lambda$}1 %
+                   {<=>}{$\leftrightarrow$}2 {UU}{$\bottom$}1%
+                   {=>}{$\Rightarrow$}2%
+                   {=+=>}{$\Longrightarrow$}3%
+                   {|-}{$\vdash$}1%
+                   {==>}{$\Longrightarrow$}3%
+                   {-|->}{{$\pfun$}}3%
+                   {-->>}{{$\surj$}}3%
+                   {>-|->}{{$\pinj$}}3%
+                   {--->}{{$\fun$}}3%
+                   {>-->}{{$\inj$}}3%
+                   {-|->>}{{$\psurj$}}3%
+                   {>-->>}{{$\bij$}}3%                
+                   {<-:}{{$\dres$}}3%                
+%                   {~=}{{$\not =$}}1%
+%                   {sthElse}{Unit}1%
+                   {Un}{$\cup$}1%
+                   {Unit}{Unit}4%
+%                   {Unit}{$U\hspace{0.01cm}nit$}2%
+%... also tried mbox...
+%                   {Unit}{sthElse}1%
+%                  {workaroundU}{$ Unit $}1%
+%                  {Unit}{$ Unit $}1%
+% Translating to something which could again be translated
+% seems to be a horrible task for lst-listing.
+%
+% And neither workaround seems to work.
+%
+                   {Int}{$\cap$}1%
+                   {x1}{$x_1$}1%
+                   {x2}{$x_2$}1% 
+}
+\lstnewenvironment{holzverb}{\lstset{style=holz}}{}
+\lstnewenvironment{holzverbframe}{\lstset{frame=single,style=holz,xleftmargin=2pt}}{} %40pt
+\def\holzinline{\lstinline[style=holz]}
+
+
+
+
+
+
+\lstnewenvironment{cspverb}{\lstset{language=ML,showlines=false,basicstyle=\small\ttfamily,%
+       literate =  {'a}{$\alpha$}1%
+                   {->}{$\to$}1%
+                   {'b}{$\beta$}1 %
+                   {==}{$\equiv$}1%
+                   {'c}{$\gamma$}1 %
+                   {<=>}{$\leftrightarrow$}2 %
+                   {UU}{$\bot$}1%
+                   {==>}{$\Rightarrow$}2%
+                   {|~|}{$\sqcap$}1%
+                   {[]}{$\Box$}1%
+                   {<-}{$\in$}1%
+                   {@}{$\bullet$}1%
+                   {!=}{$\neq$}1%
+}}{}
+%
+%\RequirePackage{ae}
+%
+\newboolean{rcsinfo}
+\newboolean{draft}
+%
+\DeclareOption{rcsinfo}{\setboolean{rcsinfo}{true}}
+\DeclareOption{draft}{\setboolean{draft}{true}}
+\DeclareOption{final}{\setboolean{draft}{false}}
+%%%
+\ProcessOptions\relax
+%%
+% <draft>
+\ifthenelse{\boolean{draft}}{%
+\usepackage{pdfdraft}%
+}{}
+% </draft>
+%
+% <rcsinfo>
+\ifthenelse{\boolean{rcsinfo}}{%
+\renewpagestyle{headings}{%
+        %
+        (0pt,0pt)%
+                {\headmark\hfill}{\hfill\headmark}{\hfill\headmark\hfill}
+        (\textwidth,0.5pt)%
+        }%
+        {%
+        (\textwidth,0.5pt)%
+                {{\pagemark\hfill}{\hfill\textit{Rev:} \rcsInfoRevision, \rcsInfoStatus, \rcsInfoLongDate\hfill}{\hfill\rcsInfoFile}}%
+                {{\rcsInfoFile\hfill}{\hfill\textit{Rev:} \rcsInfoRevision, \rcsInfoStatus, \rcsInfoLongDate\hfill}{\hfill\pagemark}}%
+                {{\rcsInfoFile\hfill}{\hfill\pagemark\hfill}{\hfill\textit{Rev:} \rcsInfoRevision, \rcsInfoStatus, \rcsInfoLongDate\hfill}{\hfill\pagemark}}%
+        (\textwidth,0pt)%
+        }
+}{}
+% </rcsinfo>
+\hypersetup{%
+  draft         = false,
+  bookmarksopen = true,
+  bookmarksnumbered= true,
+  pdfauthor     = {\@author},
+  pdftitle      = {\@title},
+}
+\floatstyle{ruled}
+\restylefloat{table}
+\restylefloat{figure}
+%
+\endinput

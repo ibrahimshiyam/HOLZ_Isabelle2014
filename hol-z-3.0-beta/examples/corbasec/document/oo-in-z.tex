@@ -1,0 +1,123 @@
+
+%% SECTION
+\section{Transformation From IDL To Z} \label{sec:oo}
+
+In this section we will describe our approach to model the object oriented
+features of the OMG \corbasec specification in Z.
+
+\begin{itemize}
+\item Naming convention: try to make most names unique (using prefixes) to
+  eliminate the problem of name clashes.
+\item sometimes we introduce object ids, sometimes not...
+\item 
+\end{itemize}
+
+When an interface is only used to organize the namespace and don't represent
+data ($PrinciplaAuthenticator$ for example, see
+section~\ref{sec:PrincipalAuthenticator}) then we don't model this interface but
+only the operations it provides.  If at any time only one instance of an
+interface may be present in the system then we model this interface as a scheme
+of the same name and add this schema to the system state.  The operations are
+defined directly on this schema ($RequiredRights$ for example, see
+section~\ref{sec:RequiredRights}).
+
+Other methods to model object-orientation in Z are presented
+in~\cite{stepney:object:1990,smith:object:1999}.
+
+
+\subsection{Object interfaces}
+
+\zsection{oo-in-z}
+
+For some interfaces we specify some kind of object system.  This is done when
+many objects of this interface might be created within the system.  Examples are
+Credentials or Current.  In the following we will sketch the process to specify
+such an object model for current objects:
+
+We introduce a basic (or given) type $CURRENT$ which denotes the object ids:
+\begin{zed}
+  [CURRENT]
+\end{zed}
+
+Then we define a schema $Current$ that defines the internal data of objects of
+this type and a schema $CurrentS$ which defines the state of all objects.
+\begin{zedgroup}
+  \begin{schema}{Current}
+    \dots \\
+    \where
+    \dots \\
+  \end{schema}
+  \begin{schema}{CurrentS}
+    currentId: CURRENT \pfun Current \\
+    \dots \\
+    \where
+    \dots \\
+  \end{schema}
+\end{zedgroup}
+The partial function $currentId$ assignes ids to objects and is always used to
+access objects.
+
+Operations on current objects are modeled as operation schemas that operate on
+the $CurrentS$ state schema and always have an additional component $id?:
+CURRENT$.  The following example is for an operation \texttt{set\_credentials}.
+Note that the names are prefixed to prevent name clashes:
+\begin{schema}{CUsetCredentials}
+  \Delta CurrentS \\
+  id?: CURRENT \\
+  \dots \\
+  \where
+  \dots \\
+\end{schema}
+\begin{axdef}
+  CU\_setCredentials: CREDS \cross Current \fun Current
+\end{axdef}
+The final operation will be build from different operation schemas handling
+success, failure and system exceptions and will be named like the IDL operation
+prefixed with the initials of the interface name:
+\begin{zed}
+  CU\_set\_credentials == (CUsetCredentials \land NoEx) \lor SysEx \\
+  \t6 \lor (CUsomeError \land someEx) \lor \dots
+\end{zed}
+
+We do not model a $this$ or $self$ component but take care when we define
+operations that an id always refers to the same object.
+
+
+\subsection{Inheritance}
+
+Inheritance is important for the definition of policies in our model.  The basic
+scheme is the same as for the Current interface, but we introduce a function
+$Ppolicy$ which assigns a policy type to each policy id and instead of onw
+function mapping ids to objects we define one for each policy type:
+\begin{zed}
+  [POLICY]
+\end{zed}
+\begin{zedgroup}
+  \begin{schema}{DelegationPolicy}
+    \dots \\
+  \end{schema}
+  \begin{schema}{PolicyS}
+    Ppolicy: POLICY \pfun PolicyType \\
+    \dots \\
+    PdelegationPolicy: POLICY \pfun DelegationPolicy \\
+    \dots \\
+  \end{schema}
+\end{zedgroup}
+
+Operations on policies have the additional component $id?: POLICY$ as for
+operations on Currents above, which can also be used to model some kind of
+polymorphism: The predicate part of the operation schema must define predicates
+for each policy type and check the type:
+\begin{schema}{Pcopy}
+  \Delta PolicyS \\
+  id?: POLICY \\
+  \dots \\
+  \where
+  \dots \\
+  id? \in \dom PdelegationPolicy \implies \dots \\
+  \dots \\
+\end{schema}
+
+The total operation is assembled like above with error cases and exceptions.
+
+

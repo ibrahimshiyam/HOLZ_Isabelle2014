@@ -1,0 +1,98 @@
+package zeta.content.zirp;
+
+/** Class which declares diverse constants for predefined Z names.
+  *
+  * FIXME: currently only those names included which are
+  * relevant for type checking and extended type checking.
+  * Should be completed with all toolkit names.
+  *
+  * @see DZNames
+  * @see MSZNames
+  *
+  * @version $Id: ZNames.pizza,v 1.6 2000/07/21 06:45:15 wg Exp $
+  *
+  */
+
+import zeta.util.Name;
+
+public class ZNames {
+
+  /** Logic. */
+  // public static Name and = Name.stdName("\\land");
+  // public static Name or = Name.stdName("\\lor");
+  // public static Name not = Name.stdName("\\lnot");
+  // public static Name implies = Name.stdName("\\implies");
+  // public static Name iff = Name.stdName("\\iff");
+  // public static Name forall = Name.stdName("\\forall");
+  // public static Name exists = Name.stdName("\\exists");
+  // public static Name exists_1 = Name.stdName("\\exists_1");
+
+  /** Type Constructors. */
+  public static Name power_1 = Name.stdName("\\power#1#_");
+  public static Name finset = Name.stdName("\\finset_");
+
+  /** Standard Types. */
+  public static Name baseNum = Name.stdName("\\baseNum");
+  public static Name num = Name.stdName("\\num");
+  public static Name nat = Name.stdName("\\nat");
+  public static Name _seq = Name.stdName("\\seq_");
+  public static Name denotation = Name.stdName("\\denotation");
+  public static Name bag = Name.stdName("\\bag_");
+  public static Name pfun = Name.stdName("_\\pfun_");
+  public static Name _fun = Name.stdName("_\\fun_");
+  public static Name rel = Name.stdName("_\\rel_");
+
+  /** Boolean. */
+  public static Name bool = Name.stdName("\\bool");
+  public static Name True = Name.stdName("True");
+  public static Name False = Name.stdName("False");
+
+  /** Standard relations. */
+  public static Name subseteq = Name.stdName("_\\subseteq_");
+  public static Name equal = Name.stdName("_=_");
+  public static Name notEqual = Name.stdName("_\\neq_");
+  public static Name in = Name.stdName("_\\in_");
+
+  /** Diverse set related operations. */
+  public static Name intersect = Name.stdName("_\\cap_");
+  public static Name union = Name.stdName("_\\cup_");
+  public static Name setminus = Name.stdName("_\\setminus_");
+  public static Name uniIntersect = Name.stdName("\\bigcap");
+  public static Name uniUnion = Name.stdName("\\bigcup");
+  public static Name dom = Name.stdName("\\dom");
+  public static Name ran = Name.stdName("\\ran");
+  public static Name mapsto = Name.stdName("_\\mapsto_");
+  public static Name emptyset = Name.stdName("\\emptyset");
+  public static Name upto = Name.stdName("_\\upto_");
+  public static Name card = Name.stdName("\\#");
+
+  /** Integer operators and relations. */
+  public static Name less = Name.stdName("_<_");
+  public static Name greater = Name.stdName("_>_");
+  public static Name leq = Name.stdName("_\\leq_");
+  public static Name geq = Name.stdName("_\\geq_");
+  public static Name plus = Name.stdName("_+_");
+  public static Name times = Name.stdName("_*_");
+  public static Name minus = Name.stdName("_-_");
+  public static Name div = Name.stdName("_\\div_");
+  public static Name mod = Name.stdName("_\\mod_");
+
+
+  /** Operations for special syntax. */
+  public static Name iter = Name.stdName("_\\bsup_\\esup");
+  public static Name image = Name.stdName("_\\limg_\\rimg");
+  public static Name uminus = Name.stdName("-_");
+
+  /** Operations for type reflection. */
+  public static Name typeinfo = Name.stdName("\\typeinfo_");
+  public static Name giventypeinfo = Name.stdName("\\giventypeinfo_");
+  public static Name TypeInfo = Name.stdName("TypeInfo");
+  public static Name GivenTypeInfo = Name.stdName("GivenTypeInfo");
+  public static Name typegen = Name.stdName("\\typegen_");
+
+
+  /** The array of fixity items which are associated with the predefined
+    * Z names. */
+  public static Item[] zfixities = new Item[0];
+  
+}

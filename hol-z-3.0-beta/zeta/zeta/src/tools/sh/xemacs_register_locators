@@ -1,0 +1,43 @@
+#!/bin/sh
+# $Id: xemacs_register_locators,v 1.7 2000/05/10 08:38:51 wg Exp $
+
+if [ -z "$ZETABASE" ]; then
+    echo "\$ZETABASE not defined" >&2
+    exit 1
+fi
+
+. $ZETABASE/etc/etenv.sh        
+
+form="(progn (require 'zeta-site-init \"$ZETABASE/lib/emacs/zeta-site-init\") (zeta-server-register '("
+while [ $#  -gt 0 ]
+do
+   form="$form (\"$1\" $2 $3 $4 $5)"
+   shift 5
+done
+form="$form)))"
+
+
+$GNUDOIT "$form" 1>/dev/null 2>/dev/null
+if [ $? != 0 ]
+then
+    echo "XEmacs editor process seems not to run or serve." 
+    echo "Ensure XEmacs is up and gnuserv (M-x gnuserv-start) is running." 
+    # doesn't seems to run or doesn't serves. start a new xemacs
+    #$XEMACS -eval "$form" &
+    #sleep 1
+    #count=50
+    #while [ $count != 0 ]
+    #do
+    #   $GNUDOIT nil 1>/dev/null 2>/dev/null
+    #   if [ $? = 0 ]
+    #   then
+    #     count=0
+    #   else
+    #     sleep 1
+    #	  count=`expr $count - 1`
+    #   fi
+    #done
+    exit 1
+else
+    exit 0
+fi

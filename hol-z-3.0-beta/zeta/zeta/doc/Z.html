@@ -1,0 +1,139 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>The Z of ZETA</TITLE>
+<META NAME="description" CONTENT="The Z of ZETA">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node1.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html9"
+ HREF="Z-node1.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html5"
+ HREF="index.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif_gr.gif"> 
+<A NAME="tex2html7"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html10"
+ HREF="Z-node1.html">Contents</A>
+<B> Up:</B> <A NAME="tex2html6"
+ HREF="index.html">ZETA Documentation</A>
+ &nbsp <B>  <A NAME="tex2html8"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1 ALIGN="CENTER">The Z of Z<SMALL>E</SMALL>T<SMALL>A</SMALL></H1>
+<P ALIGN="CENTER"><STRONG>Robert B&#252;ssow and Wolfgang Grieskamp</STRONG></P>
+<P ALIGN="CENTER"><STRONG>July 26, 2000</STRONG></P>
+
+<P>
+
+<H3>Abstract:</H3>
+<DIV>
+
+<P>
+The <A NAME="tex2html1"
+ HREF="zeta.html"><I>Z<SMALL>E</SMALL>T<SMALL>A</SMALL></I></A>
+environment provides tool
+  support for the Z notation [<A
+ HREF="Z-node9.html#z:spiv92">1</A>], implementing the
+  upcoming Z Standard [<A
+ HREF="Z-node9.html#z:toyn98">2</A>]. This document describes the Z
+  of Z<SMALL>E</SMALL>T<SMALL>A</SMALL> (called Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z), inclusive of its lexical representation
+  in L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X , and type-setting with Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  style.  The
+  document also describes differences to traditional
+  Spivey-Z[<A
+ HREF="Z-node9.html#z:spiv92">1</A>], and to the Z supported by the ESZ type
+  checker version 2 (a predecessor of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> toolkit), called
+  ESZ2-Z.
+
+<P>
+</DIV>
+<P>
+
+<P>
+ 
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"></A>
+
+<UL>
+<LI><A NAME="tex2html11"
+ HREF="Z-node1.html">Contents</A>
+<LI><A NAME="tex2html12"
+ HREF="Z-node2.html">1. Upgrading?</A>
+<LI><A NAME="tex2html13"
+ HREF="Z-node3.html">2. Novice to L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X -Based Z?</A>
+<LI><A NAME="tex2html14"
+ HREF="Z-node4.html">3. The Style: Details</A>
+<UL>
+<LI><A NAME="tex2html15"
+ HREF="Z-node4.html#SECTION00041000000000000000">3.1 Tabbing and Alignment</A>
+<LI><A NAME="tex2html16"
+ HREF="Z-node4.html#SECTION00042000000000000000">3.2 Side by Side</A>
+<LI><A NAME="tex2html17"
+ HREF="Z-node4.html#SECTION00043000000000000000">3.3 Style Options and Parameters</A>
+</UL>
+<LI><A NAME="tex2html18"
+ HREF="Z-node5.html">4. The Language: Details</A>
+<UL>
+<LI><A NAME="tex2html19"
+ HREF="Z-node5.html#SECTION00051000000000000000">4.1 Sections</A>
+<LI><A NAME="tex2html20"
+ HREF="Z-node5.html#SECTION00052000000000000000">4.2 Toolkits</A>
+<LI><A NAME="tex2html21"
+ HREF="Z-node5.html#SECTION00053000000000000000">4.3 Operator Templates</A>
+<LI><A NAME="tex2html22"
+ HREF="Z-node5.html#SECTION00054000000000000000">4.4 Further Standard Z Features and Notes on Upgrading</A>
+<LI><A NAME="tex2html23"
+ HREF="Z-node5.html#SECTION00055000000000000000">4.5 Extended Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z Features and Incompatibilities with the Standard</A>
+<LI><A NAME="tex2html24"
+ HREF="Z-node5.html#SECTION00056000000000000000">4.6 The Denotation Type</A>
+</UL>
+<LI><A NAME="tex2html25"
+ HREF="Z-node6.html">5. Type-Checker Directives</A>
+<LI><A NAME="tex2html26"
+ HREF="Z-node7.html">A. L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  Syntax for Z</A>
+<UL>
+<LI><A NAME="tex2html27"
+ HREF="Z-node7.html#SECTION00071000000000000000">A.1 Specification</A>
+<LI><A NAME="tex2html28"
+ HREF="Z-node7.html#SECTION00072000000000000000">A.2 Paragraphs</A>
+<LI><A NAME="tex2html29"
+ HREF="Z-node7.html#SECTION00073000000000000000">A.3 Predicates</A>
+<LI><A NAME="tex2html30"
+ HREF="Z-node7.html#SECTION00074000000000000000">A.4 Expression</A>
+<LI><A NAME="tex2html31"
+ HREF="Z-node7.html#SECTION00075000000000000000">A.5 Declarations</A>
+<LI><A NAME="tex2html32"
+ HREF="Z-node7.html#SECTION00076000000000000000">A.6 Operator Templates</A>
+<LI><A NAME="tex2html33"
+ HREF="Z-node7.html#SECTION00077000000000000000">A.7 Identifier</A>
+</UL>
+<LI><A NAME="tex2html34"
+ HREF="Z-node8.html">B. L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X Symbols</A>
+<LI><A NAME="tex2html35"
+ HREF="Z-node9.html">Bibliography</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

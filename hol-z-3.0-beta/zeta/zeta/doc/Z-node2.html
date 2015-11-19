@@ -1,0 +1,127 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>1. Upgrading?</TITLE>
+<META NAME="description" CONTENT="1. Upgrading?">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node3.html">
+<LINK REL="previous" HREF="Z-node1.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node3.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html81"
+ HREF="Z-node3.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html77"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html71"
+ HREF="Z-node1.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html79"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html82"
+ HREF="Z-node3.html">2. Novice to L<SUP>A</SUP>TEX</A>
+<B> Up:</B> <A NAME="tex2html78"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html72"
+ HREF="Z-node1.html">Contents</A>
+ &nbsp <B>  <A NAME="tex2html80"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION00020000000000000000">
+1. Upgrading?</A>
+</H1>
+
+<P>
+Upgrading from Spivey-Z or ESZ2-Z to Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z is relative easy, since
+the type-checker will detect incompatibilities for you. The most
+common problem is the use of primed schema names, <I>S</I>'. In Standard-Z,
+the ' is part of a name. To refer to the operator ' which primes
+all the names in a schema, it is necessary to put a space (soft, or
+hard, <code>~</code>) between the schema name and the ', as in <I>S</I>&nbsp;'
+(<code>S~'</code>). You may also put braces around the schema name, such as
+in (<I>S</I>)', to make the difference better visible in the type-setted
+specification. The places where this fix is required are usually
+flagged as type-errors by the type-checker.  An other problem is that
+<IMG
+ WIDTH="18" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img1.gif"
+ ALT="$\LET$">
+is not allowed in predicates anymore.  It can be replaced by
+<IMG
+ WIDTH="12" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img2.gif"
+ ALT="$\exists_1$">
+since abbreviation (==) are allowed in declarations now.
+
+<P>
+It should be noted that Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z has a few restrictions compared to the
+currently proposed Standard, and - what may be a more serious problem
+- has some <I>extensions</I> which are (currently) not part of the
+Standard. For a discussion of the restrictions and extensions, see
+Section&nbsp;<A HREF="Z-node5.html#sec:extended">4.5</A>.
+
+<P>
+
+<P><P>
+<BR>
+
+<P>
+ 
+<B>Note</B>: If you are upgrading from ESZ or older versions of
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL>, you do <I>not</I> need to place the directive
+<PRE>
+  %%toolkit "zrm"
+</PRE>
+in the preamble of your document any longer. Z<SMALL>E</SMALL>T<SMALL>A</SMALL> 1.5 comes with
+only one toolkit, which is selected by default. This toolkit is
+compatible to Spivey-Z and the ZRM (which is also recommended by the
+Standard), with the restriction that it does <I>not</I> support bags
+any longer (as the Standard does not support them).
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html81"
+ HREF="Z-node3.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html77"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html71"
+ HREF="Z-node1.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html79"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html82"
+ HREF="Z-node3.html">2. Novice to L<SUP>A</SUP>TEX</A>
+<B> Up:</B> <A NAME="tex2html78"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html72"
+ HREF="Z-node1.html">Contents</A>
+ &nbsp <B>  <A NAME="tex2html80"
+ HREF="Z-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

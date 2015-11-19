@@ -1,0 +1,77 @@
+package zeta.tools.nzap;
+
+/** JNI based interface to the ZAM.
+  *
+  * @version $Id: ZamJniIface.pizza,v 1.9 2000/06/12 18:30:09 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import zeta.util.*;
+import zeta.session.*;
+import java.io.IOException;
+
+public class ZamJniIface extends ZamIface {
+  
+  public void init() throws Fail {
+    try {
+      System.loadLibrary("ZAM");
+      // call some native function to get library actually loaded
+      // there seems to be a problem under NT with lazy loading
+      // from threads (?)
+      try {
+	possiblyMore();
+      }
+      catch (Fail e){
+	;
+      }
+    } 
+    catch (UnsatisfiedLinkError e) {
+      sendError("cannot load ZAM library: " + e);
+    }
+  }
+
+  
+  public native void start(String[] fnames)
+  throws Fail;
+
+  public native int step(int steps)
+  throws Fail;
+
+  public native boolean possiblyMore()
+  throws Fail;
+
+  public native String getBinding(String varName)
+  throws Fail;
+
+  public native String setSetTarget(String varName)
+  throws Fail;
+
+  public native String setTermTarget(String varName, int i)
+  throws Fail;
+
+  public native String setSeqTarget(String varName, int i)
+  throws Fail;
+
+  public native void retSubTarget()
+  throws Fail;
+
+  public native boolean isSet(String varName)
+  throws Fail;
+
+  public native int isSeqGet(String varName)
+  throws Fail;
+
+  public native String isTermGet(String varName)
+  throws Fail;
+
+  public native String profileInfo()
+  throws Fail;
+
+  public native long noOfSteps()
+  throws Fail;
+
+
+  static {
+  }
+
+}

@@ -1,0 +1,132 @@
+#############################################################################
+#  HOL-Z --- a shallow embedding of Z in Isabelle/HOL              
+#            http://projects.brucker.ch/hol-z/
+#                                                                            
+# IsaMakefile  --- 
+# Copyright (C) 2000-2002 University Freiburg, Germany
+#               2003-2007 ETH Zurich, Switzerland
+#                                                                            
+# This file is part of HOL-Z.                                              
+#                                                                            
+# HOL-Z is free software; you can redistribute it and/or modify it under   
+# the terms of the GNU General Public License as published by the Free       
+# Software Foundation; either version 2 of the License, or (at your option)  
+# any later version.                                                         
+#                                                                            
+# HOL-Z is distributed in the hope that it will be useful, but WITHOUT ANY 
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more 
+# details.                                                              
+#                                                                            
+# You should have received a copy of the GNU General Public License along    
+# with this program; if not, write to the Free Software Foundation, Inc.,    
+# 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.                  
+##############################################################################
+# $Id: IsaMakefile 6729 2007-08-03 05:25:17Z brucker $
+
+
+TEXINPUTS:=$(ISABELLE_HOME_USER)/lib/texinputs:.:$(TEXINPUTS)
+CLASSPATH:=$(ISABELLE_HOME_USER)/lib/java/holz.jar:.:$(CLASSPATH)
+export CLASSPATH TEXINPUTS
+
+#
+SED=sed
+RM=rm
+
+# determine current source version:
+nullstring:=
+space := $(nullstring) #
+# 
+REVISION := $(shell svnversion .)
+VER_MAIJOR=3
+VER_MINOR=0
+VER_MICRO=0
+VER_TAG=$(space)(dev build: $(REVISION))
+
+## global settings
+# make internal configuration
+.PHONY: config.sml document/config.tex edit help info clean
+
+## targets
+HEAP=HOL-Z
+SRC = $(ISABELLE_HOME)/src
+OUT = $(ISABELLE_OUTPUT)
+LOG = $(OUT)/log
+
+USEDIR = $(ISATOOL) usedir  -b -g true -v true -i true  -D generated
+USEDIR_WITHOUT_LATEX = $(ISATOOL) usedir  -b -g true -v true -i true 
+
+default: holz-sty hol-z-heap 
+
+test:  hol-z-heap
+	cd test; $(ISATOOL) make ; cd ..
+
+all: test
+
+holz-sty: 
+	mkdir -p $(ISABELLE_HOME_USER)/lib/texinputs
+	cp latex/holz.sty $(ISABELLE_HOME_USER)/lib/texinputs
+
+# targets for generating the configuration information 
+
+hol-z-heap: $(LOG)/$(HEAP).gz
+
+$(LOG)/$(HEAP).gz: info ROOT.ML document/root.tex *.thy *.ML */*.ML 
+	@(test -e generated && find generated  -name .svn -type d -print0 | xargs -0 /bin/rm -fr || true)
+	@$(RM) -rf $(ISABELLE_BROWSER_INFO)/HOL/$(HEAP)/document
+	@($(USEDIR) HOL $(HEAP) \
+	|| \
+	(echo -e "\033[1;31;40m";\
+	 echo -e "\a  *************************************************" ;\
+	 echo -e "\a  ******************  BUILD FAILED  ***************" ;\
+	 echo -e "\a  *************************************************" ;\
+	 echo -e "\033[1;37;40m\033[0;37;0m")\
+	|| true)
+	@test -e $(ISABELLE_HOME_USER)/etc || mkdir -p $(ISABELLE_HOME_USER)/etc
+	@test -e isar-keywords-$(HEAP).el && mv isar-keywords-$(HEAP).el $(ISABELLE_HOME_USER)/etc
+	@$(RM) -f $(ISABELLE_BROWSER_INFO)/HOL/$(HEAP)/document/root.pdf
+
+hol-z-without-latex: ROOT.ML  *.thy  
+	@(test -e generated && find generated  -name .svn -type d -print0 | xargs -0 /bin/rm -fr || true)
+	@$(RM) -rf $(ISABELLE_BROWSER_INFO)/HOL/$(HEAP)/document
+	@($(USEDIR_WITHOUT_LATEX) HOL $(HEAP) \
+	|| \
+	(echo -e "\033[1;31;40m";\
+	 echo -e "\a  *************************************************" ;\
+	 echo -e "\a  ******************  BUILD FAILED  ***************" ;\
+	 echo -e "\a  *************************************************" ;\
+	 echo -e "\033[1;37;40m\033[0;37;0m")\
+	|| true)
+	@test -e $(ISABELLE_HOME_USER)/etc || mkdir -p $(ISABELLE_HOME_USER)/etc
+	@test -e isar-keywords-$(HEAP).el && mv isar-keywords-$(HEAP).el $(ISABELLE_HOME_USER)/etc
+	@$(RM) -f $(ISABELLE_BROWSER_INFO)/HOL/$(HEAP)/document/root.pdf
+## clean
+clean:
+	@$(RM) -f $(LOG)/$(HEAP).gz
+	@$(RM) -rf generated
+
+info:
+	@echo ""
+	@echo "           HOL-Z  $(VER_MAIJOR).$(VER_MINOR).$(VER_MICRO)$(VER_TAG)"
+	@echo ""
+	@echo "   EMACS/PROOFGENERAL = $(ISABELLE_EDITOR)"
+	@echo "   ML_SYSTEM          = $(ML_SYSTEM)"
+	@echo ""
+
+help:   info
+	@echo " Supported build targets:"
+	@echo " ========================"
+	@echo " isatool make"
+	@echo "   info           display current build configuration"
+	@echo "   help           display this help and exit"
+	@echo "   edit           runs editor '$(ISABELLE_EDITOR)' within current build"
+	@echo "                  configuration"
+	@echo "   test           run the regression-test suite"
+	@echo "   clean          "
+	@echo "   dist-clean     "
+	@echo ""
+	@echo " The default target is 'hol-z-heap'."
+	@echo ""
+
+edit:
+	$(ISABELLE_EDITOR) &

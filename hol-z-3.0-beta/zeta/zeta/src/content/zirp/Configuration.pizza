@@ -1,0 +1,56 @@
+package zeta.content.zirp;
+
+import zeta.util.AnnotatedTerm;
+import zeta.content.zirp.NameDecl;
+import zeta.content.zirp.NameAppl;
+
+/** Classes for configurations. */
+public class Configuration {
+
+  public case Configuration(Aggregation[] aggregs,
+			    Association[] assocs,
+			    Binding[] bindings);
+    
+
+  /** Aggregated processes. */
+  public static class Aggregation extends AnnotatedTerm {
+    public case Aggregation(NameDecl proc_name, NameAppl class_name);
+  }
+
+  /** Associated processes. */
+  public static class Association extends AnnotatedTerm {
+    public case Association(NameAppl class_name);
+  }
+
+  /** Port binding. */
+  public static class Binding extends AnnotatedTerm {
+    public case Binding(Port[] ports);
+  }
+
+  public static class Port extends AnnotatedTerm {
+
+    /** Self port.  Port of the class itself.
+      * @param port_name the name of the port.
+      */
+    public case SelfPort(NameAppl port_name);
+
+    /** External port.  Introduces a new (external) port that exports
+      * the bound ports to the environment.
+      * @param port_name the name of the port.
+      */
+    public case ExternalPort(NameDecl port_name);
+
+    /** Internal port.  Identifies a port of an aggregated process.
+      * @param proc_name name of the aggregated process.
+      * @param port_name name of the process' port.
+      */
+    public case InternalPort(NameAppl proc_name, NameAppl port_name);
+
+    /** Associated port.  Identifies a port of an associated process.
+      * @param class_name name of the associated class.
+      * @param port_name name of the process' port.
+      */
+    public case AssociatedPort(NameAppl class_name, NameAppl port_name);
+  }
+}  
+	

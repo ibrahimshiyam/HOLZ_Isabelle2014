@@ -1,0 +1,4 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= PrettyPrinterAdaptor.pizza PrettyPrinter.pizza
+JAVA_FILES 	= 
+NODEKIND	= java

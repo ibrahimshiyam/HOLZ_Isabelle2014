@@ -1,0 +1,530 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>1. Tutorial Introduction</TITLE>
+<META NAME="description" CONTENT="1. Tutorial Introduction">
+<META NAME="keywords" CONTENT="zeta">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zeta.css">
+<LINK REL="next" HREF="zeta-node3.html">
+<LINK REL="previous" HREF="zeta-node1.html">
+<LINK REL="up" HREF="zeta.html">
+<LINK REL="next" HREF="zeta-node3.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html52"
+ HREF="zeta-node3.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html48"
+ HREF="zeta.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html42"
+ HREF="zeta-node1.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html50"
+ HREF="zeta-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html53"
+ HREF="zeta-node3.html">2. XEmacs Support for</A>
+<B> Up:</B> <A NAME="tex2html49"
+ HREF="zeta.html">Operation of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html43"
+ HREF="zeta-node1.html">Contents</A>
+ &nbsp <B>  <A NAME="tex2html51"
+ HREF="zeta-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html54"
+ HREF="zeta-node2.html#SECTION00021000000000000000">1.1 Starting a session</A>
+<LI><A NAME="tex2html55"
+ HREF="zeta-node2.html#SECTION00022000000000000000">1.2 Loading sources</A>
+<LI><A NAME="tex2html56"
+ HREF="zeta-node2.html#SECTION00023000000000000000">1.3 Performing Operations</A>
+<LI><A NAME="tex2html57"
+ HREF="zeta-node2.html#SECTION00024000000000000000">1.4 Browsing Locators</A>
+<LI><A NAME="tex2html58"
+ HREF="zeta-node2.html#SECTION00025000000000000000">1.5 Cut and Paste</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00020000000000000000">
+1. Tutorial Introduction</A>
+</H1>
+
+<P>
+The Z<SMALL>E</SMALL>T<SMALL>A</SMALL> system can be run in one of three operation modes:
+
+<P>
+ 
+<DL COMPACT>
+<DT>1.
+<DD>from within the XEmacs editor<A NAME="tex2html2"
+HREF="zeta-footnode.html#foot51"><SUP>1</SUP></A>;
+<DT>2.
+<DD>with a graphical user interface (based on Java's Swing
+  library)<A NAME="tex2html3"
+ HREF="zeta-footnode.html#foot52"><SUP>2</SUP></A>;
+<DT>3.
+<DD>in a batch-oriented mode, where Z<SMALL>E</SMALL>T<SMALL>A</SMALL> reads its commands
+  from standard input and echos the results to standard output
+</DL>
+
+<P>
+In fact, the first two modes base on the third one, which represents
+the ``core'' functionality of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>. However, in this tutorial
+introduction, we will explain Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s features along its graphical
+user interface.
+
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:We assume that Z<SMALL>E</SMALL>T<SMALL>A</SMALL> has been successfully installed at your site.
+  See <A NAME="tex2html4"
+ HREF="install.html"><I>The Installation of Z<SMALL>E</SMALL>T<SMALL>A</SMALL></I></A>
+for notes
+  on installation.</FONT></BLOCKQUOTE>
+<P>
+
+<H2><A NAME="SECTION00021000000000000000">
+1.1 Starting a session</A>
+</H2>
+
+<P>
+Make a working copy of the <TT>$ZETABASE/examples</TT> directory (where
+<TT>$ZETABASE</TT> is the installation base of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>). We call
+this copy <TT>examples</TT> in the sequel.
+
+<P>
+Change to the directory <TT>examples/bbook</TT>, which contains the
+well-known example of the birthday-book specification, and type
+<TT>zeta&amp;</TT> from the shell.
+
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:If the command <TT>zeta</TT> is not found, you may need to put
+  <TT>$ZETABASE/bin</TT> in the <TT>PATH</TT>. </FONT></BLOCKQUOTE>
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:Under Windows, you may run the program <TT>runzeta.exe</TT>, which
+  starts with a browser for the working directory.</FONT></BLOCKQUOTE>
+<P>
+You should get the following window:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=launch.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="335" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img1.gif"
+ ALT="\epsfig {file=launch.eps,scale=0.7}">
+</DIV>
+
+<P>
+This window is the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> <I>commander</I>. The commander's menu allows
+you to access the operations of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>, and to launch further
+windows, as will be explained below. The window displays the so-called
+<I>session log</I>. The session log consists of <I>transactions</I>
+which are indicated by the little lightening icon to the left.  The
+messages belonging to a transaction are displayed intended to a
+description of the transaction. In the window above, we see the
+transaction of initialization of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>, with a set of <I>progress
+  messages</I> (these are indicated by the ``running man''), telling
+which <I>plugins</I> have been installed for your Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session. The
+actual number of plugins depends on your Z<SMALL>E</SMALL>T<SMALL>A</SMALL> setup.
+
+<P>
+You can click on the lightening icon of a transaction to fold resp. unfold
+the messages belonging to this transaction.
+
+<P>
+
+<H2><A NAME="SECTION00022000000000000000">
+1.2 Loading sources</A>
+</H2>
+
+<P>
+Before you can work with your documents, they have to be <I>loaded</I>
+into the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session. Documents to be initially loaded can be
+specified from the command line (<code>zeta doc1.tex doc2.tex ...</code>),
+or laterly loaded via via the <TT>Source</TT> menu of the commander or
+the tool bar. Activate 
+<!-- MATH
+ $\mathtt{Source} \longrightarrow
+\mathtt{Load~~LaTeX~~File}$
+ -->
+<IMG
+ WIDTH="187" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img2.gif"
+ ALT="$\mathtt{Source} \longrightarrow
+\mathtt{Load~~LaTeX~~File}$">.
+You get the following modified window:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=loadlatex.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="335" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img3.gif"
+ ALT="\epsfig {file=loadlatex.eps,scale=0.7}">
+</DIV>
+
+<P>
+Type in <TT>bbook.tex</TT> into the botton panel, or select the file
+via the file browser. Then hit the button with the file-folder icon
+(note that this is the same icon which represents this function in the
+tool bar).  The effect of loading will be displayed in the session
+log:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=afterload.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="335" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img4.gif"
+ ALT="\epsfig {file=afterload.eps,scale=0.7}">
+</DIV>
+
+<P>
+You see a progress message indicating that the L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  source has
+been scanned, and a check mark which tells you that this transaction
+has been successfully finished.  The messages of the previous
+transaction has been automatically folded. They are still there, you
+can see them by clicking on the lightening icon.
+
+<P>
+
+<P><P>
+<BR>
+
+<P>
+ 
+<B>Loading.</B> What does the load operation conceptually means?
+From the time on a source has been loaded into a Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session, the
+session ``takes care'' of this source. It monitors modifications you
+make on the source (e.g. by some external editor), and whether results
+of operations you have applied to the specifications contained in the
+source are up-to-date (e.g. type-checking, compilation, etc.). This is
+quite comparable to traditional Unix' <TT>make</TT>.
+
+<P>
+Note that you only need to load the main document of a compound document.
+Subdocuments included from the main document will be automatically
+tracked by Z<SMALL>E</SMALL>T<SMALL>A</SMALL>.
+
+<P>
+
+<P><P>
+<BR>
+
+<P>
+ 
+<B>Batch operation.</B> It would be cumbersome if each time you
+start a Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session, sources need to be loaded by hand again. You
+can put the according load commands in a file called <TT>zetarc</TT>
+in the working directory of a project.  In the <TT>examples/bbook</TT>
+directory, you find a file <TT>zetarc.bbook</TT> with the following
+content:
+
+<P>
+ 
+<PRE>
+  # This file contains commands executed by ZETA on startup.
+  # ZETA executes (if found) the following configuration files
+  #    $ZETABASE/lib/zetarc
+  #    $HOME/.zetarc
+  #    ./zetarc
+
+  # load the LaTeX sources of the birthday-book example:
+  load bbook.tex
+</PRE>
+
+<P>
+This file can be renamed to <TT>zetarc</TT>, so the next time a
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session is started from this directory, the source
+<TT>bbook.tex</TT> will be automatically loaded. 
+
+<P>
+You may note that the string <TT>load bbook.tex</TT> is exactly
+the same as displayed in the commanders session log to describe the
+transaction of loading. In fact, any operation available from the GUI
+eventually leads to a command which could be as well executed in batch
+mode. 
+
+<P>
+
+<H2><A NAME="SECTION00023000000000000000">
+1.3 Performing Operations</A>
+</H2>
+
+<P>
+The operations of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> system can be reached via the menu
+<TT>Operation</TT> or the tool bar. The provided operations
+depend on which plugins have been installed for Z<SMALL>E</SMALL>T<SMALL>A</SMALL>. We
+assume that you have at least the ESZ type-checker plugin and
+the ZAP compiler plugin.
+
+<P>
+Activate the 
+<!-- MATH
+ $\mathtt{Operation} \longrightarrow \mathtt{Execute
+  Expression}$
+ -->
+<IMG
+ WIDTH="237" HEIGHT="26" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img5.gif"
+ ALT="$\mathtt{Operation} \longrightarrow \mathtt{Execute
+Expression}$">
+menu item. You get the following window:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=execute.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="335" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img6.gif"
+ ALT="\epsfig {file=execute.eps,scale=0.7}">
+</DIV>
+
+<P>
+This window allows you to execute Z expressions.  You can choose
+between evaluation modes and step through solutions which are
+described in the <A NAME="tex2html5"
+ HREF="zap.html"><I>ZAP manual</I></A>.
+
+<P>
+In order to perform an operation, you need to specify the Z section it
+targets. This is done via the combobox at the left of the tool bar.
+When loading a source, all available sections are scanned from the
+source, and are made available for operations.  Clicking on the
+combobox shows that the source <I>bbook.tex</I> has provided several
+sections (see <A NAME="tex2html6"
+ HREF="z.html"><I>The Z of Z<SMALL>E</SMALL>T<SMALL>A</SMALL></I></A>
+for more information
+about Z sections).
+
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:The sections in this example are the followings:
+</FONT></BLOCKQUOTE>
+
+<UL><LI><TT>LTX:BBSpec#bbook.tex</TT>: a section containing the basic
+  specification of the birthday book;
+
+<LI><TT>LTX:BBExec#bbook.tex</TT>: a section containing a refinement
+  of the specification of the birthday book for the purpose of
+  executability;
+
+<LI><TT>LTX:BBTest#bbook.tex</TT>: a section containing a refinement
+  of the executable specification for the purpose of test-case
+  evaluation;
+
+</UL><BLOCKQUOTE><FONT SIZE="-1">
+For more details of the usage of these sections in the birthday book
+example, see the birthday-book document.</FONT></BLOCKQUOTE>
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:The name of a section (or, more generally, <I>units</I>) in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>,
+  is given by a so-called MSL (model source locator).  An MSL consists
+  of (1) an identifier denoting the tool which has imported the
+  unit into Z<SMALL>E</SMALL>T<SMALL>A</SMALL> (here, the L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X -tool) (2) the name of the
+  unit (here, e.g.  <TT>BBExec</TT>) (3) tool specific data (here,
+  for L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X , the name of the file where the section originates from).</FONT></BLOCKQUOTE>
+<P>
+To carry on with the example, let use choose the section
+<TT>LTX:BBExec#bbook.tex</TT>. Next type in the text field
+an expression, e.g. 
+<!-- MATH
+ $InitBirthdayBook$
+ -->
+<I>InitBirthdayBook</I>, and hit the apply
+button. In the session log, you see some progress messages;
+the tail of this output will look as follows:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=execute-log.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="335" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img7.gif"
+ ALT="\epsfig {file=execute-log.eps,scale=0.7}">
+</DIV>
+
+<P>
+In order to execute the given Z expression, Z<SMALL>E</SMALL>T<SMALL>A</SMALL> has operated a
+compound tool-chain, which you completely see if you scroll or resize
+the commander window: the Z toolkit this specification bases on
+has been loaded, several sections have been parsed and
+type-checked, and the section in which context the given expression is
+to be executed has been reduced and
+compiled. Finally, the result of the evaluation has been
+printed (<code>{&lt;birthday == {}, known == {}&gt;}</code>).
+
+<P>
+
+<P><P>
+<BR>
+
+<P>
+ 
+<B>Lazy tool chains.</B>  Tool chains are executed ``lazily'' by
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL>. If you now hit again the <TT>Apply</TT> button of the
+<TT>Execute</TT> panel, the result will be immediatly prompted.
+But if the original source <TT>bbook.tex</TT> is modified
+(e.g.&nbsp;by saying <TT>touch bbook.tex</TT> from a Unix shell), the
+tool-chain is recomputed.
+
+<P>
+
+<P><P>
+<BR>
+ 
+<B>Editing text fields.</B> The text field of the <TT>Execute</TT> panel,
+as most other text fields in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>, provides a history. Stepping through
+the history can be achieved by clicking on the up-arrow and down-arrow
+in the left upper corner of the text field.
+
+<P>
+It is possible to perform cut, copy and paste on the text field, for
+exchange with other applications. Note, however, that under X the Java
+system addresses the <I>system clipboard</I>, not the current
+selection. (The current selection is what is highlighted if you drag
+the mouse over some text displayed in an X application.)
+
+<P>
+From within a text field, you can use the keys <TT>C-c</TT> and
+<TT>C-v</TT> to copy into resp.&nbsp;paste from the system clipboard. 
+Under XEmacs you can reach copy and paste for the system
+clipboard via the tool bar.
+
+<P>
+In order to execute the text of a panel from an external editor, click
+on the ``hand'' icon at the left bottom. This passes control on this
+text field to an externally attached editor, usually XEmacs. 
+
+<P>
+
+<H2><A NAME="SECTION00024000000000000000">
+1.4 Browsing Locators</A>
+</H2>
+
+<P>
+Diagnostics and other messages written in the session log may
+contain so-called <I>locators</I>, which point to sources,
+and which can be browsed by clicking on them. 
+
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:To let locator browsing work, you need to have XEmacs 20 or later
+  installed.  See <A NAME="tex2html7"
+ HREF="install.html"><I>The Installation of Z<SMALL>E</SMALL>T<SMALL>A</SMALL></I></A>
+for information about installing <I>all</I> Z<SMALL>E</SMALL>T<SMALL>A</SMALL> support for
+  XEmacs in your <TT>.emacs</TT>.
+</FONT></BLOCKQUOTE>
+<P>
+<BLOCKQUOTE></BLOCKQUOTE>
+<P>
+For trying out locators, enter e.g.&nbsp;the expression <code>BirthdayBook</code> into the
+execution panel, then hit the apply button. You get the following log:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=execute-bt.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="531" HEIGHT="420" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img8.gif"
+ ALT="\epsfig {file=execute-bt.eps,scale=0.7}">
+</DIV>
+
+<P>
+This log contains an error diagnostic which describes the failure of
+the execution, caused by the attempt to enumerate the bindings of the
+schema <I>BirthdayBook</I>.  You can click on the blue locators to visit
+the sources referred to from the diagnostic. If XEmacs is already
+running, it will be contacted to visit the file and highlight in this
+file the region designated by the locator. If not, it will launched.
+
+<P>
+
+<H2><A NAME="SECTION00025000000000000000">
+1.5 Cut and Paste</A>
+</H2>
+
+<P>
+The Java based GUI of Z<SMALL>E</SMALL>T<SMALL>A</SMALL> does not implement special
+facilities for cut and paste, but takes the defaults of
+the Java implementation. You can use <code>C-v</code> to insert
+and <code>C-c</code> to copy the selection.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html52"
+ HREF="zeta-node3.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html48"
+ HREF="zeta.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html42"
+ HREF="zeta-node1.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html50"
+ HREF="zeta-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html53"
+ HREF="zeta-node3.html">2. XEmacs Support for</A>
+<B> Up:</B> <A NAME="tex2html49"
+ HREF="zeta.html">Operation of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html43"
+ HREF="zeta-node1.html">Contents</A>
+ &nbsp <B>  <A NAME="tex2html51"
+ HREF="zeta-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

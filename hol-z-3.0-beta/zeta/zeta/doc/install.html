@@ -1,0 +1,437 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>Installation of ZETA</TITLE>
+<META NAME="description" CONTENT="Installation of ZETA">
+<META NAME="keywords" CONTENT="install">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="install.css">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif_gr.gif"> 
+<A NAME="tex2html5"
+ HREF="index.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif_gr.gif">   
+<BR>
+<B> Up:</B> <A NAME="tex2html6"
+ HREF="index.html">ZETA Documentation</A>
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<H1 ALIGN="CENTER">The Installation of Z<SMALL>E</SMALL>T<SMALL>A</SMALL></H1>
+<P ALIGN="CENTER"><STRONG>Wolfgang Grieskamp</STRONG></P>
+<P ALIGN="CENTER"><STRONG>July 26, 2000</STRONG></P>
+
+<P>
+
+<H3>Abstract:</H3>
+<DIV>
+This document describes how to install Z<SMALL>E</SMALL>T<SMALL>A</SMALL> 1.5, both
+  binary and source distribution.
+</DIV>
+<P>
+
+<P>
+ 
+<BR>
+
+<H2><A NAME="SECTION00010000000000000000">
+Contents</A>
+</H2>
+<!--Table of Contents-->
+
+<UL>
+<LI><UL>
+<LI><UL>
+<LI><A NAME="tex2html7"
+ HREF="install.html">Contents</A>
+<LI><A NAME="tex2html8"
+ HREF="install.html#SECTION00020000000000000000">1. Requirements</A>
+<LI><A NAME="tex2html9"
+ HREF="install.html#SECTION00030000000000000000">2. Installing the Binary Distribution</A>
+<UL>
+<LI><A NAME="tex2html10"
+ HREF="install.html#SECTION00031000000000000000">2.1 Java Problems</A>
+<LI><A NAME="tex2html11"
+ HREF="install.html#SECTION00032000000000000000">2.2 Hand-crafting</A>
+</UL>
+<LI><A NAME="tex2html12"
+ HREF="install.html#SECTION00040000000000000000">3. Installing and Compiling the Source Distribution</A>
+<UL>
+<LI><A NAME="tex2html13"
+ HREF="install.html#SECTION00041000000000000000">3.1 Getting the Make System to Work</A>
+<LI><A NAME="tex2html14"
+ HREF="install.html#SECTION00042000000000000000">3.2 Just Adding Adaptors</A>
+</UL></UL></UL></UL>
+<!--End of Table of Contents--> 
+
+<P>
+
+<H1><A NAME="SECTION00020000000000000000">
+1. Requirements</A>
+</H1>
+
+<P>
+You need to have a Java 1.2 or later on your system (e.g.
+<A NAME="tex2html1"
+ HREF="http://www.javasoft.com">jdk</A>). 
+See section <A HREF="install.html#sec:javaproblems">2.1</A> for possible problems with
+the various Java implementations.
+
+<P>
+You should have <A NAME="tex2html2"
+ HREF="http://www.xemacs.org">XEmacs</A>
+(version 20 or later). XEmacs isn't strictly required for the the
+operation of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>, but on its base a productive GUI is provided,
+and even for Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s Swing based GUI, XEmacs is used for visiting
+source files. 
+
+<P>
+If you are going to install XEmacs on your system for the first time,
+it is recommended that you enable the word-processing package AUC TeX
+for editing Z/L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X .
+
+<P>
+You need to have L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X 2e installed in order to typeset documents.
+Binary kits for various architectures are found on the usual CTAN
+archives (for example, <A NAME="tex2html3"
+ HREF="http://www.dante.de">this</A>).
+
+<P>
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL> is known to run under Linux (with glibc 2), Windows NT and
+Solaris (5.7). The execution machine ZAM, which is implemented in C++
+and connected to Z<SMALL>E</SMALL>T<SMALL>A</SMALL> via a DLL, is pre-compiled exactly for these
+architectures.  If you have a different architecture you may need to
+download the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> sources and compile the ZAM yourself (see section
+<A HREF="install.html#sec:sources">3</A>).  Whether Windows 98 or 2000 works with the NT DLL
+has not been tested, but there is a good chance.
+
+<P>
+
+<H1><A NAME="SECTION00030000000000000000">
+2. Installing the Binary Distribution</A>
+</H1>
+
+<P>
+The distribution is contained in a self-extracting class file, called
+<code>zetadist1_5.class</code>.
+
+<P>
+Under Windows NT, in order to let the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> installer and XEmacs
+have the same notion of the home directory, you should ensure
+that the environment variable <code>HOME</code> is set to your needs
+(for example, <code>\WINNT\Profiles\USER</code>).
+
+<P>
+The installer will ask for locations of XEmacs and other client
+programs.  It will make suggestions based on examining the PATH
+variable.  Under a well configured Unix system, the required tools
+should be located automatically.
+
+<P>
+ 
+
+<BLOCKQUOTE><FONT SIZE="-1"><I>Remark</I>:Under NT, you may extend your PATH variable to the directories of
+  the XEmacs and L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  distribution which contain the executables.
+  Adding a user PATH variable turns out to be tricky if one is not
+  already present ...select an existing user variable and then
+  re-edit it.  Editing the System PATH variable has no actual effect.</FONT></BLOCKQUOTE>
+<P>
+
+<P>
+<BR>
+
+<P>
+To start the actual installation, type
+<PRE>
+  java zetadist1_5
+</PRE>
+
+<P>
+where <code>zetadist1_5.class</code> needs to be found in your <TT>CLASSPATH</TT>,
+and <TT>java</TT> is the Java interpreter.
+
+<P>
+You are guided through the installation process by a graphical user
+interface. After finishing installation, a few things need 
+still to be done:
+
+<P>
+
+<UL><LI>You may wish to put <TT>$ZETABASE/bin</TT> in your search path,
+  where <TT>$ZETABASE</TT> is the installation directory
+
+<LI>Under NT, you may wish to drag <code>$ZETABASE\bin\runzeta.exe</code>
+  to your desktop. This is a launcher for Z<SMALL>E</SMALL>T<SMALL>A</SMALL> which asks
+  for the working directory where a Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session shall start.
+
+<LI>If you have not selected the automatic patching of your <code>.emacs</code>
+  file, you may want to include code as the following: 
+<PRE>
+    (setq zeta-dir (expand-file-name "... fill in $ZETABASE .../"))
+    (setq zeta-mode-default-on t) 
+    (setq zeta-vtex-default-on nil) 
+    (require 'zeta-site-init (concat zeta-dir "lib/emacs/zeta-site-init.el"))
+</PRE>
+
+<P>
+The following remarks:
+
+<P>
+
+<UL><LI>the above code produces an error if not running under XEmacs.
+  If you want to maintain a <TT>.emacs</TT> which should work as well
+  under FSF Emacs, guard the code:
+<PRE>
+  (defvar running-xemacs (string-match "XEmacs\\|Lucid" emacs-version))
+  ...
+  (if (not running-xemacs)
+      nil ;; do nothing
+    ;; insert code as above
+   )
+</PRE>
+
+<LI>the trailing slash of the <TT>zeta-dir</TT> value is required
+
+<LI>if <TT>zeta-mode-default-on</TT> is <TT>t</TT>, then whenever
+  you visit a file whose name ends with <TT>.tex</TT>, <TT>.zed</TT>,
+  <TT>.zeta</TT>, <TT>.esz</TT>, or <TT>.msz</TT>, the zeta-mode
+  will be enabled. You may want to set this variable to <TT>nil</TT>,
+  if you do not intend to operate Z<SMALL>E</SMALL>T<SMALL>A</SMALL> from within XEmacs
+
+<LI>if <TT>zeta-style-hook-on</TT> is <TT>t</TT>, then not only file
+  endings, but also AucTeX style hooks will be used to activate the
+  Z<SMALL>E</SMALL>T<SMALL>A</SMALL>. If you don't know what style hooks are, don't mind,
+  and use the above setting.
+
+</UL>
+</UL>
+
+<P>
+
+<H2><A NAME="SECTION00031000000000000000"></A><A NAME="sec:javaproblems"></A>
+<BR>
+2.1 Java Problems
+</H2>
+
+<P>
+
+<UL><LI>If you have a Blackdown JDK 1.2 on Linux, and you experience
+an exception of the kind
+
+<P>
+ 
+<PRE>
+An unexpected exception has occured:
+internal Java error
+
+java.io.IOException
+        at zeta.tools.latex.ASCII_CharStream.FillBuff(Compiled Code)
+        ...
+</PRE>
+
+<P>
+then you probably need to deactivate the JIT compiler by adding
+<code>"-Djava.compiler="</code> to the Java command line in
+<code>$ZETABASE/bin/zeta</code>. Its a bug in the compiler, not in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>.
+
+<P>
+
+<LI>Sun's Java 1.3 Beta Release for Linux does not seem
+  to work at the moment. There are problems with the JNI. (Java 1.3
+  for Windows seems to operate fine, however.)
+
+<P>
+
+</UL>
+
+<P>
+
+<H2><A NAME="SECTION00032000000000000000">
+2.2 Hand-crafting</A>
+</H2>
+
+<P>
+The automatic installation process creates files
+<TT>$ZETABASE/etc/defaults.sh</TT>,
+<TT>$ZETABSE/etc/defaults.props</TT> and
+<TT>$ZETABSE/lib/zetarc</TT>, which are relevant for hand-crafted
+customization of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> configuration.
+
+<P>
+
+<H1><A NAME="SECTION00040000000000000000"></A>
+<A NAME="sec:sources"></A>
+<BR>
+3. Installing and Compiling the Source Distribution
+</H1>
+
+<P>
+Prior to installing the sources, you need to have successfully
+installed the binary distribution.
+
+<P>
+The sources are installed in the same directory as the binary
+distribution.  Unpack <code>zetadistsrc.jar</code> in this directory, using
+the <code>jar</code> tool.
+
+<P>
+
+<H2><A NAME="SECTION00041000000000000000">
+3.1 Getting the Make System to Work</A>
+</H2>
+
+<P>
+
+<UL><LI>persistently set the environment variable <code>ZETABASE</code> to
+  point to the installation directory of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> distribution
+
+<LI>unpack zetadistsrc.jar in <code>$ZETABASE</code>
+
+<LI>set execution permission for the added files
+  <code>$ZETABASE/bin/{etmake,pc}</code>
+
+<LI>create a directory <code>$ZETABASE/classes</code>
+  und unpack <code>$ZETABASE/lib/classes.jar</code> in this directory
+  (the last one are the classes of the binary distribution)
+
+<LI>download and install JavaCC 1.n (http://www.metamata.com).
+
+<LI>edit the file <code>$ZETABASE/etc/defaults.sh</code> to your needs.
+  In particular, let the variable <code>JAVACC</code> point to the
+  starter for the <code>javacc</code> parser generator
+
+<LI>make a copy of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> starter, <code>$ZETABASE/bin/zeta</code>, to e.g.
+  <code>dzeta</code>, such that in the copy <code>$ZETABASE/classes</code> is in
+  the <code>CLASSPATH</code> instead of <code>$ZETABASE/lib/classes.jar</code>
+
+</UL>
+
+<P>
+You can now use <code>$ZETABASE/bin/etmake</code> for compilation of nodes.
+Launching <code>etmake</code> in <code>$ZETABASE/src</code> will compile the
+entire system; in an individual node, this node and the subnodes are
+compiled.  Use <code>etmake install</code> in a node to install its objects
+and the objects of subnodes in the runtime environment of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL>
+installation.
+
+<P>
+Note that many sources of Z<SMALL>E</SMALL>T<SMALL>A</SMALL> are written in
+<A NAME="tex2html4"
+ HREF="http://www.cis.unisa.edu.au/~pizza">Pizza</A>
+(the
+Pizza compiler is included in the distribution). However, the public
+interfaces are accessible from Java as well, since they only use class
+cases. There is a canonical representation of Pizza's class cases in Java.
+For instance:
+
+<P>
+ 
+<PRE>
+ class Expr {
+   case Var(String name);
+   case Apply(Expr fun, Expr arg);
+ }
+</PRE>
+
+<P>
+This is represented in Java as:
+
+<P>
+ 
+<PRE>
+ class Expr {
+   static class Var extends Expr {
+     String name;
+     Var(String name) { this.name = name; }
+   }
+   static class Apply extends Expr {
+     Expr fun; Expr arg;
+     Apply(Expr fun, Expr arg) { this.fun = fun; this.arg = arg; }
+   }
+ }
+</PRE>
+
+<P>
+For compiling <code>$ZETABASE/src/tools/nzap/zam</code> (the execution
+machine) you need a recent C++ compiler which supports the
+standard. It has been successfully compiled with gcc 2.95 (but not with
+the former egcs versions), and it has compiled with VC 6.0 (which,
+however, required some downgrades in template programming).
+
+<P>
+There are several cyclic dependencies between the nodes of the
+sources: this is the reason why we needed the binary distribution to
+compile the source distribution (the problem is that the Pizza
+compiler does not support <code>-dep</code> compilation). The make system
+provides a way for bootstrapping, which however has not been tested
+for this distribution: call <code>etmake boot</code> once in
+<code>$ZETABASE/src</code> and thereafter in <code>$ZETABASE/src/tools</code>.
+
+<P>
+
+<H2><A NAME="SECTION00042000000000000000">
+3.2 Just Adding Adaptors</A>
+</H2>
+
+<P>
+You do not need to compile the core system as described in the previous
+section to just add an adaptor. Compile your adaptor with your
+favorite Java-IDE against <code>$ZETABASE/lib/classes.jar</code> and plugin the
+beast using the command <code>plugin &lt;qualified-classname&gt;</code> in one
+of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s rc-files.
+
+<P>
+However, it may be useful to derive your adaptor from existing
+ones. Those may be of interest in the source distribution:
+
+<P>
+
+<UL><LI><code>src/tools/latex</code> is a typical instance of an adaptor
+  importing sources into the system
+
+<LI><code>src/tools/zchecker/CheckerAdaptor</code> is a typical instance
+  of an adaptor performing a transformation (that is mapping from one
+  content into another)
+
+<LI><code>src/tools/pp</code> is an instance of an adaptor which just
+  produces output
+
+<LI><code>src/tools/emacs/adaptor</code> is an instance of an adaptor
+  which integrates an editor
+
+</UL>
+
+<P>
+If you write a new adaptor for the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> system, please share it
+(contact <code>zeta@uebb.cs.tu-berlin.de</code> or
+<code>wg@cs.tu-berlin.de</code>).  Z<SMALL>E</SMALL>T<SMALL>A</SMALL> currently most urgently misses
+adaptors for the integration of editors under Windows other than
+XEmacs, for other input formats of Z than L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  (e.g. ASCII markup)
+and for provers.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif_gr.gif"> 
+<A NAME="tex2html5"
+ HREF="index.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif_gr.gif">   
+<BR>
+<B> Up:</B> <A NAME="tex2html6"
+ HREF="index.html">ZETA Documentation</A>
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

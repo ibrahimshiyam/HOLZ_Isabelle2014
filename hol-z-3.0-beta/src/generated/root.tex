@@ -1,0 +1,306 @@
+\documentclass[10pt,a4paper,bigheadings,pdftex,bibtotoc,chapterprefix,appendixprefix,twoside,DIVcalc]{scrbook}
+\usepackage{index}
+\usepackage{isabelle,isabellesym}
+\usepackage{holz}
+%\usepackage{amsmath}
+%\usepackage{amssymb}
+\usepackage{pdfsetup}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{varioref}
+\usepackage[german,english,USenglish]{babel}
+\definecolor{BrickRed}      {cmyk}{0,0.89,0.94,0.28}
+\newcommand{\fixme}[1]{\mbox{}\marginpar[\small\raggedleft\hspace{0pt}\textcolor{blue}{\textit{FixMe:}}\\#1]{\small\raggedright\hspace{0pt}\textcolor{blue}{\textit{FixMe:}}\\#1}}
+\newcommand{\todo}[1]{\mbox{}\marginpar[\small\raggedleft\hspace{0pt}\textcolor{BrickRed}{\textbf{ToDo:}}\\#1]{\small\raggedright\hspace{0pt}\textcolor{BrickRed}{\textbf{ToDo:}}\\#1}}
+
+%
+\setkomafont{sectioning}{\normalfont\normalcolor\bfseries}
+\setkomafont{descriptionlabel}{\normalfont\normalcolor\bfseries}
+% urls in roman style, theory text in math-similar italics
+\urlstyle{rm}
+\isabellestyle{it}
+%%%%%%%%%%%%%%
+\renewcommand{\isamarkupheader}[1]{\section{#1}}
+\renewcommand{\isamarkupsection}[1]{\subsection{#1}}
+\renewcommand{\isamarkupsubsection}[1]{\subsubsection{#1}}
+\renewcommand{\isamarkupsubsubsection}[1]{\paragraph{#1}}
+\renewcommand{\isamarkupsect}[1]{\subsection{#1}}
+\renewcommand{\isamarkupsubsect}[1]{\subsubsection{#1}}
+\renewcommand{\isamarkupsubsubsect}[1]{\paragraph{#1}}
+
+\selectlanguage{USenglish}
+
+\makeindex
+\begin{document}
+
+\title{The HOL-Z Reference Manual \\ Version 3.0} 
+
+\author{\href{http://www.brucker.ch/}{Achim D. Brucker} 
+        \and 
+        \href{http://www.infsec.ethz.ch/~wolff/}{Burkhart Wolff}
+}
+%\publishers{Information Security\\Swiss Federal Institute of Technolgy (ETH)\\
+%            CH-8092 Z\"urich}
+\uppertitleback{ 
+  Copyright (C) 2000--2006 Achim D.~Brucker and Burkhart Wolff
+
+  Permission is granted to make and distribute verbatim copies of this
+  manual provided the copyright notice and this permission notice are
+  preserved on all copies.
+
+% \begin{comment}
+%    Permission is granted to process this file through TeX and print the
+%    results, provided the printed document carries copying permission
+%    notice identical to this one except for the removal of this paragraph
+%    (this paragraph not being relevant to the printed manual).
+% \end{comment}
+
+Permission is granted to copy and distribute modified versions of this
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Free Software Foundation.
+
+}
+\lowertitleback{\textbf{Important note:}\\
+  This manual describes }
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Abstract} 
+HOL-Z is a proof environment for Z built as plug-in of the generic
+theorem prover Isabelle/HOL (Version 2005). It allows for importing Z
+specifications written in LaTeX and type-checked by the Javadfgdfg-based
+ZeTa – System. HOL-Z then allows for the formal analysis of such
+specifications, i.e. by proving the conjectures stated in the
+specfication, generating proof obligations concerning the consistency
+of state and operation schemas as well as their proof, and by
+generating proof obligations resulting from refinement statements for
+functional and data refinement.
+
+Proof documents containing lemmas, analytical statements, proofs and
+global checks were written in an extension of the Isabelle/ISAR proof
+language and can be edited with the emacs-based ProofGeneral
+interface.
+
+
+\chapter{Introduction}
+We present a new proof environment for the specification language Z.
+The basis is a semantic representation of Z in a structure-preserving,
+shallow em- bedding in Isabelle/HOL. On top of the embedding, new
+proof support for the Z schema calculus and for proof structuring are
+developed. Thus, we integrate Z into a well-known and trusted theorem
+prover with advanced deduction technology such as higher-order
+rewriting, tableaux-based provers and arithmetic decision
+procedures. A further achievement of this work is the integration of
+our embedding into a new tool- chain providing a Z-oriented type
+checker, documentation facilities and macro support for refinement
+proofs; as a result, the gap has been closed between a logical
+embedding proven correct and a tool suited for applications of
+non-trivial size.
+
+As a proof environment allowing interactive proof (although comprising
+highly sophisticated automated proof procedures), HOL-Z assumes two
+different stakeholders during the development process: the
+\emph{designer} and the \emph{proof engineer}. Both will have
+different interests, may have different educational background and
+should have a different prespective to a given modeling problem.  The
+particular toolchain, into which HOL-Z 3.0 is embedded, allows for the
+two parties to work together and make a question/answer game during
+the development phase. The designers question might be: ("does
+conjecture X hold"? "Is A a refinement of B"?, while answers of the
+proof engineer might be: "Yes, provided that you change definition Y
+as follows: ...".  This toolchain is also reflected by a particular
+workflow depicted below:
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=\textwidth]{figures/workflow}
+  \end{center}
+  \caption{The HOL-Z Workflow\label{fig:work-flow}}
+\end{figure}
+
+The designers side (the \emph{modeling phase}) is 
+essentially an editor plus a light-weight type-checker ZeTa, which
+is just a JAVA app which releases the designer from the quite
+heavy burden to install full Isabelle. Via a plug-in into ZeTa, 
+the designer can export his/her models to the proof engineers side
+(the \emph{verification phase}) which consists of an enhanced
+editor (ProofGeneral based on Emacs) editing proof documents
+which were incrementally checked by Isabelle/HOL-Z.
+
+\chapter{Starting HOL-Z}
+Having installed Isabelle/HOL-Z correctly, the system can be started 
+for the interactive mode by the standard launcher:
+
+\begin{verbatim}
+$ISABELLE/bin/Isabelle -L HOL-Z
+\end{verbatim}
+
+where the shell variable \verb+$ISABELLE+ denotes the home of the Isabelle
+package in your file system. Do not forget the option  \verb+-L HOL-Z+ which
+lets ProofGeneral, when started via the launcher, load a a keyword-file
+containing information on the HOL-Z specific keywords.
+
+For the batch mode, Isabelle can be started via:
+\begin{verbatim}
+$ISABELLE/bin/isatool make
+\end{verbatim}
+provided the usual Isamakefile has been set up. (See Isabelle system documentation).
+
+MORE TO COME.
+
+\chapter{The Z Syntax of HOL-Z}
+
+MORE TO COME.
+
+\chapter{HOL-Z Commands in the ISAR Language}
+We assume that the reader is familiar with the Isabelle/Isar Reference Manual for
+Isabelle 2005. Given the fact that HOL-Z is just a plug-in into the Isabelle 
+framework, its command-language is just a superset of the Isabelle/HOL ISAR command language.
+
+The ISAR command language assumes a general theory file with
+a header containing thory dependencies, \emph{toplevel commands} and
+\emph{prooflevel commands} (which can only be entered after certain toplevel commands
+let the system enter the proof mode). Furthermore, there are \emph{proof methods} which
+are arguments of the preconceived prooflevel command \verb+apply+.
+
+\section{HOL-Z Toplevel and Prooflevel Commands}
+
+There are three general toplevel commands:
+\begin{verbatim}
+  load_holz "<string>"
+
+  zlemma <name> : "<HOL-Z>"
+
+  po "<po-name>"
+\end{verbatim}
+The first command just includes .holz files generated by ZeTa
+containing the Z model provided by the designer. Note that in current
+HOL-Z, the string must be the same as the name of the surrounding
+theory (otherwise problems with namespaces will arise).  The second
+command is an equivalent to the standard \verb+lemma+-command, but
+uses an own parser for the mixture of e-mail-format or latex-format Z
+expressions.  The last comment takes the name of a generated
+obligation; in the sequel, the system is in proof mode (of this
+obligation).
+
+Most commands are part of the package that implements support for
+the Z Refinement method.
+
+There are a number of generic commands controlling the proof-obligation management:
+\begin{verbatim}
+   list_po       [except <po-class-name>]
+   show_po       <po-name>+
+   check_po      [except <po-class-name>]
+   discharge_po  <po-name> 
+\end{verbatim}
+The first command causes a listing of the proof-obligations which are
+currently not resolved (not "discharged"). Certain pre-conceived
+classes of proof obligations (for the Z language, there are: "tcc",
+"axdefConservative", "ccState", "ccOp", "fwRefinementFunctional",
+"fwRefinementInit", "fwRefinementOp") can be excluded from listing or checking.
+The second allow for the display of a given proof obligation, the third succeeds
+only if none of the proof obligations remained undischarged (except those
+explicitly excluded from the check). The last command can only be executed in 
+a proof-state when no logical subgoals remained unproven. It corresponds roughly to
+the standard command \verb+done+ but will only work for proofs started with
+the \verb+po+ command (see below).
+
+Then there is a number of Z Method specific commands related to analysis by
+proof obligation management:
+\begin{verbatim}
+   gen_state_cc <name>
+   gen_op_cc    <name>
+   gen_thm_cc   <name>
+
+   set_abs <name> ["[" functional "]" ]
+   refine_init <name> <name>
+   refine_op   <name> <name>
+\end{verbatim}
+The first group of commands generates proof-obligations related to the consistency of
+Z condtructs: The first the existence of a state satisfying a state invariant captured
+by a state schema, the second captures the functional implementability of an operation schema,
+while the third captures the side-conditions related to the Z application operator, which
+requires that each function symbol is only applied to an argument within its domain
+(Not implemented at present).
+
+The latter three commands are related o the refinement package. \verb+set_abs+ initializes
+the package with the abstraction predicate (which also comprises syntactic checks). If the option
+\verb+[functional]+ is set, the proof obligations for functional refinement were generated.
+\verb+refine_init+ generates the proof obligations with resp. to the initialization schemas,
+ \verb+refine_ops+ the the obligations for operations (depending if the refinement is done
+in a relational or a functional setting).
+
+\section{Proof Methods}
+The following proof methods are available:
+\begin{verbatim}
+   zstrip  ["(" <goal-nr> ")" ]
+   zunfold ["(" <goal-nr> ")" ] <thmname>+
+   zrule   ["(" <goal-nr> ")" ] <thmname>+
+   zfrule  ["(" <goal-nr> ")" ] <thmname>+
+   zdrule  ["(" <goal-nr> ")" ] <thmname>+
+   zerule  ["(" <goal-nr> ")" ] <thmname>+
+\end{verbatim}
+\verb+zstrip+ erases the topmost schema-logical operations, in
+particular schema universal quantification, schema existential
+quantification, or schema implications. Standard HOL universal
+quantifications were also eliminted. The method does its best to
+rename variables such that the resulting proof state is still
+readable.  The other methods are the Z-logical equivalents to the
+standard methods \verb+unfold+,\verb+rule+, \verb+erule+,\verb+frule+,
+\verb+drule+, \verb+erule+, but they perform an internal \verb+zstrip+
+on the resolvend and a cleanup-phase for type-checking related
+constraints afterwards.
+
+\section{Modifiers (Attributes)}
+The following modifiers (called attributes in isabelle-terminology) are available:
+\begin{verbatim}
+   <thm>  "["zstrip"]"
+   <thm>  "["zdecl "["<nr>"]""]"
+   <thm>  "["zpred "["<nr>"]""]"   
+\end{verbatim}
+They correspond to forward reasoning.  \verb+zstrip+ erases the
+topmost schema-logical operations, in particular schema universal
+quantification, schema existential quantification, or schema
+implications. Standard HOL universal quantifications were also
+eliminted. The method does its best to rename variables such that the
+resulting proof state is still readable. (see also the proof method
+zstrip above which does the same in backward reasoning).  \verb+zdecl+
+constructs from a schema a projection lemma (in HOL-Z syntax) into the
+n`th conjoint in the declaration part of schema; \verb+zpred+
+constructs from a schema a projection lemma (in HOL-Z syntax) into the
+n`th conjoint in the predicate part this schema.
+
+
+\section{Miscellaneous}
+There is a collection of definitions for Z, called \verb+Z2HOL+, which
+allows for the conversion of a number of schema or binding related
+operators to standard HOL constructs. This rule set can be used by the
+simplifier or the standard unfold commands.
+
+
+\chapter{Isabelle Theories}
+The main dependencies  are shown in Fig.~\vref{fig:session_graph}.  is build on top 
+of Isabelle/HOL.\footnote{More precise,  is build on top 
+of Isabelle/HOL-Complex but only to support real numbers. If you dont't
+need them,  should be build just fine on top of a plain Isabelle/HOL.}
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=\textwidth]{session_graph}
+  \end{center}
+  \caption{Session Graph\label{fig:session_graph}}
+\end{figure}
+
+\input{session}
+%\bibliographystyle{hol-ocl}
+%\bibliography{hol-ocl,csfmdos}
+%\printindex
+\end{document}

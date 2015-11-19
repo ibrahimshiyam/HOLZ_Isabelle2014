@@ -1,0 +1,254 @@
+package zeta.form;
+
+/**
+ * The class of interaction forms. <p>
+ *
+ * Interaction forms represent an abstract way for tools to specify
+ * communication with users. Sessions managers may interpret
+ * forms in a shell style or by graphical user interfaces. <p>
+ *
+ * @see LiteralForm
+ * @see TextForm
+ * @see FileForm
+ * @see UnitForm
+ * @see ContentTypeForm
+ * @see OptionForm
+ * @see ChoiceForm
+ * @see SeqForm
+ * 
+ * @version $Id: Form.pizza,v 1.7 2000/05/14 17:43:32 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.agl.*;
+
+import zeta.session.Session;
+import zeta.session.Locator;
+import zeta.session.Failures;
+
+public abstract class Form {
+
+  /**
+   * Parse the given sequence of words starting at index. Return the
+   * index of the next word not consumed. Return -1 to indicate that
+   * parsing has failed for syntactical reasons.  Throw a session
+   * failure if parsing runs in a non-recoverable error. It is
+   * expected that such errors are augmented with diagnostics by the
+   * individual parse functions using the sessions message system. The
+   * parsing result is entered into the forms internal state. The
+   * session under which parsing happens is passed, also a locator to
+   * be used in diagnostics produced by parsing.  */
+  public abstract int parse(Session session, Locator locator,
+			    String[] words, int start)
+  throws Failures.FormFailed;
+
+  /**
+   * Unparse the internal state of the form converting it to a 
+   * sequence of words. Parsing the returned sequence should reconstruct
+   * the forms internal state, if it succeeds. The session under
+   * which unparsing happens is passed.
+   */
+  public abstract String[] unparse(Session session);
+
+
+  /**
+   * Get a syntactic description of this form.
+   */
+  public abstract String getSyntax();
+
+
+
+  /*
+   * Get the label of this form. If a short description is present, use
+   * this. Else, if the form is a literal, use this. Else, if this is
+   * a sequence, use the label of its head. Else use the passed
+   * string, which may be null. 
+  public String getLabel(String fallback){
+    if (shortDescr != null) return shortDescr;
+    if (this instanceof LiteralForm)
+      return ((LiteralForm)this).keyword;
+    if (this instanceof SeqForm)
+      return ((SeqForm)this).subforms[0].getLabel(fallback);
+    return fallback;
+  }
+  */
+
+  /**
+   * A field holding an array of general style configure options telling
+   * how this form if displayed in a GUI. The options apply not to all
+   * form subclasses; if they don't apply, they are silentely ignored.
+   */
+  public Style[] style = new Style[0];
+
+  /**
+   * Add a style to this form. Return this form. <p>
+   *
+   * Note that this method returns an object of the general Form type,
+   * which wouldn't allow you to apply form specific style methods further
+   * on. When using a functional style for constructing forms, first attach 
+   * specific, then general styles:
+   * <pre>
+   *   new TheForm(...).style(new TheForm.Style.Specific(...))
+   *                   .style(new Form.Style.General1(...))
+   *                   .style(new Form.Style.General2(...))
+   *                   . ...
+   * </pre>
+   */
+  public Form style(Style style){
+    this.style = new ArraySeq(this.style).append(style).toArray(Style.class);
+    return this;
+  }
+
+  /**
+   * Add an array of styles to this form. Return this form.
+   */
+  public Form style(Style[] styles){
+    this.style = new ArraySeq(this.style)
+			     .appendAll(new ArraySeq(styles))
+			     .toArray(Style.class);
+    return this;
+  }
+
+  /**
+   * The class of general form styles. Not all of them apply to all
+   * variants of forms; if a style doesn't applies, it is ignored.
+   * Note that individual forms may provide further styles.
+   */
+  public static class Style {
+
+    /**
+     * Put a border around this form. 
+     * @param title   if non-null, use as a title embedded in the border
+     */
+    public case Border(String title);
+
+    /**
+     * A label for this form. If given, is displayed in front of
+     * the actual form. If given for a literal form, replaces the 
+     * entire display of the literal form.
+     * @param textOrIcon   a string specifiying the label text. If
+     *                      starting with an @, specifies an 
+     *                      icon. The remaining string
+     *                      is then used as a file name relative to the
+     *                      images directory of the ZETA installation 
+     * @see LiteralForm
+     */
+    public case Label(String stringOrIcon);
+
+    /**
+     * A tool-tip text provided for this form.
+     */
+    public case Tip(String text);
+    
+    /** 
+     * A preferred size for this form. If the indidvidual width or
+     * height is 0, take over the defaults of the GUI. If greater then
+     * 0, take values as pixel units. If less then zero, take as units of
+     * character width/height of the default font.
+     */
+    public case PreferredSize(int width, int height);
+
+    /** 
+     * A minimal size for this form. If the indidvidual width or
+     * height is 0, take over the defaults of the GUI. If greater then
+     * 0, take values as pixel units. If less then zero, take as units of
+     * character width/height of the default font.
+     */
+    public case MinimumSize(int width, int height);
+
+    /** 
+     * A maximal size for this form. If the indidvidual width or
+     * height is 0, take over the defaults of the GUI. If greater then
+     * 0, take values as pixel units. If less then zero, take as units of
+     * character width/height of the default font.
+     */
+    public case MaximumSize(int width, int height);
+
+    /**
+     * Fix the size of this form to its preffered size, setting minimal
+     * and maximum size to the preferred size.
+     */
+    public case FIXSIZE;
+
+    /**
+     * Whether this form shall be put in a separate dialog.
+     * @param textOrIcon    a text used in the button to invoke
+     *                      the separate dialog. If
+     *                      starting with an @, specifies an 
+     *                      icon. The remaining string is then
+     *                      used as a file name relative to the
+     *                      images directory of the ZETA installation 
+     * @param title         a text used as the title of the dialog
+     */
+    public case Dialog(String textOrIcon, String title);
+
+    /**
+     * Whether this form is invisible.
+     */
+    public case INVISIBLE;
+
+    /**
+     * Whether this form shall be put in a scrollable view. Given are
+     * the units of scrolling. If 0, take over the defaults of the
+     * GUI. If greater then 0, take values as pixel units. If less then zero,
+     * take values as units of character width/height of the default font.
+     */
+    public case View(int horiUnits, int vertUnits);
+
+    /**
+     * If this is a form which provides a history, such as a TextForm,
+     * add buttons for accessing the history.
+     */
+    public case HISTORY;
+
+    /**
+     * If this is a compound form (such as a sequence or choice), layout
+     * its components horizontally. The default for layouting depends on
+     * the form type.
+     */
+    public case HORIZONTAL;
+
+    /**
+     * If this is a compound form (such as a sequence or choice), layout
+     * its components vertically. The default for layouting depends on
+     * the form type.
+     */
+    public case VERTICAL;
+
+
+  }
+
+  /**
+   * A shortcut for adding a label style.
+   */
+  public Form describe(String label){
+    return style(new Style.Label(label));
+  }
+
+  /**
+   * A shortcut for adding a label and tool-tip style.
+   */
+  public Form describe(String label, String tip){
+    return style(new Style.Label(label)).style(new Style.Tip(tip));
+  }
+
+  /**
+   * A shortcut for setting the preferred size in text units and
+   * fixing it.
+   */
+  public Form textSize(int columns, int rows){
+    return style(new Style[]{ new Style.PreferredSize(-columns,-rows),
+			      Style.FIXSIZE});
+  }
+    
+  /**
+   * A shortcut for setting the preferred size in pixels and
+   * fixing it.
+   */
+  public Form size(int width, int height){
+    return style(new Style[]{ new Style.PreferredSize(width,height),
+			      Style.FIXSIZE});
+  }
+    
+
+
+}

@@ -1,0 +1,95 @@
+package zeta.form;
+
+/**
+ * The class of optional forms. <p>
+ *
+ * A optional form represents a form a user can optionally select.
+ *
+ * @version $Id: OptionForm.pizza,v 1.4 1998/10/27 11:04:21 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.*;
+
+public class OptionForm extends CompoundForm {
+
+  /** The subform of the optional form. */
+  public final Form subform;
+
+  /** A display style for this optional form. */
+  public final Style style;
+
+  /** The class of display styles for optional forms. */
+  public static class Style {
+    public case CHECKBOX;
+  }
+
+  /** The state of this optional form. */
+  public final State state;
+
+  /** The class of states for optional forms. */
+  public static class State extends FormState {
+    public case State(boolean selected);
+  }
+
+  /** 
+   * Construct an optional form.
+   */
+  public OptionForm(Style style, State state, Form subform){
+    this.subform = subform;
+    this.style = style;
+    this.state = state;
+  }
+
+  /** 
+   * Construct an optional form.
+   */
+  public OptionForm(State state, Form subform){
+    this(Style.CHECKBOX, state, subform);
+  }
+
+  /**
+   * Parse the given sequence of words starting at index. 
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start)
+  throws Failures.FormFailed {
+    int start1 = subform.parse(session, locator, words, start);
+    boolean old = state.selected;
+    if (start1 < 0){
+      // deselect option
+      state.selected = false;
+      if (old != state.selected) state.notifyChange(this);
+      return start;
+    } else {
+      // select option
+      state.selected = true;
+      if (old != state.selected) state.notifyChange(this);
+      return start1;
+    }
+  }
+
+  /**
+   * Unparse the internal state of the form. 
+   */
+  public String[] unparse(Session session){
+    if (state.selected) 
+      return subform.unparse(session);
+    else
+      return new String[]{};
+  }
+
+  /**
+   * Return the direct subforms.
+   */
+  public Form[] getSubforms(){
+    return new Form[]{subform};
+  }
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    return "[ " + subform.getSyntax() + " ]";
+  }
+
+}

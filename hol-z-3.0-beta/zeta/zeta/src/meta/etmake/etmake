@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# $Id: etmake,v 1.6 2000/07/22 07:53:17 wg Exp $
+# Robert Buessow, TU Berlin
+
+if [ -z "$ZETABASE" ]; then
+    echo "\$ZETABASE not defined" >&2
+    exit 1
+fi
+
+. $ZETABASE/etc/etenv.sh
+
+ETMAKE=$0;			export ETMAKE
+
+if [ -f $ZETABASE/etc/etmake/user.makefile ]; then		# user makefile
+    MAKEFILE=$ZETABASE/etc/etmake/user.makefile		# overrides std
+else
+    MAKEFILE=$ZETABASE/etc/etmake/et.makefile
+fi
+export MAKEFILE
+
+if [ -f ETNodekind ]; then
+    NODEKIND=`cat ETNodekind`
+    NODEKIND=`echo $NODEKIND`				# remove newlines
+    [ -z NODEKIND ] || export NODEKIND
+fi
+
+if [ -z "$JAVA_STATE" ]; then
+    JAVA_STATE=java_state;	export JAVA_STATE
+fi
+
+help () {
+    cat << EOF
+etmake \$Id :$
+options:
+	-help
+	-force		ignore .etstate_java files
+default targets:
+	this/all
+	doc/docall
+	inst/install
+	boot		bootstrap
+	clear_state	remove .etstate_java files
+	clear/clearall
+EOF
+}
+
+
+
+ZETA_INSTALL_METHOD=${ZETA_INSTALL_METHOD=link};	export ZETA_INSTALL_METHOD
+
+while [ $# -gt 0 ]; do
+	case $1 in
+	    -force)	JAVA_STATE=java_force; shift; continue;;
+	    -copy)	ZETA_INSTALL_METHOD=copy; shift; continue;;
+	    -help)	help; shift; break;;
+	    *)		break;;
+	esac
+done
+
+for dir in . classes bin lib etc doc doc/api; do
+    if [ \! -d $ZETABASE/$dir ]; then
+	$ECHO $MKDIRHIER $ZETABASE/$dir
+	$MKDIRHIER $ZETABASE/$dir
+    fi
+done
+
+TARGETS=$*;			export TARGETS
+
+
+$MAKE -r -f $MAKEFILE $*

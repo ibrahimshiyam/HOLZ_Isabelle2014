@@ -1,0 +1,244 @@
+package zeta.tools.nzap;
+
+/** Schema context.
+  *
+  * @version $Id: SchemaContext.pizza,v 1.3 2000/06/28 08:04:21 wg Exp $
+  */
+
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.session.*;
+
+import zeta.content.nmz.MZ.*;
+import zeta.content.nmz.MZConstants;
+
+class SchemaContext {
+
+  /** The unit context. */
+  UnitContext unit;
+
+  /** The constraint coder this schema context is created
+      within (or null if this is an outest schema). */
+  ConstrCoder parent;
+
+  /** A type to represent variable kinds. */
+  static class VarKind {
+    case Global(int index);
+    case Param(int index);
+    case Local(int index);
+  }
+
+
+  /** The local variable table of this schema. */
+  private Map<Name,VarKind.Local> varTab = new HashMap();
+
+  /** The sequence of ZAM variable names associated with this schema. */
+  private Seq<String> varNames = new BufferSeq();
+
+  /** A mapping of outer (context) variables this schema depends on
+      to their kind in this context. */
+  Map<Name,VarKind> paramTab = new HashMap();
+
+  /** The sequence of names of the outer variables which are
+      passed as schema parameters. */
+  Seq<Name> paramNames = new BufferSeq();
+
+  /** A ZAM schema being incrementally constructed. */
+  ZAM.Schema zamSchema = new ZAM.Schema(null,null,null,null,null);
+
+  /** A sequence of ZAM constraints. */
+  private Seq<ZAM.Constraint> zamConstrs = new BufferSeq();
+
+
+  /** Create a new schema context for schema-like schema. */
+  SchemaContext(UnitContext unit, ConstrCoder parent, 
+		Locator locator, Expr binder, Set<Name> freeVars){
+    this.unit = unit;
+    this.parent = parent;
+    zamSchema.name = locator.toString();
+    int i = 0;
+    binder.freeVars().apply(
+      fun (Name n)->void {
+	varTab = varTab.define(n, new VarKind.Local(i++));
+	varNames = varNames.append(n.getRepr());
+      }
+    );
+    freeVars.apply(
+      fun (Name n)->void {
+	varTab = varTab.define(n, new VarKind.Local(i++));
+	varNames = varNames.append(n.getRepr());
+      }
+    );
+    zamSchema.binder = exprToBinder(binder);
+  }
+
+  /** Convert an expression to a binder. */
+  private ZAM.Binder exprToBinder(Expr expr){
+    switch (expr){
+    case Variable(Name name):
+      try {
+	return new ZAM.Binder.BVar(varTab.get(name).index);
+      }
+      catch (NoSuchElementException e){
+	throw FatalError.assertionFailed("unbound variable in schema binder");
+      }
+    case Term(Name cons, Seq<Expr> args):
+      return 
+	new ZAM.Binder.BTerm(unit.getConstructorIndex(cons, args.size()),
+			     args.map(exprToBinder).toArray(ZAM.Binder.class));
+    default:
+      throw 
+	FatalError.assertionFailed("unexpected expression in schema binder");
+    }
+  }
+      
+
+  /** Create a new schema context for unit-like schema. */
+  SchemaContext(UnitContext unit, Seq<Name> globals, Seq<Name> locals){
+    this.unit = unit;
+    this.parent = null;
+    zamSchema.name = unit.getName().toString() + " GLOBALS";
+    zamSchema.binder = 
+      new ZAM.Binder.BTerm(unit.getConstructorIndex(MZConstants.unitCons, 0),
+			   new ZAM.Binder[0]);
+  }
+
+  /** Allocate a new free variable in the current schema context. */
+  int newVar(){
+    int i = varNames.size();
+    Name name = new Name("%%" + (++varCounter));
+    varTab = varTab.define(name, new VarKind.Local(i));
+    varNames = varNames.append(name.getRepr());
+    return i;
+  }
+  private int varCounter = 0;
+
+  /** Allocate a new parameter variable in the current schema context. */
+  Name newParam(){
+    int i = varNames.size();
+    Name name = new Name("%%" + (++varCounter));
+    paramTab = paramTab.define(name, new VarKind.Param(i));
+    paramNames = paramNames.append(name);
+    return name;
+  }
+
+    
+
+  /** Compile properties to constraints of this schema. */
+  void compile(Seq<Property> props){
+    Seq<Seq<Property>> newProps = new BufferSeq();
+    Seq<Property> seqProps = null;
+    props.apply(
+      fun (Property p)->void {
+	switch (p) {
+	case Member(Expr e, Variable(Name n)):
+	  if (seqProps == null && n.equals(MZConstants.beginSeq)){
+	    seqProps = new BufferSeq();
+	    return;
+	  } else if (seqProps != null && n.equals(MZConstants.endSeq)){
+	    newProps = newProps.append(seqProps);
+	    seqProps = null;
+	    return;
+	  }
+	}
+	if (seqProps != null){
+	  seqProps = seqProps.append(p);
+	} else {
+	  newProps = newProps.append(new ArraySeq(p));
+	}
+      }
+    );
+    if (seqProps != null)
+      newProps = newProps.append(seqProps);
+    newProps.apply(
+      fun (Seq<Property> ps)->void {
+	ConstrCoder propCoder = new ConstrCoder(this);
+	propCoder.compile(ps);
+	Locator loc = null;
+	ps.apply(
+	  fun (Property p)->void {
+	    if (p.locator != null){
+	      if (loc == null)
+		loc = p.locator;
+	      else
+		loc = loc.combine(p.locator);
+	    }
+	  }
+	);
+	String name;
+	if (loc != null)
+	  name = loc.toString();
+	else
+	  name = "????";
+	zamConstrs = 
+	  zamConstrs.append(
+	    new ZAM.Constraint(name,
+			       propCoder.getRegisterCount(),
+			       unit.addCode(propCoder))
+	  );
+      }
+    );
+  }
+
+
+  /** Finish schema context, entering it in the unit and returning
+      its schema table index. */
+  int finish(){
+    zamSchema.varTab = varNames.toArray(String.class);
+    zamSchema.paramTab = paramNames.map(fun (Name n)->String {
+					   return n.getRepr();
+					 })
+				    .toArray(String.class);
+    zamSchema.constrs = zamConstrs.toArray(ZAM.Constraint.class);
+    return unit.addSchema(zamSchema);
+  }
+
+    
+  /** Lookup a variable. */
+  VarKind lookupVar(Name name){
+    try {
+      // see if it is in this schema
+      return varTab.get(name);
+    }
+    catch (NoSuchElementException e){
+      // lookup in context
+      VarKind kind;
+      try {
+	kind = paramTab.get(name);
+      }
+      catch (NoSuchElementException e1){
+	if (parent != null){
+	  // recursive lookup in outer schema
+	  kind = parent.parent.lookupVar(name);
+	  switch (kind) {
+	  case Local(_): case Param(_):
+	    // this becomes passed as an schema parameter
+	    paramNames = paramNames.append(name);
+	  }
+	} else {
+	  kind = new VarKind.Global(unit.getGlobalIndex(name));
+	}
+	paramTab = paramTab.define(name, kind);
+      }
+      switch (kind){
+      case Local(_): case Param(_):
+	// treat as an schema parameter
+	return new VarKind.Param(paramNames.indexOf(name));
+      default:
+	return kind;
+      }
+    }
+  }
+
+  /** Tell whether we are in a proper schema (instead of a unit). */
+  boolean inSchema(){
+    return parent != null;
+  }
+      
+
+}

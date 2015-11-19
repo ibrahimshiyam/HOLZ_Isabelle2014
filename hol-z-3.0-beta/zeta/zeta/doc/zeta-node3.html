@@ -1,0 +1,156 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>2. XEmacs Support for ZETA</TITLE>
+<META NAME="description" CONTENT="2. XEmacs Support for ZETA">
+<META NAME="keywords" CONTENT="zeta">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zeta.css">
+<LINK REL="next" HREF="zeta-node4.html">
+<LINK REL="previous" HREF="zeta-node2.html">
+<LINK REL="up" HREF="zeta.html">
+<LINK REL="next" HREF="zeta-node4.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html69"
+ HREF="zeta-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html65"
+ HREF="zeta.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html59"
+ HREF="zeta-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html67"
+ HREF="zeta-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html70"
+ HREF="zeta-node4.html">3. Batch Operation</A>
+<B> Up:</B> <A NAME="tex2html66"
+ HREF="zeta.html">Operation of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html60"
+ HREF="zeta-node2.html">1. Tutorial Introduction</A>
+ &nbsp <B>  <A NAME="tex2html68"
+ HREF="zeta-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION00030000000000000000"></A>
+<A NAME="sec:xemacs"></A>
+<BR>
+2. XEmacs Support for Z<SMALL>E</SMALL>T<SMALL>A</SMALL>
+</H1>
+
+<P>
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL> can be operated from within a comfortable XEmacs mode, <TT> 
+zeta-source-mode</TT>. To start a Z<SMALL>E</SMALL>T<SMALL>A</SMALL> session from within XEmacs,
+issue <code>M-x zeta</code>.
+
+<P>
+The mode realizes a session log as described for the graphical user
+interface. The following snapshot represents the same operation state
+as in the previous section, where we just executed the expression
+<I>BirthdayBook</I>:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=xemacs.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="597" HEIGHT="617" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img9.gif"
+ ALT="\epsfig {file=xemacs.eps,scale=0.7}">
+</DIV>
+
+<P>
+Clicking on the highlighted locaters visits the referred sources.
+
+<P>
+In the commander's buffer, you can type in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>
+commands. The set of available commands is displayed with the
+<code>help</code> command. <code>C-up</code> and <code>C-down</code> lets you
+step through the command history. In order to enter multiline arguments,
+quote them, as in
+
+<P>
+ 
+<PRE>
+ e "
+    date \lbind day==1, month==2, year==1998 \rbind
+  "
+</PRE>
+
+<P>
+
+<P>
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL>'s operations can be also reached via the <code>ZETA</code> menu
+and various key-shortcuts which all start with <code>C-q</code>:
+
+<P>
+ 
+<DIV ALIGN="CENTER">
+
+<!-- MATH
+ $\epsfig {file=xemacs-menu.eps,scale=0.7}$
+ -->
+<IMG
+ WIDTH="245" HEIGHT="341" ALIGN="BOTTOM" BORDER="0"
+ SRC="zeta-img10.gif"
+ ALT="\epsfig {file=xemacs-menu.eps,scale=0.7}">
+</DIV>
+
+<P>
+The current default unit (section) to operate on is defined with
+<code>C-Q u</code>. If any of the commands which operate on sections, such
+as type checking, execution, or formatting are activtated via the menu
+or by a key-shortcut from within a source buffer, Z<SMALL>E</SMALL>T<SMALL>A</SMALL> tries to
+automatically determine the default unit by scanning for
+<code>\zsection</code> directives in the buffer.
+
+<P>
+A non-terminating operation can be interrupted using <code>C-q C-c</code>.
+This is in particular useful for execution, where non-termination
+is a possible behaviour.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html69"
+ HREF="zeta-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html65"
+ HREF="zeta.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html59"
+ HREF="zeta-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html67"
+ HREF="zeta-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html70"
+ HREF="zeta-node4.html">3. Batch Operation</A>
+<B> Up:</B> <A NAME="tex2html66"
+ HREF="zeta.html">Operation of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html60"
+ HREF="zeta-node2.html">1. Tutorial Introduction</A>
+ &nbsp <B>  <A NAME="tex2html68"
+ HREF="zeta-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

@@ -1,0 +1,2 @@
+#!/bin/sh
+java espress.util.javacc.genlexis.GenLexis $*

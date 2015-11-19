@@ -1,0 +1,401 @@
+package zeta.tools.sh;
+
+/**
+ * The GUI commander.
+ *
+ * @version $Id: GuiCommander.pizza,v 1.23 2000/05/18 09:54:57 wg Exp $
+ */
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.form.*;
+import zeta.session.*;
+
+import java.io.*;
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+
+
+public class GuiCommander extends JFrame implements Shell, Listener {
+
+  // CONSTANTS
+
+  // FIELDS
+
+  /**
+   * The shell state.
+   */
+  private ShellState state;
+
+  /**
+   * The menu tree
+   */
+  private FormTree formTree;
+
+  /**
+   * The overall panel
+   */
+  private JPanel panel;
+
+  /**
+   * The log panel
+   */
+  private LogPanel log;
+
+  /**
+   * The tool bar panel.
+   */
+  private JToolBar toolBar;
+
+  /**
+   * The last instance of the tool selector.
+   */
+  private JComponent toolSelector = null;
+
+  // INITIALIAZATION
+
+  public static void main(String[] files){
+
+    if (System.getProperty("zeta.home") == null) {
+      System.err.println(
+      "ZETA initialization error: property `zeta.home' not defined.");
+      return;
+    }
+
+    String project = "ZETA"; 
+
+    // Set look&feel
+    String lookAndFeel = System.getProperty("zeta.gui.laf");
+    if (lookAndFeel != null){
+      try {
+	UIManager.setLookAndFeel(lookAndFeel);
+      } catch (Exception e) {
+	System.err.println("couldn't load the requested look & feel `" + 
+			   lookAndFeel + "'");
+	System.exit(1);
+      }
+    }
+
+    // Open or create session
+    Session session;
+    boolean created;
+    try {
+      session = SessionManager.open(project);
+      created = false;
+    }
+    catch (Failures.NoSuchEntity e){
+      session = SessionManager.create(project);
+      created = true;
+    }
+
+    // Session loaded, from now on catch user interrupts
+    // Impure.driver.catchInterrupts();
+
+    try {
+
+      // Setup basic print message receiver
+      DebugWriter.setReceiver(session);
+      VerboseWriter.setReceiver(session);
+      session.registerListener(
+	null,
+	new MessagePrinter(
+	      System.getProperty("zeta.debug") != null ?
+	        new PrintWriter(new OutputStreamWriter(System.err)) : null,
+	      System.getProperty("zeta.debug.echo") != null ?
+	        new PrintWriter(new OutputStreamWriter(System.out)) : null
+	    )
+      );
+
+      // Setup shell state
+      ShellState state = new ShellState(session);
+      state.interpreter = new CommandInterpreter(state);
+
+      GuiOptions.setupDefaults(state);
+
+      // Create gui
+      new GuiCommander(files, state, created);
+    }
+    catch (Exception e){
+      session.abort(e);
+    }
+  }
+
+  /**
+   * Construct a GUI commander
+   */
+  private GuiCommander(String[] files,
+		       final ShellState state, boolean created){
+
+    // initialize commander window
+    super("ZETA Commander");
+    this.state = state;
+    addWindowListener(
+      new WindowAdapter() {
+	public void windowClosing(WindowEvent e) {
+	  log.remove();
+	  state.session.abort();
+	}
+      }
+    );
+
+    log = new LogPanel(state);
+    final Container cont = getContentPane();
+    cont.setLayout(new BorderLayout());
+    cont.add(log, BorderLayout.CENTER);
+
+    /*
+    cont.addMouseListener(
+      new MouseAdapter(){
+	public void mouseClicked(MouseEvent e){
+	  //  System.err.println("clicked: " + e);
+	  	  // cont.requestFocus();
+	}
+	public void mouseEntered(MouseEvent e){
+	  	  // System.err.println("entered: " + e);
+	  	  // cont.requestFocus();
+	}
+      }
+    );
+    cont.addKeyListener(
+      new KeyAdapter(){
+	public void keyTyped(KeyEvent e){
+	  System.err.println("key: " + e);
+	}
+      }
+    );
+    */
+
+
+
+    pack();
+    show();
+    state.master = log;
+
+    // initialize session
+    state.session.registerListener(null, this);
+    ShellForms.registerPre(state);
+    state.session.registerForm(guiConfigForm);
+    if (true || created){ // FIXME: reading session state
+      state.session.initialize();
+
+
+      // execute startup scripts
+      try {
+	state.interpreter.readAndEvalConfigScripts();
+      }
+      catch (Failures.FormFailed e){}
+
+      // load files
+      for (int i = 0; i < files.length; i++){
+	try {
+	  state.interpreter.readAndEval(
+	    new ChoiceForm(state.session.getForms()),
+	    "<parameter line>",
+	    "load " + files[i]
+	  );
+	} catch (Failures.FormFailed e){}
+      }
+
+    } else {
+      state.session.initialize();
+      // FIXME: read GUI options
+      // ...
+    }
+    ShellForms.registerPost(state);
+    state.session.registerShell(this);
+    updateView();
+  }
+
+
+  /**
+   * Update the view.
+   */
+  private void updateView(){
+    formTree = FormTree.make();
+    new ArraySeq(state.session.getForms()).apply(
+	  fun (TopLevelForm form)->void {
+	    switch (form.style){
+	    case MenuAt(String[] prefix):
+	      formTree.add(prefix, form);
+	      break;
+	    case Shell():
+	      formTree.add(new String[]{"Shell"}, form);
+	      break;
+	    case Source():
+	      formTree.add(new String[]{"Source"}, form);
+	      break;
+	    case Function():
+	      formTree.add(new String[]{"Operation"}, form);
+	      break;
+	    case Config():
+	      formTree.add(new String[]{"Configure"}, form);
+	      break;
+	    default:
+	      // ignore
+	    }
+	  }
+	);
+    JMenuBar menu = formTree.makeMenu(this, state);
+    menu.setDoubleBuffered(true);
+    setJMenuBar(menu);
+    Container cont = getContentPane();
+    if (toolBar != null) cont.remove(toolBar);
+    toolBar = new JToolBar();
+    formTree.addToolBar(this, state, toolBar);
+    toolBar.addSeparator();
+    addSharedForms(toolBar);
+    cont.add(toolBar, BorderLayout.NORTH);
+    validate();
+  }
+
+  public boolean isFocusTraversable(){
+    return false;
+  }
+
+    
+  /**
+   * Add the shared default forms to the tool bar.
+   */
+  private void addSharedForms(Container where){
+    FormComponents gen = new FormComponents(state);
+    where.add(gen.makeComponent(
+		new UnitForm())); // .style(Form.Style.MaximumSize(-30,-1))));
+  }
+
+
+  /**
+   * Implementation of shell method.
+   */
+  public void exec(String prompt, 
+		   TopLevelForm form) throws Failures.FormFailed {
+    state.sendDiag(state.defaultLocator, "modal forms NYI");
+  }
+
+  /**
+   * Implementation of shell method.
+   */
+  public void notifyFormRegister(TopLevelForm form){
+    updateView();
+  }
+
+  /**
+   * Implementation of shell method.
+   */
+  public void notifyFormUnregister(TopLevelForm form){
+    updateView();
+  }
+
+  /** Implement session message listener. */
+  public void receive(final Name sender, final Message message){
+    if (SwingUtilities.isEventDispatchThread()){
+      // just add it to log
+      log.addMessage(message);
+    } else {
+      // called from a thread, use invoke-later method
+      /*
+	SwingUtilities.invokeLater(
+	new Runnable(){
+	public void run(){
+	log.addMessage(message);
+	}
+	}
+	);
+      */
+      try {
+	// force an update of the GUI
+	SwingUtilities.invokeLater(
+	  new Runnable(){
+	    public void run(){
+	      log.addMessage(message);
+	      getToolkit().sync();
+	    }
+	  }
+	);
+	/*
+	SwingUtilities.invokeAndWait(
+	  new Runnable(){
+	    public void run(){
+	    }
+	  }
+	);
+	*/
+      }
+      catch (java.lang.reflect.InvocationTargetException e){}
+      catch (java.lang.InterruptedException e){}
+    }
+  }
+
+  // GUI configuration form
+  private OptionForm.State logProgressState = new OptionForm.State(true);
+  private OptionForm.State collapsePreviousState = new OptionForm.State(true);
+  private StringForm.State registerProgState = new StringForm.State("");
+  private StringForm.State visitProgState = new StringForm.State("");
+  private StringForm.State clearProgState = new StringForm.State("");
+
+  private TopLevelForm guiConfigForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Config().setModal(false),
+      new SeqForm(
+	    new LiteralForm("gui-config").describe("Configure Commander"), 
+	    new SeqForm(
+		  new OptionForm(logProgressState, 
+				 new LiteralForm("-progress")
+					.describe("Log progress messages")),
+		  new OptionForm(collapsePreviousState,
+				 new LiteralForm("-collapse")
+			      .describe("Collapse previous transactions"))
+		).style(Form.Style.VERTICAL)	    //,
+	    //	    new SeqForm(
+		    //	  new StringForm(registerProgState)
+		    //			.describe("Register"),
+		    //	  new StringForm(visitProgState)
+		    //			.describe("Visit"),
+		    //	  new StringForm(clearProgState)
+		    //			.describe("Clear")
+		    //	).style(Form.Style.VERTICAL)
+		    //	       .style(new Form.Style.Border(
+		    //			    "File locator visiting programs"))
+	  ).style(Form.Style.VERTICAL),
+      "Configure GUI",
+      fun (Session s)->void {
+	logProgressState.selected = GuiOptions.active.logProgress;
+	logProgressState.notifyChange(this);
+
+	collapsePreviousState.selected = GuiOptions.active.collapsePrevious;
+	collapsePreviousState.notifyChange(this);
+
+	/*
+	registerProgState.setDraftText(
+	  s, 
+	  GuiOptions.active.registerFileLocatorsProg
+	);
+	registerProgState.notifyChange(this);
+
+	visitProgState.setDraftText(
+	  s, 
+	  GuiOptions.active.visitFileLocatorProg
+	);
+	visitProgState.notifyChange(this);
+
+	clearProgState.setDraftText(
+	  s, 
+	  GuiOptions.active.clearFileLocatorsProg
+	);
+	clearProgState.notifyChange(this);
+	*/
+      },
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	GuiOptions.active.logProgress = logProgressState.selected;
+	GuiOptions.active.collapsePrevious = collapsePreviousState.selected;
+	GuiOptions.active.registerFileLocatorsProg = registerProgState.getText(s);
+	GuiOptions.active.visitFileLocatorProg = visitProgState.getText(s);
+	GuiOptions.active.clearFileLocatorsProg = clearProgState.getText(s);
+      }
+    );
+
+}
+

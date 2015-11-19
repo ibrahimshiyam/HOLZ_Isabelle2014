@@ -1,0 +1,35 @@
+/** An interface describing enumerations.<p>
+  *
+  * An enumeration is a object which allows to traverse the
+  * elements of an aggregate. <p>
+  *
+  * Enumerations have state and usually shouldn't be stored in other
+  * objects or passed as parameters to public methods. They are
+  * intended as temporary objects in code such as:
+  *
+  * <pre>
+  *  for(Enum<A> enum = agg.enumerate(); enum.more(); enum.advance()){
+  *    ... enum.current() ...
+  *  }
+  *  </pre>
+  *
+  * @version $Id: Enum.pizza,v 1.1.1.1 1998/09/01 10:51:10 wg Exp $
+  *  */
+
+package zeta.agl;
+
+import java.util.NoSuchElementException;
+
+public interface Enum<A> {
+
+  /** Test if the enumeration has more elements. */
+  public boolean more();
+
+  /** Return current element. */
+  public A current() throws NoSuchElementException;
+
+  /** Advance to the next element. */
+  public void advance();
+
+}
+

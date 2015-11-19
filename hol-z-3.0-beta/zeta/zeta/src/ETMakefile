@@ -1,0 +1,20 @@
+SUBJAVANODES    = agl format form session util content
+#AUTOSUBNODES    = $(filter-out $(SUBJAVANODES), $(SUBNODES))
+SUBNODES        = agl content format form session util tools
+NODEKIND	= javagroup
+JAVAFLAGS       = 
+
+clear_classes: clear_state
+	rm -r $(ET)/classes/{zeta,zap}
+
+.PHONY: bootstrap
+
+bootstrap:
+	$(ETMAKE) -s boot
+	(cd meta/genlexis/ && $(ETMAKE) )
+	(cd content/text && $(ETMAKE) lexis)
+	(cd content && $(ETMAKE))
+	(cd tools/zparser && $(ETMAKE) )
+	(cd tools/latex && $(JAVACC) LatexScanner.jj ) # hack
+	(cd tools && $(ETMAKE) -s boot)
+	$(ETMAKE)

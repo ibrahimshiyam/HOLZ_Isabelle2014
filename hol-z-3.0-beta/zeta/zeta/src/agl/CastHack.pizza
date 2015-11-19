@@ -1,0 +1,15 @@
+
+package test;
+
+class Id {
+  Object id(Object x) { return x; }
+}
+
+
+class Cast<A implements Object,B implements Object> {
+  B[] cast (A x){
+    return (B[])(Object)null;
+  }
+}
+    
+

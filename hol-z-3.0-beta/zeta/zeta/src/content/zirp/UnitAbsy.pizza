@@ -1,0 +1,37 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of units.<p>
+  * 
+  * Two types of the syntax of units are distinguished: standard Z
+  * sections and mSZ classes.
+  *  
+  * @version $Id: UnitAbsy.pizza,v 1.3 1998/09/06 15:24:33 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  * */
+
+import zeta.util.Name;
+import zeta.util.AnnotatedTerm;
+
+public class UnitAbsy extends AnnotatedTerm {
+
+  /** 
+   * A standard Z section.
+   * @param name    the unit name of the section
+   * @param parents the parent sections this section bases on
+   * @param items   the items defining the contents of this section
+   */
+  public case Section(Name name, Name[] parents, Item[] items);
+
+  /** 
+   * A mSZ class definition.
+   * @param name    the unit name of the class
+   * @param parents the parent sections this class bases on
+   * @param formals the formal parameters of this class
+   * @param items   the items defining the contents of this class
+   */
+  public case ClassDef(Name name, 
+		       Name[] parents, 
+		       Name[] formals,
+		       Item[] items);
+  
+}

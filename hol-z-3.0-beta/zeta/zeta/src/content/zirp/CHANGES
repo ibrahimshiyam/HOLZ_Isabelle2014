@@ -1,0 +1,72 @@
+Changes ESPRESS-ZIRP --> ZETA-ZIRP
+==================================
+
+- Expr.Decl extended by a variant Expr.Decl.Eqn, since standard
+  Z allows to have equations in schema text, e.g. [x == 1,y : Z | x < y]
+
+- Expr.Abbrev dropped. Abbreviations are now expressed by
+  Expr.Decl.Eqn.
+
+- in Expr.Display the kind Expr.DisplayKind dropped, since 
+  sequence and bag displays are no definable as mixfix-functions on
+  user level.
+
+- in Expr.Text the kind Expr.TextKind dropped (this kind determined
+  whether its dynamic or static text). The flag for dynamic text
+  goes to an annotation (class TextAttr).
+
+- Item.SchemaDef vanished, since Standard Z makes no differences
+  between normal names and schema names. Conceptually, the
+  schema definition
+
+  	S =^= E
+
+  is equivalent to
+
+  	S == E
+
+  which in turn is equivalent to the axiomatic definition (using the
+  new Expr.Decl.Eqn variant):
+
+  	| S == E
+	|----
+	| true
+
+- The role of an MSZ schema definition, formerly represented by
+  Item.SchemaDef, is now represented as an annotation of
+  NameDecl's (class DeclAttr).
+
+- Unit renamed to UnitAbsy, since the notion of a unit in the
+  session system is more general then just its Absy.
+
+  UnitAbsy distinguishes two cases: Section (a Standard Z section,
+  equals to what was formerly a unit) and ClassDef, a mSZ class.
+  
+  The ClassDef in turn doesn't appears as an individual item.
+
+- Fixities simplified and synchronized with the standard --
+  a fixity can be either generic or not, instead of individual
+  components being generic or not.
+
+- Item.StaticReactionDef and Item.TransitionDef: decls removed,
+  since they are not included in the mSZ 1.0 language version
+
+- The class Transition.Node is removed, transition nodes are now
+  described as NameAppl.  Now, state and connector names are always
+  prefixed by the chart name and, if necessary, the state-path:
+
+      +-xorstate S--
+      | S:A, S:B : BasicState
+      | S:C : Connector
+      | S:X : XorState
+      | S:X:X1, S:X:X2 : BasicState
+      | S:X:C Connector
+      +--
+      | S:A 	Goto S:X:C
+      | S:X:C	Goto S:X:X1
+      | ...
+
+- There is a new case for State: RefState, describing a reference to
+  an other chart (@MY_STATE in Statemate).  Upto now, state references
+  were described as BasicState, and a BasicState was supposed to be
+  interpreted as state reference if a chart with its name existed.

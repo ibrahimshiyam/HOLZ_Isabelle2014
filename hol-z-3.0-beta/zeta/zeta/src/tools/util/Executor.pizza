@@ -1,0 +1,175 @@
+package zeta.tools.util;
+
+import java.io.*;
+import java.lang.*;
+import zeta.util.Name;
+import zeta.format.*;
+import zeta.session.*;
+
+/** System command executor.
+ *
+ *  @version $Id: Executor.pizza,v 1.4 1999/03/09 13:20:47 buessow Exp $
+ *
+ *  Auxiliar class to execute system commands.
+ *
+ *  Executes system commands and produces diagnostics if execution fails
+ *  (because of <code>IOExceptoin</code>, <code>InterruptedException</code>,
+ *  or exit value is not equal to zero.
+ *
+ */
+public class Executor {
+
+    private Session session;
+    private Adaptor tool;
+    private Locator default_locator;
+
+    private class ExecutorLocator extends Locator {
+      public Name getTool() { return tool.getName(); }
+      public Format toFormat(FormatInfo info) {
+	return tool.getName().toFormat(info);
+      }
+    }
+
+
+    /** Create Executor.
+     *
+     *  @param session current session to send diagnostics.
+     *  @param tool    calling tool (also for diagnostics).
+     */
+    public
+    Executor(Session session, Adaptor tool) {
+      this.session = session;
+      this.tool = tool;
+      this.default_locator = new ExecutorLocator();
+    }
+
+    /** Craete Executor.
+     *
+     *  @param session current session to send diagnostics.
+     *  @param tool    calling tool (also for diagnostics).
+     *  @param default_locator locator to be used for diagnostics if no
+     *  specific locator is given.
+     */
+    public
+    Executor(Session session, Adaptor tool, Locator default_locator) {
+      this.session = session;
+      this.tool = tool;
+      this.default_locator = default_locator;
+    }
+
+    
+    /** Execute command. */
+    public boolean
+    exec(String[] command, String terminator) {
+      return exec(default_locator, command, terminator);
+    }
+
+    /** Execute command.
+     *  Execute command and use <code>lcoator</code> for diagnostics. */
+    public boolean
+    exec(Locator locator, String[] command, String terminator) {
+      try {
+      	Process p =Runtime.getRuntime().exec(command);
+
+	StringBuffer out = new StringBuffer();
+	StringBuffer err = new StringBuffer();
+	InputStream out_stream = new BufferedInputStream(p.getInputStream());
+	InputStream err_stream = new BufferedInputStream(p.getErrorStream());
+	int matches = 0;
+	byte[] term = terminator.getBytes();
+	while(matches < term.length) {
+
+	  while(out_stream.available()+err_stream.available() == 0) 
+	    Thread.currentThread().sleep(100);
+
+	  if(out_stream.available() > 0) {
+	    byte b = (byte) out_stream.read();
+	    if(b == term[matches]) 
+	      matches++;
+	    else 
+	      matches = 0;
+	    String s = new String(new byte[] { b });
+	    out.append(s);
+	  } if(err_stream.available() > 0) {
+	    byte b = (byte) err_stream.read();
+	    String s = new String(new byte[] { b });
+	    err.append(s);
+	  }
+	}
+
+	out_stream.close();
+	err_stream.close();
+	p.getOutputStream().close();
+
+	/* it is somewhat hard to test, whether a process has exited
+	 * (still possible ;) 
+	 */
+	int exit;
+	try {
+	  exit = p.exitValue();
+	} catch(java.lang.IllegalThreadStateException e) {
+	  sendDiag(e.getMessage(), locator);
+	  p.destroy();
+	  exit = -1;
+	}
+
+	/*
+	if(exit != 0) {
+	  sendDiag("execution of `"+command[0]+"' failed:", locator);
+	  sendDiag("out: "+new String(out), locator);
+	  sendDiag("err: "+new String(err), locator);
+	}
+	*/
+      } catch (IOException e) {
+	sendDiag("cannot execute `"+command[0]+"'", locator);
+      	return false;
+      } catch (InterruptedException e) {
+	sendDiag("execution of `"+command[0]+"' interrupted", locator);
+      	return false;
+      }
+      return true;
+    }
+
+    public boolean exec(Locator locator, String com1, String terminator) {
+      return exec(locator, new String[] { com1 }, terminator);
+    }
+    public boolean 
+    exec(Locator locator, String com1, String com2, String terminator) {
+      return exec(locator, new String[] { com1, com2 }, terminator);
+    }
+    public boolean 
+    exec( String com1, String com2, String terminator) {
+      return exec(new String[] { com1, com2 }, terminator);
+    }
+    public boolean
+    exec(Locator locator, String com1, String com2, 
+	 String com3, String terminator) {
+      return exec(locator, new String[] { com1, com2, com3 }, terminator);
+    }
+    public boolean
+    exec(Locator locator, String com1, String com2, String com3, 
+	 String com4, String terminator) {
+      return exec(locator, 
+		  new String[] { com1, com2, com3, com4 }, 
+		  terminator);
+    }
+    public boolean
+    exec(Locator locator, String com1,
+	 String com2, String com3, String com4, String com5, 
+	 String terminator) {
+      return exec(locator, 
+		  new String[] { com1, com2, com3, com4, com5 }, 
+		  terminator);
+    }
+
+    
+    private void sendDiag(String msg, Locator locator) {
+      if(session != null && locator != null)
+	session.send(tool.getName(),
+		     new Diag(locator,
+			      Diag.Category.Error,
+			      msg));
+      else System.err.println(msg);
+    }
+}
+	

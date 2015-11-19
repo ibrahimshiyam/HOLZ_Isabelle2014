@@ -1,0 +1,1027 @@
+package zeta.tools.latex;
+
+/** 
+ * Adaptor for LaTeX sources.
+ *
+ * @version $Id: LatexAdaptor.pizza,v 1.27 2000/07/17 05:09:11 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.io.File;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.io.IOException;
+import java.util.Date;
+import java.util.NoSuchElementException;
+import java.util.StringTokenizer;
+
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.*;
+import zeta.format.*;
+import zeta.agl.*;
+import zeta.content.text.*;
+import zeta.session.*;
+import zeta.form.*;
+
+import zeta.tools.util.SessionUtil;
+
+
+
+// FIXME: when and how to deliver diagnostics
+
+public class LatexAdaptor extends DefaultAdaptor {
+
+  // STRUCTURES
+
+  /** 
+   * Information about a source.
+   */
+  public static class SourceInfo implements Serializable {
+    public case SourceInfo(File file, File absFile, File[] auxFiles,
+			   Diag diag, Date scannedAt,
+			   LatexConfig config);
+  }
+
+  /** 
+   * Information about a unit.
+   */
+  static class UnitInfo implements Serializable {
+    case UnitInfo(Name name, SourceInfo source, Text undeliveredText,
+		  Locator locator);
+  }
+
+  /**
+   * A wrapper for serializing the adaptors state. AGL types cannot
+   * be used here, since generic types cannot be cleanly serialized with
+   * the current version of Pizza.
+   */
+  private static class PersistentData implements Serializable {
+    case PersistentData(File[] searchPath,
+			SourceInfo[] sourceInfos,
+			UnitInfo[] unitInfos);
+  }
+
+
+  // CONSTANTS
+
+  /**
+   * The name of this adaptor.
+   */
+  static final Name thisName = new Name("LTX");
+
+  /**
+   * The locator of control operations of this adaptor.
+   */
+  static final Locator thisLocator = 
+    new ControlLocator();
+
+  static class ControlLocator extends Locator {
+    public Format toFormat(FormatInfo info){
+      return Format.literal("<LaTeX-Adaptor>");
+    }
+    public Name getTool(){
+      return thisName;
+    }
+    public boolean equals(Object other){
+      return other instanceof ControlLocator;
+    }
+  }
+
+  /**
+   * The startup message of this adaptor.
+   */
+  private static final String startupMessage = 
+    "installed Z LaTeX adaptor v1.4";
+
+
+
+  // STATE VARIABLES
+
+  /**
+   * The registered sources 
+   */
+  private Map<File,SourceInfo> sourceInfos = new HashMap();
+
+  /**
+   * The units introduced by the registered sources.
+   */
+  private Map<Name,UnitInfo> unitInfos = new HashMap();
+
+
+  /**
+   * The search path.
+   */
+  private Seq<File> searchPath = new ArraySeq();
+
+  /**
+   * Whether persistent data needs to be flushed.
+   */
+  private boolean needsFlush = false;
+
+
+  // ADAPTOR INITIALIZATION
+
+  /** 
+   * Initialize a newly created instance of this adaptor.
+   */
+  public void initialize(Session session, StorageHandle handle){
+    super.initialize(session, handle);
+    sendProgress(startupMessage);
+    PersistentData data = (PersistentData)session.load(handle);
+    if (data == null){
+      // initialized the first time for this project
+      searchPath = new ArraySeq(new File(System.getProperty("user.dir")));
+      String latexPath = System.getProperty("zeta.latex.path");
+      if (latexPath != null){
+	StringTokenizer tkn = new StringTokenizer(latexPath,
+						  File.pathSeparator);
+	while (tkn.hasMoreTokens())
+	  searchPath = searchPath.append(new File(tkn.nextToken()));
+      }
+      needsFlush = true;
+    } else {
+      // initialize from last session
+      searchPath = new ArraySeq(data.searchPath);
+      for (int i = 0; i < data.sourceInfos.length; i++){
+	sourceInfos = sourceInfos.define(data.sourceInfos[i].file,
+					 data.sourceInfos[i]);
+      }
+      for (int i = 0; i < data.unitInfos.length; i++){
+	unitInfos = unitInfos.define(data.unitInfos[i].name,
+				     data.unitInfos[i]);
+      }
+      checkExternalData();
+    }
+    session.registerContentType(TextContentTypes.text);
+    session.registerContentType(TextContentTypes.config);
+    session.registerContentType(TextContentTypes.dvi);
+    session.registerContentType(TextContentTypes.latexFragment);
+    session.registerForm(loadForm);
+    session.registerForm(pathForm);
+    session.registerForm(dviForm);
+    session.registerForm(viewForm);
+  }
+
+
+  /**
+   * Flush internal persistent data.
+   */
+  public void flush(){
+    if (needsFlush){
+      session.store(handle,
+		    new PersistentData(
+			  searchPath.toArray(File.class),
+			  sourceInfos.range().toArray(SourceInfo.class),
+			  unitInfos.range().toArray(UnitInfo.class)
+			)
+		   );
+      needsFlush = false;
+    }
+  }
+  
+  // ADAPTOR METHODS
+  
+  /**
+   * Get name of this adaptor.
+   */
+  public Name getName(){
+    return thisName;
+  }
+
+
+  /** 
+   * Return the content types which this adaptor can generally
+   * compute.
+   */
+  public ContentType[] computedTypes() {
+    return new ContentType[]{ TextContentTypes.text, TextContentTypes.config,
+			      TextContentTypes.dvi,
+			      TextContentTypes.latexFragment };
+  }
+
+  /**
+   * Lookup a unit by given (possible incomplete) name.  <p>
+   *
+   * The syntax understood by the LaTeX adaptor is
+   *
+   * <pre>
+   *  [LTX:]section_or_classname[#sourcename]
+   * </pre>
+   *
+   * The LaTeX adaptor first tries to complete missing components of
+   * the name against the units it knows about. If several units match
+   * the given name, the exception
+   * <code>AmbigiousResolution</code> is thrown. If exactly one
+   * such unit exists, it will be returned. <p>
+   * 
+   * If no unit of the given name exists, then the adaptor tries to
+   * create one. If a source name is given, this source is tried to be
+   * located in the search path. If no source name is given, the
+   * section_or_classname is tried as a source name. <p>
+   * 
+   * If a source file has been found, than it is scanned and all
+   * units found in it are entered into the session system. The
+   * LaTeX adaptor then tries once more to complete the given MSL again  
+   * the known units. It throws <code>UnresolvableName</code> if no completion
+   * is found, and <code>AmbigousName</code>, if completions aren't
+   * unqiue.
+   * 
+   */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName, Failures.AmbigiousName {
+    String[] comps = extractNameComponents(name);
+    try {
+      return tryMatch(name, comps);
+    }
+    catch (Failures.UnresolvableName e){
+      File file;
+      if (comps[2] != null)
+	file = new File(comps[2]);
+      else
+	file = new File(comps[1]);
+      File absFile = locateFile(file);
+      if (absFile != null){
+	updateSource(file, absFile, new File[0]);
+	return tryMatch(name, comps);
+      } else
+	throw new Failures.UnresolvableName(name);
+    }
+  }
+
+  private String[] extractNameComponents(Name name){
+    String[] comps = new String[3];
+    String repr = name.getRepr();
+    int i = repr.indexOf(":");
+    if (i >= 0){
+      comps[0] = repr.substring(0, i);
+      repr = repr.substring(i+1);
+    } else
+      comps[0] = thisName.getRepr();
+    i = repr.indexOf("#");
+    if (i >= 0){
+      comps[1] = repr.substring(0, i);
+      comps[2] = repr.substring(i+1);
+    } else
+      comps[1] = repr;
+    // System.err.println("comps " + comps[0] + ", " +
+    // 		       comps[1] + ", " + comps[2]);
+    return comps;
+  }
+
+  private Unit tryMatch(Name name, String[] comps)
+  throws Failures.UnresolvableName, Failures.AmbigiousName {
+    Set<Name> cands =
+      unitInfos.domain().filter(
+	fun (Name cand)->boolean {
+	  String[] ccomps = extractNameComponents(cand);
+	  return comps[0].equals(ccomps[0]) &&
+		 comps[1].equals(ccomps[1]) &&
+		 (comps[2] == null || comps[2].equals(ccomps[2]));
+	}
+      );
+    switch (cands.size()){
+    case 0:
+      throw new Failures.UnresolvableName(name);
+    case 1:
+      return session.getOrCreateUnit(cands.arb());
+    default:
+      throw new Failures.AmbigiousName(cands.toArray(Name.class));
+    }
+  }
+    
+	    
+
+  /**
+   * Run the adaptor to compute the specified content.  
+   */
+  public void tryCompute(Target target)
+  throws Failures.ComputationFailed, Failures.CannotCompute {
+    Name unitName = target.unit.getName();
+    if (!unitInfos.defines(unitName)){
+      // this unit doesn't belongs to my sources
+      sendDebug("not my unit: " + unitName);
+      throw new Failures.CannotCompute(target);
+    }  
+    UnitInfo info = unitInfos.get(unitName);
+    if (target.type.equals(TextContentTypes.dvi)){
+      // compute DVI content
+      Seq<Unit> unitsOfSource = new BufferSeq().append(target.unit);
+      unitInfos.apply(
+	fun (Pair<Name,UnitInfo> p)->void {
+	  UnitInfo i = p.snd;
+	  if (i.source.equals(info.source))
+	    unitsOfSource = unitsOfSource.append(
+				// hmmm ... should exists, but thats not clean
+			      session.getOrCreateUnit(i.name)
+			    );
+	}
+      );
+      LatexFormatter.computeDoc(session, this, target,
+				info.source.file, unitsOfSource);
+    }
+    else if (target.type.equals(TextContentTypes.latexFragment)){
+      // compute LaTeX fragment contents. 
+      // FIXME: their should be a style 
+      // allowing us to include entire documents in documents
+      LaTeXFragment frag = new LaTeXFragment(
+				 "",
+				 "\\includeDocument{" + 
+				 info.source.absFile +
+				 "}"
+			       );
+      target.unit.define(
+	target.type,
+	frag,
+	true,
+	new Date(),
+	new Target[0],
+	this
+      );
+    }
+    else if (target.type.equals(TextContentTypes.text)){
+      // compute the text content
+      if (info.undeliveredText == null){
+	sendDebug("compute called for up-to-date text: " + target);
+	throw new Failures.ComputationFailed(target);
+      } else {
+	target.unit.define(TextContentTypes.text,
+			   info.undeliveredText,
+			   true,
+			   info.source.scannedAt,
+			   new Target[0],
+			   this);
+	info.undeliveredText = null;
+	needsFlush = true;
+      }
+    } else {
+      // compute the config content
+      target.unit.define(TextContentTypes.config,
+			 info.source.config,
+			 true,
+			 info.source.scannedAt,
+			 new Target[0],
+			 this);
+    }
+  }
+
+  /**
+   * Check if the specified content which was defined at date by this
+   * adaptor is up-to-date. 
+   */
+  public boolean isUptodate(Target target, Date definedAt){
+    // System.err.println("after update for " + target + ": " + unitInfos);
+    // CHECKME: generically works for all content types?
+    Name unitName = target.unit.getName();
+    if (unitInfos.defines(unitName)){
+      UnitInfo info = unitInfos.get(unitName);
+      return !definedAt.before(info.source.scannedAt);
+    } else
+      return false;
+  }
+
+  /**
+   * Called to notify the adaptor that the specified content which was
+   * defined at date by this adaptor has been outdated.
+   */
+  public boolean notifyOutdate(Target target, Date definedAt,
+			       StorageHandle handle){
+    return false;
+  }
+
+  /**
+   * Return a locator for the source of a unit.
+   */
+  public Locator unitLocator(Unit unit){
+    try {
+      UnitInfo uinfo = unitInfos.get(unit.getName());
+      if (uinfo.locator != thisLocator)
+	return uinfo.locator;
+      else
+	return new TextLocator(
+		     new Name(uinfo.source.absFile.getPath()),
+		     0, 0, 0, 0
+		   );
+    }
+    catch (NoSuchElementException e){
+      return null;
+    }
+  }
+      
+
+
+  // LOCATING FILES
+
+  /**
+   * Locate a file in the search path, trying standard extensions such
+   * as .tex.  Returns existing file if file is found, otherwise null.  
+   */
+  File locateFile(File file){
+    if (file.isAbsolute()){
+      return locate(file);
+    } else {
+      // try to locate it in the working directory
+      File actFile = locate(file);
+      if (actFile != null) return actFile;
+      // try to locate it via search path
+      actFile = null;
+      if (searchPath.exists(
+	    fun (File dir)->boolean {
+	      actFile = locate(new File(dir, file.getPath()));
+	      return actFile != null;
+	    }
+	  ))
+	return actFile;
+      else
+	return null;
+    }
+  }
+
+  private File locate(File f){
+    if (f.isFile())
+      return f;
+    else {
+      File actFile = new File(f.getPath() + ".tex");
+      if (actFile.isFile())
+	return actFile;
+      else
+	return null;
+    }
+  }
+
+  /** 
+   * Make diagnostic for a file-not-found error.
+   */
+  Diag reportFileNotFound(String refKind, Locator locator, String fname){
+    return new Diag(locator,
+		    Diag.Category.Error,
+		    Format.describe(
+		      refKind + " `" + fname + "' not found",
+		      "search path",
+		      Format.list(Format.empty, 
+				  Format.literal(File.pathSeparator),
+				  Format.empty,
+				  fun (File f)->Format {
+				    return Format.literal(f.toString());
+				  },
+				  searchPath
+				  )
+		    ));
+  }
+
+
+  // LOADING SOURCES
+
+  /**
+   * Load source.
+   */
+  private boolean loadSource(File file) {
+    // normalize file name
+    String name = file.getPath();
+    if (name.endsWith(".tex"))
+      file = new File(name.substring(0, name.length()-4));
+    // locate the master file of this source 
+    if (file.isAbsolute() && file.getParent() != null){
+      // add parent's path to search path
+      searchPath = searchPath.prepend(new File(file.getParent()));
+    }
+    File actFile = locateFile(file);
+    if (actFile == null){
+      sendDiag(reportFileNotFound("file", thisLocator, file.getPath()));
+      sourceInfos = sourceInfos.undefine(file);
+      return false;
+    } else {
+      if (!sourceInfos.defines(file)){
+	sourceInfos.exists(
+	  fun (Pair<File,SourceInfo> p)->boolean {
+	    SourceInfo info = p.snd;
+	    for (int i = 0; i < info.auxFiles.length; i++){
+	      if (file.equals(info.auxFiles[i]) ||
+		  actFile.equals(info.auxFiles[i])){
+		file = info.file; actFile = info.absFile;
+		return true;
+	      }
+	    }
+	    return false;
+	  }
+	);
+      }
+      updateSource(file, actFile, new File[0]);
+      return true;
+    }
+  }
+
+  /**
+   * Reload all sources (after search path update and adaptor
+   * initialization).
+   */
+  private void reloadSources(){
+    sourceInfos.apply(
+      fun (Pair<File,SourceInfo> p)->void {
+	loadSource(p.snd.file);
+      }
+    );
+  }
+
+  /**
+   * Update all sources. In contrast to reloading, this doesn't checks
+   * if files have been relocated if they still exist.
+   */
+  public void checkExternalData(){
+    sourceInfos.apply(
+      fun (Pair<File,SourceInfo> p)->void {
+	if (p.snd.absFile.isFile()){
+	  updateSource(p.snd.file, p.snd.absFile, p.snd.auxFiles);
+	} else {
+	  sendDiag(new Diag(thisLocator,
+			    Diag.Category.Warning,
+			    "file `" + p.snd.absFile +
+			    "' vanished, will retry to locate it"));
+	  sourceInfos = sourceInfos.undefine(p.fst);
+	  needsFlush = true;
+	  loadSource(p.snd.file);
+	}
+      }
+    );
+  }
+
+  /**
+   * Update a source, scanning its contents if not up-to-date.
+   * The absFile is supposed to represent the existing source file.
+   */
+  private void updateSource(File file, File absFile, File[] auxFiles){
+    if (sourceInfos.defines(file)){
+      // source already loaded, check if it is up-to-date
+      SourceInfo info = sourceInfos.get(file);
+      // sendDebug("checking " + Format.build(info));
+      if (absFile.equals(info.absFile) &&
+	  auxFiles.length == info.auxFiles.length){
+	Date modifiedAt = Impure.driver.lastModified(absFile);
+	if (!modifiedAt.after(info.scannedAt)){
+	  // main file is up-to-date
+	  boolean uptodate = true;
+	  // sendDebug("uptodate " + absFile);
+	  for (int i = 0; uptodate && i < auxFiles.length; i++){
+	    uptodate = auxFiles[i].equals(info.auxFiles[i]) &&
+	               !Impure.driver.lastModified(auxFiles[i])
+			      .after(info.scannedAt);
+	    // if (uptodate) sendDebug("uptodate " + auxFiles[i]);
+	  }
+	  if (uptodate){
+	    return;
+	  }
+	}
+      }
+      // remove all unit infos which have been defined 
+      // by this outdated source
+      unitInfos = 
+	unitInfos.filter(
+	  fun (Name name, UnitInfo unitInfo)->boolean {
+	    return !unitInfo.source.file.equals(file);
+	  }
+	);
+      needsFlush = true;
+    }
+    // scan the source
+    sendProgress("scanning " + absFile);
+    InputStream input;
+    try {
+      input = new java.io.FileInputStream(absFile);
+    }
+    catch (java.io.IOException e){
+      // this shouldn't happen, so we can throw an error
+      throw new Errors.PhysicalError(e);
+    }
+    LatexConfig config = new LatexConfig();
+    LatexScanner scanner = 
+      new LatexScanner(this, config, input, new Name(absFile.getPath()));
+    Text[] texts = scanner.run();
+    Diag diag = scanner.getAndClearDiag();
+    diag = config.getAndClearDiag().combine(diag);
+    SourceInfo sinfo = new SourceInfo(file, absFile, 
+				      scanner.getIncludedFiles(),
+				      diag, new Date(),
+				      config);
+    sourceInfos = sourceInfos.define(file, sinfo);
+    needsFlush = true;
+    sendDiag(diag);
+    if (!diag.contains(Diag.Category.Error)){
+      enterUnits(sinfo, scanner, texts);
+    }
+  }
+
+  /**
+   * Enter the given array of texts, adding the units it defines
+   * to the session. 
+   */
+  private void enterUnits(SourceInfo sinfo, LatexScanner scanner,
+			  Text[] texts){
+    Sectioner scn = new Sectioner();
+    scn.run(sinfo.file, scanner.getToolkits(), texts);
+    if (scn.sections.size() == 0){
+      // create at least a dummy section
+      Name name = new Name(sinfo.file.toString());
+      Text sect = Text.ZedSection(name, new Name[0], new Text[0]);
+      sect.locator = thisLocator;
+      scn.sections = scn.sections.define(name, sect);
+    }
+
+    scn.sections.apply(
+      fun (Pair<Name,Text> section)->void {
+	Name uname = new Name(thisName + ":" + section.fst +
+			      "#" + sinfo.file);
+	session.getOrCreateUnit(uname);
+	// sendDebug("defining unit " + uname);
+	unitInfos = 
+	  unitInfos.define(
+	    uname,
+	    new UnitInfo(uname, sinfo, section.snd, section.snd.locator)
+	  );
+	// System.err.println(unitInfos);
+	needsFlush = true;
+      }
+    );
+  }
+					
+  /**
+   * Split the given array of texts into those texts associated
+   * to no section and those associated to a section.
+   */
+  private class Sectioner {
+    
+    Map<Name,Text> sections = new HashMap();
+    Name current = null;
+    Seq<Text> buffer = new BufferSeq();
+    boolean inClass = false;
+    File file;
+    Name[] toolkits;
+
+    void run(File file, Name[] toolkits, Text[] texts){
+      this.file = file; this.toolkits = toolkits;
+      run(texts);
+    }
+
+    private void run(Text[] texts){
+      for (int i = 0; i  < texts.length; i++){
+	switch (texts[i]) {
+	case ZedSection(Name name, Name[] parents, _):
+	  if (inClass){
+	    sendDiag(new Diag(texts[i].locator,
+			      Diag.Category.Error,
+			      "Z sections inside of classes not allowed"));
+	  } else {
+	    commit();
+	    openSection(texts[i].locator, name, parents);
+	  }
+	  break;
+	case ZedClass(Name name, Name[] parents,
+		      Name[] formals, Text[] subtexts):
+	  if (inClass){
+	    sendDiag(new Diag(texts[i].locator,
+			      Diag.Category.Error,
+			      "inner classes not allowed"));
+	  } else {
+	    commit();
+	    if (current != null){
+	      // add current section to be parent of this class
+	      parents = HashSet.from(new ArraySeq(parents))
+		       .include(new Name(current.getRepr()))
+		       .toArray(Name.class);
+	    }
+	    Name oldCurrent = current;
+	    openClass(texts[i].locator, name, parents, formals);
+	    inClass = true;
+	    run(subtexts);
+	    inClass = false;
+	    current = oldCurrent;
+	  }
+	  break;
+	case DocMarkup(_, _, Text[] subtexts):
+	  run(subtexts);
+	  break;
+	case Literal(_):
+	  // ignore
+	  break;
+	default:
+	  buffer = buffer.append(texts[i]);
+	}
+      }
+      commit();
+    }
+
+    /** Open a section. */
+    private void openSection(Locator orig, Name name, 
+			     Name[] parents){
+      if (sections.defines(name)){
+	// enriching existing section
+	Text old = sections.get(name);
+	switch (old) {
+	case ZedSection(_, Name[] oldParents, Text[] subtexts):
+	  Text sect =
+	    Text.ZedSection(
+	      name,
+	      HashSet.from(new ArraySeq(parents))
+		     .includeAll(HashSet.from(
+				   new ArraySeq(oldParents)
+				 ))
+		     .toArray(Name.class),
+	      subtexts
+	    );
+	  sect.locator = old.locator.combine(orig);
+	  sections = sections.define(name, sect);
+	  current = name;
+	  break;
+	default:
+	  sendDiag(
+	    new Diag(
+		  orig, 
+		  Diag.Category.Error,
+		  Format.describe(
+		    "name clash between section and class `" + name + "'",
+		    "class locator", Format.buildFormat(old.locator)
+		  )
+		)
+	  );
+	}
+      } else {
+	// defining new section
+	Text sect =
+	  Text.ZedSection(
+	    name,
+	    parents,
+	    new Text[0]
+	  );
+	sect.locator = orig;
+	sections = sections.define(name, sect);
+	current = name;
+      }
+    }
+
+    /** Open a class. */
+    private void openClass(Locator orig, Name name, Name[] parents,
+			   Name[] formals){
+      if (sections.defines(name)){
+	// enriching existing class
+	Text old = sections.get(name);
+	switch (old) {
+	case ZedClass(_, Name[] oldParents, Name[] oldFormals, 
+		      Text[] subtexts):
+	  if (!new ArraySeq(formals).equals(new ArraySeq(oldFormals))){
+	    sendDiag(
+	      new Diag(
+		    orig, 
+		    Diag.Category.Error,
+		    Format.describe(
+		      "formal parameters of re-opened class incompatible",
+		      "former class locator", Format.buildFormat(old.locator)
+		    )
+		  )
+	    );
+	  } else {
+	    Text sect =
+	      Text.ZedClass(
+		name,
+		HashSet.from(new ArraySeq(parents))
+		       .includeAll(HashSet.from(
+				     new ArraySeq(oldParents)
+				   ))
+		       .toArray(Name.class),
+		formals,
+		subtexts
+	      );
+	    sect.locator = old.locator.combine(orig);
+	    sections = sections.define(name, sect);
+	    current = name;
+	  }
+	  break;
+	default:
+	  sendDiag(
+	    new Diag(
+		  orig, 
+		  Diag.Category.Error,
+		  Format.describe(
+		    "name clash between class and section `" + name + "'",
+		    "section declared at", Format.buildFormat(old.locator)
+		  )
+		)
+	  );
+	}
+      } else {
+	// defining new class
+	Text sect =
+	  Text.ZedClass(
+	    name,
+	    parents,
+	    formals,
+	    new Text[0]
+	  );
+	sect.locator = orig;
+	sections = sections.define(name, sect);
+	current = name;
+      }
+    }
+
+    /** 
+     * Commit last buffered texts to last opened section or class. 
+     * If no class or section was opened, create a default one.
+     */
+    private void commit(){
+      if (!buffer.isEmpty()){
+	if (current == null){
+	  // create an implicite section for the entire source
+	  openSection(buffer.head().locator,
+		      new Name(file.toString()), toolkits);
+	}
+	try {
+	  Text old = sections.get(current);
+	  switch (old) {
+	  case ZedSection(_, _, Text[] subtexts):
+	    ((Text.ZedSection)old).subtexts =
+	      new ArraySeq(subtexts).appendAll(buffer).toArray(Text.class);
+	    break;
+	  case ZedClass(_, _, _, Text[] subtexts):
+	    ((Text.ZedClass)old).subtexts =
+	      new ArraySeq(subtexts).appendAll(buffer).toArray(Text.class);
+	    break;
+	  }
+	}
+	catch (NoSuchElementException e){
+	  throw FatalError.unexpectedException(e);
+	}
+	buffer = new BufferSeq();
+      }
+    }
+
+  }
+
+    
+  // FORMS
+
+  /**
+   * Load a source file.
+   */
+  private FileForm.State loadFileState = new FileForm.State(null);
+  private TopLevelForm loadForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Source().setToolIcon("@load-latex.gif;LD")
+		  .setModal(false),
+      new SeqForm(
+	    new LiteralForm("load").describe("Load LaTeX File"),
+	    new FileForm(FileForm.Mode.PLAIN, loadFileState)
+			.style(Form.Style.FIXSIZE)
+			.describe(
+			  "File Name",
+			  "Name of the LaTeX file to load into session"
+			)
+	  ),
+      "Load LaTeX Document into session",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	if (loadFileState.file != null)
+	  loadSource(loadFileState.file);
+      }
+    );
+			 
+  /**
+   * Modify the search path.
+   */
+  private FileForm.State pathFileState = new FileForm.State(null);
+  private ChoiceForm.State pathChoiceState = new ChoiceForm.State(0);
+  private StringForm.State pathTextState = new StringForm.State("");
+  private TopLevelForm pathForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Config().setModal(false),
+      new SeqForm(
+	    new LiteralForm("path").describe("LaTeX Path"),
+	    new ChoiceForm(
+		  pathChoiceState,
+		  new SeqForm(
+			new LiteralForm("add"),
+			new FileForm(FileForm.Mode.EXDIRECTORY, 
+				     pathFileState)
+				    .style(Form.Style.FIXSIZE)
+		      ).style(Form.Style.Label("Add Directory")),
+		  new SeqForm(
+			new LiteralForm("set"),
+			new StringForm(pathTextState)
+				      .style(new Form.Style.View(-1,-1))
+				      .textSize(40, 2)
+		      ).style(Form.Style.Label("Set Path"))
+		)
+	  ),
+      "Modify LaTeX search path",
+      fun (Session s) -> void {
+	// setup
+	if (searchPath.isEmpty()){
+	  pathTextState.setDraftText(session, "");
+	} else {
+	  pathTextState.setDraftText(session, 
+	    searchPath.map(fun (File f)->String { return f.toString(); })
+		      .fold(fun (String s1, String s2)->String {
+			      return s1 + File.pathSeparator + s2;
+			    }
+			   )
+	  );
+	}
+      },
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	if (pathChoiceState.selection == 0){
+	  // add to path
+	  if (pathFileState.file != null){
+	    searchPath = searchPath.append(pathFileState.file);
+	    pathTextState.setDraftText(session, 
+	      searchPath.map(fun (File f)->String { return f.toString(); })
+			.fold(fun (String s1, String s2)->String {
+				return s1 + File.pathSeparator + s2;
+			      }
+			     )
+	    );
+	    pathTextState.notifyChange(this);
+	  }
+	} else {
+	  StringTokenizer tkn = 
+	    new StringTokenizer(pathTextState.getText(session),
+				File.pathSeparator);
+	  while (tkn.hasMoreTokens()){
+	    searchPath = 
+	      searchPath.append(new File(tkn.nextToken()));
+	  }
+	  /*
+	  session.send(
+	    thisName,
+	    new ResultMessage(
+		  Format.list(Format.empty, 
+			      Format.literal(File.pathSeparator),
+			      Format.empty,
+			      fun (File f)->Format {
+				return Format.literal(f.toString());
+			      },
+			      searchPath)
+		)
+	  );
+	  */
+	  reloadSources();
+	}
+      }
+    );
+
+  /**
+   * Produce dvi documentation.
+   */
+  private TopLevelForm dviForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Function().setToolIcon("@run-latex.gif;LT")
+		  .setModal(true),
+      new SeqForm(
+	    new LiteralForm("latex").describe("Run LaTeX"),
+	    new UnitForm().style(Form.Style.INVISIBLE)
+	  ),
+      "Run LaTeX to produce DVI documentation",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	// always force running LaTeX
+	UnitForm.defaultState.unit.outdate(TextContentTypes.dvi);
+	if (SessionUtil.query(s,l,
+			      new Target(UnitForm.defaultState.unit,
+					 TextContentTypes.dvi)) == null){
+	  throw new Failures.FormFailed("Run LaTeX");
+	}
+      }
+    );
+			 
+  /**
+   * Launch the viewer.
+   */
+  private TopLevelForm viewForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Function().setToolIcon("@run-viewer.gif;VW")
+		  .setModal(true),
+      new SeqForm(
+	    new LiteralForm("view").describe("Launch Viewer"),
+	    new UnitForm().style(Form.Style.INVISIBLE)
+	  ),
+      "Launch Viewer on DVI documentation",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	File dvi = (File)SessionUtil.query(s,l,
+			      new Target(UnitForm.defaultState.unit,
+					 TextContentTypes.dvi));
+	if (dvi != null){
+	  try {
+	    Process p = Runtime.getRuntime().exec(
+			  new String[]{
+			    System.getProperty("zeta.prog.viewer"),
+			    dvi.getAbsolutePath()
+			       });
+	  } catch (IOException e){
+	    sendDiag(new Diag(thisLocator,
+			      Diag.Category.Error,
+			      "Cannot launch viewer: " + e));
+	    throw new Failures.FormFailed("Launch Viewer");
+	  }
+	} else
+	  throw new Failures.FormFailed("Launch Viewer");
+      }
+    );
+			 
+
+}
+

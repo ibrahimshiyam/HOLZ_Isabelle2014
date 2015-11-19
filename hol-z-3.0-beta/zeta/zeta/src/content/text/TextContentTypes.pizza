@@ -1,0 +1,58 @@
+package zeta.content.text;
+
+/** 
+ * This class defines constants for content types related to text.
+ *
+ * @see zeta.session.ContentTypes
+ * @see zeta.session.Unit#query
+ *
+ * @version $Id: TextContentTypes.pizza,v 1.4 1998/09/23 00:03:27 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ * */
+
+import java.io.File;
+import zeta.util.Name;
+import zeta.format.Format;
+import zeta.session.ContentType;
+
+public class TextContentTypes {
+
+  /**
+   * The content type of the text of a unit.
+   * Its symbolic name is "text", its content class
+   * <code>Text</code>. 
+   */
+  public static final ContentType text =
+    new ContentType(new Name("text"), Text.class);
+  
+  /**
+   * The content type of the concrete language configuration of a
+   * unit. Its symbolic name is "lang-config", its content class
+   * <code>Config</code>. <p>
+   */
+  public static final ContentType config =
+    new ContentType(new Name("lang-config"), Config.class);
+
+
+  /**
+   * The content type of the pretty-printed syntax of a unit.
+   */
+  public static final ContentType prettyText =
+    new ContentType(new Name("pretty-text"), Format.class);
+
+
+  /** LaTeX fragment content type.
+    * A fragment of LaTeX input that is used to resolve 
+    * <pre>\InlucdeModel</pre> statements when LaTeX documentation is 
+    * created.
+    */
+  public static final ContentType latexFragment = 
+    new ContentType(new Name("latex-fragment"), LaTeXFragment.class);
+
+  /** DVI documentation content type. Contains the DVI file name.
+    */
+  public static final ContentType dvi = 
+    new ContentType(new Name("dvi"), File.class);
+
+}
+

@@ -1,0 +1,193 @@
+\section{Example: Cash Dispenser}
+
+As an example, we look at the fragments of (simplified) dialogues
+between a user and a cash dispenser.  The
+following basic constructors for fragments will be used:
+\begin{itemize}
+\item $actor \ucmk action$ constructs a fragment containing the single
+  interaction where $actor$ performs $action$.
+\item $actor \ucmk action \uctrans rel$ is the general version of
+  constructing singleton fragments. In addition to $actor \ucmk action$, a
+  transformation on the system state is given by the relation $rel$.  We
+  have $actor \ucmk action = actor \ucmk action \uctrans \id$.
+\item $frag \ucthen frag'$ is the sequential composition of fragments.
+  After the dialogues described by $frag$ the ones of $frag'$ must
+  follow.  
+\item $\ucselect frags$ describes a choice between several fragments.
+  $frags$ can be an enumeration of fragments, but also a
+  set-comprehension: we use the pattern $\ucselect\{x:A @ frag\}$
+  to introduce a locally bound variable $x$ in fragments, which
+  semantically is the choice between all possible instantiations
+  of $x$.
+\item $\ucrepeat frag$ describes the repetition of $frag$ for 
+  zero or more times.
+\item $frag \ucexcept frag'$ describes that $frag$ can be ``interrupted''
+  at some interaction which overlaps with the first interaction of $frag'$.
+  It is then continued with the behavior of $frag'$.
+\end{itemize}
+
+For the cash dispenser, the type $ACTOR$ defines the actors, $user$
+and $dispenser$. The type $ACTION$ lists the actions performed: 
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection[UseCases]{CashDispenser} 
+\end{zdirectives} \\
+\begin{zed}
+  ACTOR ::= user | dispenser \\
+  ACTION ::= \<askCard | putCard | ejectCard | takeCard | \\
+             askAmount | putAmount \ldata \num \rdata | \\
+             ejectMoney \ldata \num \rdata | takeMoney\\\>
+\end{zed}
+\end{zedgroup}
+
+The type ${State}$ defines the system state, which is the money
+reserve of the dispenser (in an extended version, we might represent
+here the accounts of individual card holders).  We define two
+operations $Draw$ and $CantDraw$ to be used in the fragments which
+work on the system state. With $\mkrel$ operations on ${State}$ are
+lifted to relations.
+
+From a methodological point of view, we have to justify that the
+visible representation of $reserves$ is not a violation of our
+principle that inner system state must \emph{not} be modelled in Use
+Cases. We argue that the reserves \emph{are} observable, since the
+user may be confronted with the situation that the dispenser cannot
+satisfy his requests because of low reserves:
+
+\begin{zedgroup}
+\begin{schema}{State}
+  reserves: \num
+\end{schema}
+\begin{schema}{CantDraw}
+  \Xi State; amount? : \num
+\where
+  reserves < amount? 
+\end{schema}
+\begin{schema}{Draw}
+  \Delta State; amount? : \num
+\where
+  reserves \geq amount?;
+  reserves' = reserves - amount?
+\end{schema}
+\begin{axdef}
+  \mkrel == (\lambda Op:\power(\Delta State) @ 
+                         \{Op @ (\theta State, \theta State ')\})
+\end{axdef}
+\end{zedgroup}
+
+The fragments are given as follows. $Normal$ describes the usual
+process of a disposition.  $InvalidCard$ is an exceptional fragment
+which can interrupt $Normal$ at the point where the user has inserted
+his card; the card is immediately rejected and the dialogue ends if
+the user has removed his card.  $NoReserves$ is a further exceptional
+behavior; it can continue at the point where the user enters the
+amount to draw, \emph{and} where this amount cannot be served because
+of low reserves. Note the use of the choice, $\ucselect$, to bind the
+input variable $amount?$ in $Normal$ and $NoReserves$.  The overall
+behavior of the system is described by a repetition of the $Normal$
+fragment which can be interrupted by $InvalidCard$ or by $NoReserves$:
+
+
+\begin{axdef}
+  Normal,InvalidCard,NoReserves, System: \\\t1
+                                 Fragment[ACTOR,ACTION,State]
+\where
+  \zblock{
+  Normal & = & dispenser \ucmk askCard \\
+        & \ucthen & user \ucmk putCard \\
+        & \ucthen & dispenser \ucmk askAmount \\
+        & \ucthen & \ucselect\{amount?: \num @ \\
+        &         & user \ucmkt \<putAmount(amount?) \uctrans 
+                           \mkrel [\Delta State | Draw] \\\> 
+        & \ucthen & dispenser \ucmk ejectCard \\
+        & \ucthen & user \ucmk takeCard \\
+        & \ucthen & dispenser \ucmk ejectMoney(amount?) \\
+        & \ucthen & user \ucmk takeMoney \}\\
+  InvalidCard & = &  user \ucmk putCard \\
+              & \ucthen & dispenser \ucmk ejectCard \\
+              & \ucthen & user \ucmk takeCard \\
+  NoReserves & =        & \ucselect\{amount?: \num @ \\
+             &   & user \ucmkt \<putAmount(amount?) \uctrans 
+                              \mkrel [\Delta State | CantDraw] \\\> 
+             & \ucthen  & dispenser \ucmk ejectCard \\
+             & \ucthen  & user \ucmk takeCard\} \\
+  System & = &\ucrepeat(Normal ~ ~ \<\ucexcept ~ InvalidCard 
+                                 \ucexcept ~ NoReserves)\>
+}
+\end{axdef}
+
+We can now test satisfaction of given dialogues regarding the cash
+dispenser's uses cases. Let some test
+dialogues be defined as follows:
+
+\begin{zedgroup}
+\begin{zed}
+  d_1 == \langle \< 
+            dispenser \ucmki askCard,
+            user \ucmki putCard, \\
+            dispenser \ucmki askAmount,
+            user \ucmki putAmount(400), \\
+            dispenser \ucmki ejectCard,
+            user \ucmki takeCard, \\
+            dispenser \ucmki ejectMoney(400),
+            user \ucmki takeMoney \rangle \\ \>
+  d_2 == \langle \<
+            dispenser \ucmki askCard,
+            user \ucmki putCard, 
+            dispenser \ucmki ejectCard,
+            user \ucmki takeCard  \rangle \\ \> 
+  \sigma_1 == \lbind reserves==600 \rbind \\
+  \sigma_2 == \lbind reserves==800 \rbind \\
+\end{zed}
+\end{zedgroup}
+
+\noindent
+Here are some query results:
+
+\begin{zexecexpr}
+  (d_1,\sigma_1) \ucin System
+\yields
+  *true*
+\end{zexecexpr}
+
+\begin{zexecexpr}
+  (d_1 \cat d_2,\sigma_1) \ucin System
+\yields
+  *true*
+\end{zexecexpr}
+
+\begin{zexecexpr}
+  (d_1 \cat d_2 \cat d_1,\sigma_1) \ucin System
+\yields
+  *false*
+\end{zexecexpr}
+
+\begin{zexecexpr}
+  (d_1 \cat d_2 \cat d_1,\sigma_2) \ucin System
+\yields
+  *true*
+\end{zexecexpr}
+
+In the last case, the reserves are too low to serve two subsequent
+requests of the amount of $400$ units. In the fourth case, the
+reserves are raised, such that the requests can be satisfied.
+
+In the next evaluation, we demonstrate the efficiency of
+evaluation. We construct a dialogue of length $1200$
+and check for conformance: 
+
+\begin{zexecexpr}
+  (\dcat ((\lambda n:\nat @ d_1 \cat d_2) \circ \id(1 \upto 100)),
+   \lbind reserves == 400 * 100 \rbind
+  ) \ucin System
+\yields
+  *true*
+  (7.86 seconds, 910827 steps, 115881 steps/sec)
+\end{zexecexpr}
+
+This numbers are measured on a PII400 running Linux.
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "ucases"
+%%% End: 

@@ -1,0 +1,170 @@
+\documentclass[final,index,idxtotoc,fleqn,USenglish,pdftex,twoside,a4paper,bibtotoc,abstracton,headsepline,openright]{scrreprt}
+\usepackage{color}
+\usepackage{xspace}
+\usepackage{makeidx}
+\usepackage[final]{graphicx}
+\usepackage[USenglish, german]{babel}
+\usepackage[final]{cvsserver} % [rcsinfo] 
+\usepackage{varioref}
+\usepackage{prooftree}
+\usepackage{holz}
+\usepackage{pdflscape}
+ %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% local macro definitions %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\zcomment}[1]{#1}
+%%macro \zcomment 1
+\newcommand{\unix}{Unix\xspace}
+\newcommand{\posix}{POSIX\xspace}
+\newcommand{\holz}{HOL-Z\xspace}
+\newcommand{\cvscmd}[1]{\textsf{#1}\index{#1@\textsf{#1}}} % all CVS commands like checkin
+\newcommand{\unixcmd}[1]{\texttt{#1}\index{#1@\textsf{#1}}}    % all Posix/Unix commands like mv, cp
+ 
+\newcommand{\susv}{SUSV\xspace}
+\newcommand{\pplus}{+}
+\newcommand{\front}{\Zpreop{front}}
+\newcommand{\isdirin}{\Zinrel{is\_dir\_in}}
+\newcommand{\isfilein}{\Zinrel{is\_file\_in}}
+\newcommand{\isin}{\Zinrel{is\_in}}
+\newcommand{\aim}[1]{\hfill\\$\Longrightarrow$ #1}
+\newcommand{\bindsto}{\mapsto}
+\newcommand{\rbac}{RBAC\xspace}
+
+\newenvironment{doc}[1]{}{}
+\rcsInfo $Id: arch.tex,v 1.139 2003/12/04 15:03:05 brucker Exp $
+\publishers{Institut f{\"u}r Informatik, Universit{\"a}t Freiburg\\
+           Georg--K{\"o}hler--Allee 52, 79110 Freiburg, Germany}
+\title{A CVS-Server Security Architecture \\ --- \\ Concepts and Formal Analysis}
+\author{\href{http://www.brucker.ch}{Achim D. Brucker}
+  \and 
+  \href{http://www.informatik.uni-freiburg.de/~rittinge}{Frank Rittinger}
+  \and 
+  \href{http://www.informatik.uni-freiburg.de/~wolff}{Burkhart Wolff}
+}
+\subject{Technical Report $182$\\
+ Updated Version: 2003-12-04}
+\publishers{Institut f{\"u}r Informatik \\
+  Albert--Ludwigs--Universit{\"a}t Freiburg \\
+  Georges-K{\"o}hler-Allee 52 \\
+  D-79110 Freiburg, Germany \\
+  Tel: +49 (0)761 203-8240, Fax: +49 (0)761 203-8242 \\[1.1\baselineskip]
+  \texttt{\small\{brucker,rittinge,wolff\}@informatik.uni-freiburg.de} \\
+  \texttt{\small http://www.informatik.uni-freiburg.de/\char'176{}\{brucker,rittinge,wolff\}}
+}
+%%
+%% setup for hyperref: 
+\hypersetup{%%
+  pdftitle={A CV security architecture},
+  pdfauthor={(c) 2001,2002,2003,2004 Achim D. Brucker and Frank Rittinger and Burhart Wolff},
+  pdfsubject={},
+  pdfkeywords={CVS, security architecture},
+  colorlinks=false,
+  draft=false,
+  backref=none,
+  bookmarksnumbered=true,}
+%%
+\uppertitleback{\textbf{Acknowledgements:}\\ We would like to thank Nicole Rauch (Uni
+  Kaiserslautern) for many valuable comments on a draft version of this paper.
+  Harald Hiss provided in his Studienarbeit most of the consistency proof-work
+  done in Chapter~\ref{chap:verification}. Stefan Friedrich also made comments
+  on an early version of the report and contributed to discussions and proofs to
+  the library of HOL-Z.}
+
+\lowertitleback{The latest version of this technical report, of the CVS-server
+  specification, and the proof scripts can be found in the example section of
+  the HOL-Z distribution, which is available at:
+  \url{http://wailoa.informatik.uni-freiburg.de/holz/}\\
+  The underlying implementation can be downloaded at:
+  \url{http://www.informatik.uni-freiburg.de/~softech}}
+\renewcommand{\sectfont}{\rmfamily\bfseries} %% no sffamily
+\makeindex
+\begin{document}
+\pagestyle{empty}
+\selectlanguage{USenglish} 
+\maketitle 
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Abstract            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%  
+\begin{abstract}
+  We present a secure architecture of a CVS-server, its implementation (i.e.\ 
+  mainly its configuration) and its formal analysis. Our CVS-server uses
+  cvsauth~\cite{vogt:cvsauth:2001}, that provides protection of passwords and
+  protection of some internal data of the CVS repository. In contrast to other
+  (security oriented) CVS-architectures, our approach makes it possible to
+  CVS-server on an open filesystem, i.e.\ a filesystem where users can have
+  direct access both by CVS-commands and by standard UNIX/POSIX commands such as
+  \unixcmd{mv}. A key feature of our implementation is that it enforces a
+  particular access control model, namely role-based access control (RBAC).
+  
+  For our secure architecture of the CVS-server, we provide a formal
+  specification and security analysis. This is based on a refinement, mapping a
+  system architecture on an implementation architecture abstractly describing
+  CVS in our implementation. The system architecture describes the abstract
+  system operations including the desired access control model RBAC and serves
+  as backbone to describe overall security requirements formally. The
+  implementation architecture --- to be seen as an abstract program ---
+  describes the security mechanisms on the UNIX/POSIX filesystem level, namely
+  discretionary access control (DAC).
+ 
+  The purpose of the formal analysis of the secure CVS-server architecture is
+  twofold: First, we describe our implementation, in particular the access
+  control for our open architecture. Second, we provide a method to analyze
+  formally security implementations (beyond the code level) for realistic
+  applications in terms of off-the-shelf security technologies.
+  
+  \begin{labeling}{\textbf{Keywords:}}
+    \item[\textbf{Keywords:}] security, formal methods, software architecture, 
+                              Concurrent Versions System (CVS), Z, refinement 
+  \end{labeling}
+\end{abstract}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Table of Contents   %%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\tableofcontents 
+\pdfbookmark[0]{Contents}{toc}
+% \listoffixmes
+%%
+\pagestyle{headings}
+
+\include{intro}
+\include{cvs-server}
+\include{refinement}
+\include{sys-arch}
+\include{impl-arch}
+\include{verification}
+\include{analysis}
+\include{conclusion}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Appendix            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+\cleardoublepage
+\part*{\Huge\textbf{Appendix}}
+\input{appendix}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Glossary            %%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% \input{glossary}
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Bibliography        %%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{bst/plainurl}
+\bibliography{cvs_security_architecture}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Index               %%
+%%%%%%%%%%%%%%%%%%%%%%%%%
+\printindex
+%% \input{arch-zdef} % this is only needed to satisfy ZeTa! 
+                     % No LaTeX output is generated by this input!
+
+\end{document}
+
+%%% Local Variables:
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

@@ -1,0 +1,15 @@
+The Steamboiler-Examples is an additional e-mail format based example 
+(compare the reference Birthdaybook-example examples/bbook and 
+ examples/zeta/bbook) to demonstrate the use of HOL-Z2.0.
+This version of bbook (the other can be found under examples/zeta/bbook)
+is tailored to demonstrate the direct, light-weighed use of HOL-Z
+based on the e-mail format integrated into the standard .thy-format
+of Isabelle.
+
+While this mode has its advantages for small specifications and 
+experiments, we encourage the use of the ZeTa-based approach for
+larger specifications. Such larger examples (including their
+tex - and make setup) can be found under examples/zeta.
+For more details, consult the README of the corresponding 
+zeta/bbook version.
+

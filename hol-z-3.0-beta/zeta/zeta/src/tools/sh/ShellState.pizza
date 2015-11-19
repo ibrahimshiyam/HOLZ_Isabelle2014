@@ -1,0 +1,191 @@
+package zeta.tools.sh;
+
+/**
+ * The state object shared by the classes of the shell. Provides
+ * session initialization, session object, and shortcuts for session
+ * operations.
+ *
+ * @version $Id: ShellState.pizza,v 1.11 2000/05/14 17:43:32 wg Exp $ */
+
+import zeta.format.*;
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.agl.*;
+
+public class ShellState {
+
+  /**
+   * The session object
+   */
+  final Session session;
+
+  /**
+   * The command interpreter.
+   */
+  CommandInterpreter interpreter = null;
+
+  /**
+   * An object holding the GUI commander component, for uses as
+   * a parent in dialogs. May be null.
+   */
+  Object master = null;
+
+
+  /**
+   * The name of the shell.
+   */
+  static final Name shellName = new Name("SHELL");
+
+
+  /**
+   * A default locator to be taken for diagnostics associated with the shell.
+   */
+  static Locator defaultLocator = new ShellLocator("<zeta-shell>");
+  
+
+  /** 
+   * Make a new shell state. 
+   */
+  ShellState(Session session){
+    this.session = session;
+  }
+
+
+  /**
+   * Send a shell debug message.
+   */
+  void sendDebug(String message){
+    session.send(shellName, new DebugMessage(Format.literal(message)));
+  }
+
+  /**
+   * Send a shell debug message.
+   */
+  void sendDebug(Format message){
+    session.send(shellName, new DebugMessage(message));
+  }
+
+  /**
+   * Send a shell progress.
+   */
+  void sendProgress(String message){
+    session.send(shellName, new ProgressMessage(Format.literal(message)));
+  }
+
+  /**
+   * Send a shell result.
+   */
+  void sendResult(Format format){
+    session.send(shellName, new ResultMessage(format));
+  }
+
+  /**
+   * Send a shell diagnostics.
+   */
+  void sendDiag(Locator loc, String message){
+    sendDiag(new Diag(loc,
+		      Diag.Category.Error,
+		      message));
+  }
+
+  /**
+   * Send a shell diagnostics.
+   */
+  void sendDiag(Diag diag){
+    session.send(shellName, diag);
+  }
+
+  /**
+   * Evaluate the sequence of words in an asynchronous thread.
+   * Dispatches eval message for listeners interested in that evaluation
+   * has started.<p>
+   *
+   * During evaluation, the command interpreter is locked in order
+   * to avoid interleaving evaluations.
+   */
+  void doEval(final Form form,
+	      final Locator locator, 
+	      final String[] words){
+    sendDebug(Format.build(words).toString());
+    // FIXME: EFFICIENCY: getForms
+    final Thread client = Thread.currentThread();
+    final ShellState state = this;
+    
+    ///////////////////////////////////////////////////////////////////////
+    // HACK FOR INTERRUPT
+    if (words.length > 0 && words[0].equals("interrupt")){
+      killEvaluation();
+      return;
+    }
+    ///////////////////////////////////////////////////////////////////////
+    
+    Thread evaluation =
+      new Thread(){
+	public void run(){
+	  // lower priority relative to client: Whenever the
+	  // client (GUI) can run, give it precedence
+	  // PROBLEM: Java seems to eat idle time
+	  Thread self = Thread.currentThread();
+	  self.setPriority(client.getPriority()-1);
+	  Thread.yield();
+	  try {
+	    synchronized (interpreter) {
+	      session.send(locator.getTool(), new EvalMessage(locator, words));
+	      try {
+		interpreter.eval(form, locator, words);
+		session.send(locator.getTool(), 
+			     new FinishedMessage(locator, words));
+	      }
+	      catch (Failures.FormFailed e){
+		// errors reported
+	      }
+	      catch (ThreadDeath e){
+		session.send(locator.getTool(), 
+			     new Diag(locator,
+				      Diag.Category.Error,
+				      "computation interrupted"));
+                throw e;				      	
+	      }
+	      catch (Throwable e){
+	      	session.abort(e);
+	      }
+	    } 
+	  }
+	  finally {
+	    evaluations = evaluations.exclude(this);
+	    if (evaluations.size() == 0){
+	      synchronized(state){
+		state.notifyAll();
+	      }
+	    }
+	  }
+	}
+      };
+    evaluations = evaluations.include(evaluation);
+    evaluation.start();
+  }
+
+  private Set<Thread> evaluations = new HashSet();
+
+  
+  /**
+   * Kill the current evaluation. Returns true if there was an
+   * evaluation to kill, false otherwise. This may block if the
+   * evaluation runs a critical section (which it does by 
+   * locking itself).
+   */
+  boolean killEvaluation(){
+    boolean killed = false;
+    evaluations.apply(
+      fun (Thread t)->void {
+	synchronized (t){
+	  t.stop();
+	}
+	killed = true;
+      }
+    );
+    return killed;
+  }
+  
+}

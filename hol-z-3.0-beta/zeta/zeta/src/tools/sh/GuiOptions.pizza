@@ -1,0 +1,106 @@
+package zeta.tools.sh;
+
+/**
+ * The options of the GUI commander.
+ *
+ * @version $Id: GuiOptions.pizza,v 1.3 1999/03/05 20:30:00 wg Exp $
+ */
+
+// FIXME: the icons of LogPanel and FormComponents should go
+// here, as well as the default font size
+
+import java.io.Serializable;
+import java.io.File;
+
+import zeta.session.*;
+
+import java.awt.*;
+
+class GuiOptions implements Serializable {
+
+  /**
+   * A static variable holding the active options.
+   */
+  static GuiOptions active = null;
+
+  /**
+   * Setup default options.
+   */
+  static void setupDefaults(ShellState state){
+    active = new GuiOptions();
+    File libDir = state.session.getLibDir();
+    active.registerFileLocatorsProg =
+      new File(libDir, "xemacs_register_locators").getAbsolutePath();
+    active.visitFileLocatorProg =
+      new File(libDir, "xemacs_visit_locator").getAbsolutePath();
+    active.clearFileLocatorsProg =
+      new File(libDir, "xemacs_clear_locators").getAbsolutePath();
+    active.messageFont = new Font("Monospaced", Font.PLAIN, 12);
+    active.editFont = new Font("Monospaced", Font.PLAIN, 12);
+    Panel dummy = new Panel();
+    FontMetrics metrics = dummy.getFontMetrics(active.messageFont);
+    active.commanderSize = new Dimension(512, 300);
+    // FIXME for WinNT: why doesn't this works??
+    // 80 * metrics.getMaxAdvance(), 30 * metrics.getHeight());
+  }
+
+
+  /**
+   * Whether we shall log progress messages.
+   */
+  boolean logProgress = true;
+
+  /**
+   * Whether we shall collapse transactions at the start of the next one.
+   */
+  boolean collapsePrevious = true;
+
+  /**
+   * The name of the program to set file locators.
+   */
+  String registerFileLocatorsProg = null;
+
+
+  /**
+   * The name of the program to visit file locators.
+   */
+  String visitFileLocatorProg = null;
+
+
+  /**
+   * The name of the program to reset file locators.
+   */
+  String clearFileLocatorsProg = null;
+
+  /**
+   * The font to be used in messages.
+   */
+  Font messageFont = null;
+
+  /**
+   * The font to be used in edit fields.
+   */
+  Font editFont = null;
+
+  /** 
+   * The initial size of the commander window.
+   */
+  Dimension commanderSize = null;
+
+  
+
+}
+
+
+
+
+
+
+
+  
+  
+
+
+  
+
+  

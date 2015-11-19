@@ -1,0 +1,403 @@
+s\rcsInfo $Id: sys-arch.tex,v 1.37 2004/01/29 10:36:23 hiss Exp $
+
+\chapter{A Formal Model of the System Security Architecture}\label{cha:sys-arch}
+
+In this section, we will describe the more abstract view of our system. In order
+to avoid unnecessary complexity, we will reduce our architecture to exactly one
+client communicating with the server.  This is realistic since the CVS server
+processes all requests sequentially and different clients could be modeled by
+one client logging in and out with different user IDs and roles.  We will model
+the state of a client and the state of the CVS repository and the operations the
+combined system may perform.  These operations include read and write access of
+clients to the repository and allow for a fairly compact description of the
+access control policy the CVS-Server may enforce.
+
+This access control policy is well known as \emph{role-based access
+  control}\index{RBAC}\index{role-based access control}. In
+\cite{sandhu.ea:role-based:1996}, a formal framework of role-based
+access control is described that introduces the \rbac-model for role
+hierarchies that is closely related to the security policy enforced by
+our system architecture.  However, we differ from \rbac{} in a number of
+minor issues in order to get a model that can be refined to the
+implementation architecture.  For instance, we will \emph{not} model
+\emph{sessions} of \rbac directly.  Moreover, since we assume a
+one-to-one correspondence between roles and permissions (i.e.\ the
+\emph{permission assignment $(PA)$}\index{permission assignment} is a
+bijective function), we directly define the role hierarchy $(RH)$ on
+permissions, which is more convenient for technical reasons.  Further,
+since the administrator is part of the model (the authorization for a
+user may thus be dynamically withdrawn), the pair consisting of a
+\emph{user ID}\index{user ID} and its authentication (a
+\emph{password}\index{password}) representing a \emph{permission} has
+to be kept in the user state and can not be evaluated to a permission
+for the whole session during login-time; rather, for any access to the
+repository, the system checks (as the real CVS-Server) if the pair
+still represents a valid permission at access-time.
+
+Besides the access operations, we introduce a
+\emph{login}\index{login} operation that marks the entry of a session
+(if we neglect the dynamic aspect of authentication).  During the
+login operation, a user authenticates for a role; this operation
+either results in a change of the permissions of the client state
+corresponding to that user or in a failure.
+
+
+\section{Fundamental Entities of the Model}\label{sec:basics}
+
+%%macro \zcomment 1
+
+\zsection{Basics}\vspace{1ex}\noindent
+
+Common to both architectural models is an adopted \rbac-model.  Therefore, we
+introduce basic data types for users, permissions (one particularity of our
+model is the isomorphism of roles and permissions), and passwords for
+authenticating.
+\begin{zed}
+  [ Cvs\_Uid, Cvs\_Perm, Cvs\_Passwd ]
+\end{zed}
+
+The role hierarchy\index{role!hierarchy} is captured by a reflexive,
+transitive relation with the administrative permissions ($cvs\_admin$)
+as greatest and the permissions for public access ($cvs\_public$) as
+least element.  Since roles and permissions are isomorphic in our
+model, for convenience, we define the order directly on permissions.
+\begin{doc}{4}
+  \begin{axdef}
+    cvs\_admin, cvs\_public : Cvs\_Perm \\
+    cvs\_perm\_order        : Cvs\_Perm \rel Cvs\_Perm \\
+    \where
+    cvs\_perm\_order = cvs\_perm\_order \star \\
+    \forall x: Cvs\_Perm @ (x,cvs\_admin) \in cvs\_perm\_order \\
+    \forall x: Cvs\_Perm @ (cvs\_public,x) \in cvs\_perm\_order \\
+    \forall x: Cvs\_Perm @ (x \neq cvs\_admin)\implies (cvs\_admin,x) \notin cvs\_perm\_order \\
+    \forall x: Cvs\_Perm @ (x \neq cvs\_public)\implies (x, cvs\_public) \notin cvs\_perm\_order \\
+    \forall x: Cvs\_Perm @ \exists y: Cvs\_Perm @ (x,y) \in cvs\_perm\_order\\
+  \end{axdef}
+\end{doc}
+
+For authentication\index{authentication} and
+authorization\index{authorization} of the client upon him accessing
+the repository or for logging in, we need a fixed preconceived table
+that associates permissions to an ID, a client has authenticated for
+with his password.  Additionally, we define a table that associates to
+CVS user IDs the corresponding passwords.  The client state of our
+model will manage such a table.
+\begin{zed}
+  AUTH\_TAB == Cvs\_Uid \cross Cvs\_Passwd \pfun Cvs\_Perm \\
+  PASSWD\_TAB == Cvs\_Uid \rel Cvs\_Passwd \\
+\end{zed}
+
+
+\section{The State of the System Architecture}
+
+\zsection[Basics]{AbstractState}\vspace{1ex}\noindent
+
+As a basis to define the system state and its operations in the Z-sections
+\texttt{AbsState} and \texttt{AbsOperations} we have to define Z data types that
+represent files (a mapping from names to data), and data types for modeling
+access control properties, e.g., necessary permissions to access data.
+\begin{zed}
+  [Abs\_Name, Abs\_Data] \\
+  ABS\_DATATAB == Abs\_Name \pfun Abs\_Data \\
+  ABS\_UIDTAB == Abs\_Name \pfun Cvs\_Uid \\
+  ABS\_PERMTAB == Abs\_Name \pfun Cvs\_Perm \\
+\end{zed}
+CVS server store their authentication table inside the repository --- thus, the
+table can be accessed and modified using the operations of CVS\@. We will
+capture this fact in our model; as a prerequisite, we define a name
+$abs\_cvsauth$ to which data is associated, that is isomorphic to an
+authentication table. This isomorphism is established by a pair of functions ---
+that can be viewed as \emph{parser} and \emph{pretty\_printer} --- and the usual
+axioms.
+\begin{axdef}
+  abs\_cvsauth: Abs\_Name \\
+  abs\_auth\_of: Abs\_Data \pfun AUTH\_TAB \\
+  abs\_data\_of: AUTH\_TAB \fun Abs\_Data \\
+  authtab   : ABS\_DATATAB \pfun AUTH\_TAB \\
+  \where
+  \ran(abs\_data\_of) \subseteq \dom(abs\_auth\_of) \\
+  \forall x : \dom abs\_auth\_of @ abs\_data\_of(abs\_auth\_of~x) = x \\
+  \forall x : AUTH\_TAB @ abs\_auth\_of(abs\_data\_of~x) = x \\
+  \forall r : ABS\_DATATAB @   abs\_cvsauth \in \dom(r) \implies \\
+  \t2 authtab(r) = abs\_auth\_of(r~abs\_cvsauth) \\
+\end{axdef}
+
+A vital predicate for the access control is the predicate $has\_access$.  It
+checks according to the underlying data-structures of the server, if the user
+has for a particular $Cvs\_Uid$ (i.e.\ a ``role'') and a particular $file$ access
+in the repository. This requires:
+\begin{enumerate}
+\item that role and actual password are defined in the authentification
+      table in the repository,
+\item and that the resulting permission from the authentification
+      is sufficient with respect to the permission ordering.
+\end{enumerate}
+Formally, this predicate looks as follows:
+%%prerel has\_access
+\begin{axdef}
+  has\_access \_ :\power(ABS\_PERMTAB\cross ABS\_DATATAB\cross PASSWD\_TAB\cross Abs\_Name\cross Cvs\_Uid)
+  \where
+  \forall rep\_pt : ABS\_PERMTAB; rep:ABS\_DATATAB; pwtb : PASSWD\_TAB; \\
+    \t1 file:Abs\_Name; role: Cvs\_Uid @ \\
+    \t2 has\_access(rep\_pt,rep,pwtb,file,role)  \iff \\
+    \t3 (role, pwtb(role)) \in \dom(authtab~rep) \\
+    \t3 \land (rep\_pt(file),authtab(rep)(role, pwtb(role)))\in cvs\_perm\_order
+\end{axdef}
+
+
+Note that the parser $abs\_auth\_of$ is a partial function; this models the fact
+that not all file contents do actually represent input that can be interpreted.
+Moreover, we did not make any assumptions on authentication tables $AUTH\_TAB$;
+for example, a requirement like ``there is someone that can authenticate as
+$cvs\_admin$'' (i.e.  $ cvs\_admin \in \dom at$ where $at : AUTH\_TAB$) would be
+helpful but is omitted since the real CVS-Server does not make this assumption.
+This has far reaching consequences; in particular, it is possible to bring the
+CVS server into a state where all operations block since all authentications
+fail, which resembles a \emph{denial of service
+  attack}\index{attack!denial of service} at the \posix-layer.
+
+In the remainder of this section, we define the states of the client and the
+server component.  To motivate the details of our specification, we present an
+excerpt from the informal description of the CVS \cvscmd{login} command:
+\begin{quote}
+  \emph{Contacts a CVS server and confirms authentication information for a
+    particular repository. This command does not affect either the working copy
+    or the repository; it just confirms a password with a repository and stores
+    the password for later use in the .cvspass file in your home directory.
+    Future commands accessing the same repository with the same username will
+    not require you to rerun login, because the client-side CVS will just
+    consult the .cvspass file for the password.}~\cite{fogel:cvs:1999}
+\end{quote}
+The state of the client ($ClientState$) captures the concept of a working copy
+in the variable $wc$, a set of files, and also introduces $wc\_uidtab$ which is
+used to record for each file in the working copy the user ID that was used to
+access this file in the repository.  The above mentioned file ``.cvspass'' is
+modeled by $abs\_passwd$ which is a set of pairs of user IDs and passwords the
+client has logged in with.  In addition, we introduce a set of focused files
+($wfiles$) which will be the implicit arguments for most CVS operations.
+\begin{doc}{ClientState}
+  \begin{schema}{ClientState}
+    wfiles: \power Abs\_Name \\
+    wc: ABS\_DATATAB \\
+    wc\_uidtab: ABS\_UIDTAB \\
+    abs\_passwd: PASSWD\_TAB \\
+  \end{schema}
+\end{doc}
+It is straightforward to motivate the state $RepositoryState$ of the server
+component: The central concept of CVS is the repository, a set of files, which
+is defined as $rep$.  Since the access to each file is checked individually, we
+also define $rep\_permtab$, a table that associates the required access
+permissions to each file.
+
+As mentioned above, CVS-Server stores the authentication data inside the
+repository --- thus it can be accessed and modified with CVS operations.  To
+model this, we introduce a name $abs\_cvsauth$ and auxiliary functions.  In the
+server state, we now require that $abs\_cvsauth$ is a file in the repository,
+and that only the CVS administrator has sufficient permissions to access the
+authentication data, i.e.\ we set the necessary permission to the greatest
+element $cvs\_admin$ of our permission/role hierarchy.
+\begin{doc}{RepositoryState}
+  \begin{schema}{RepositoryState}
+    rep: ABS\_DATATAB \\  
+    rep\_permtab: ABS\_PERMTAB \\
+    \where
+    abs\_cvsauth \in \dom rep \\
+    \dom rep = \dom rep\_permtab \\
+    rep\_permtab(abs\_cvsauth) = cvs\_admin \\
+    rep(abs\_cvsauth) \in \dom abs\_auth\_of \\ 
+  \end{schema}
+\end{doc}
+
+
+\section{The Operations of the System Architecture}
+
+\zsection[AbstractState]{AbsOperations}\vspace{1ex}\noindent
+
+Now we define the operations of the system that model combined state transitions
+of the client and the repository.  We begin with the \cvscmd{login} operation of
+our CVS-Server system architecture.  Logging in marks the begin of a session, in
+which the client authenticates for permissions that control his access to the
+repository.  The operation \cvscmd{cd} sets the focused files ($wfiles$) for the
+following operations.
+\begin{zedgroup}
+  \begin{doc}{absops_login}
+    \begin{schema}{abs\_login}
+      \Delta ClientState \\
+      \Xi RepositoryState \\
+      passwd?: Cvs\_Passwd \\
+      uid?: Cvs\_Uid \\
+      \where
+      (uid?,passwd?) \in \dom (authtab~rep) \\
+      abs\_passwd' = abs\_passwd \\
+      \t1 \oplus \{ uid? \mapsto passwd? \} \\
+      wc' = wc \\
+      wc\_uidtab' = wc\_uidtab \\
+      wfiles' = wfiles \\
+    \end{schema}
+  \end{doc}
+  \begin{doc}{absops_cd}
+    \begin{schema}{abs\_cd}
+      \Delta ClientState \\
+      \Xi RepositoryState \\
+      wfiles?: \power Abs\_Name \\
+      \where
+      wfiles' = wfiles? \\
+      wc' = wc \\
+      wc\_uidtab' = wc\_uidtab \\
+      abs\_passwd' = abs\_passwd \\
+    \end{schema}
+  \end{doc}
+\end{zedgroup}
+
+The next three operations allow for a synchronization of the working copy with
+the operations. Recall that our model deliberately neglects all aspects related
+to version control and merging of files; our model focuses on the security
+aspects of the CVS-Server.
+
+The \cvscmd{add} operation mirrors the fact that the user has created new
+content (new filenames as well as new associated data). The operation adds this
+new data to the local working copy and makes sure that the new names are
+actually new in the repository.
+\begin{doc}{absops_add}
+  \begin{schema}{abs\_add}
+    \Delta ClientState \\
+    \Xi RepositoryState \\
+    newfiles?: ABS\_DATATAB \\
+    \where
+    \dom newfiles? \cap \dom rep = \emptyset \\
+    wc' = wc \oplus newfiles?  \\
+    wc\_uidtab'= wc\_uidtab \oplus \{ n : \dom newfiles? | n \notin \dom wc\_uidtab \\
+    \t2  \land (\exists id : \dom abs\_passwd @ \\
+    \t3 (id, (abs\_passwd~id)) \in \dom (authtab~rep)) @\\
+    \t2 n \mapsto (\mu id:
+    \dom abs\_passwd | (id, (abs\_passwd~id)) \in \dom (authtab~rep)) \} \\
+    wfiles' = wfiles \\
+    abs\_passwd' = abs\_passwd \\
+  \end{schema}
+\end{doc} 
+The \cvscmd{commit} and \cvscmd{checkin} operations usually take a set if files
+as arguments (here denoted by $files?$).  However, if no arguments are provided
+then these operations use the set of currently focused files ($wfiles$) as
+implicit arguments.  This is modeled by restricting $files?$ by 
+$wfiles$\footnote{Note that in order to operate on the
+complete set of focused files, $files?$ must be equal to $wfiles$.}.
+
+In our model the \cvscmd{commit} (or \cvscmd{checkin}) operation assumes that 
+for all focused files (restricted by the input parameter), the user actually has access
+to these files in the repository, i.e.\ his actual permission is larger than the
+required one in the repository\footnote{We slightly oversimplified the
+  situation for the sake of the presentation: the real implementation actually
+  filters out the non-accessible files, while in our model, the operation
+  blocks.}. For these files, the content of the working copy is transferred to
+the repository. Note the use of $wc'$ here to mirror the fact that the data in
+the working copy may have changed non-deterministically by user interaction and
+merge operations which are excluded from our model.
+\enlargethispage{\baselineskip}
+\begin{doc}{absops_ci}
+  \begin{schema}{abs\_ci}
+    \Xi ClientState \\
+    \Delta RepositoryState  \\
+    files?: \power Abs\_Name \\
+    \where
+    (wfiles \cap files?) \subseteq \dom wc \\
+
+    rep' = rep \oplus (\{ n: wfiles \cap files? | n \notin \dom rep \land n \in
+    \dom wc\_uidtab \\
+    \t1 \land (wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) \in
+    \dom(authtab(rep))\} \dres wc) \\  
+    \t2 \oplus (\{n : wfiles \cap files? | n \in \dom rep \land n \in \dom
+    wc\_uidtab \\
+    \t2 \land has\_access(rep\_permtab,rep,abs\_passwd,n,wc\_uidtab(n))\}
+    \dres wc) \\
+
+    rep\_permtab' = rep\_permtab \oplus \{ n: wfiles \cap files? |  n \notin
+    \dom rep \land n \in \dom wc\_uidtab \\
+    \t1 \land (wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) \in \dom(authtab~rep) @
+    \\
+    \t2 n \mapsto authtab(rep)(wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) \} \\
+
+  \end{schema}
+\end{doc}
+
+The \cvscmd{update} operation updates every file in the working copy by the
+corresponding file in the repository if the client has sufficient permissions to
+access the file in the repository, i.e., is in a senior enough role. This
+operation does not block if the client does not have sufficient permissions, but
+silently ignores those files.  Additionally, this operation also updates the
+permission table in the working copy.  If an accessible file does not exist in
+the working copy $wc$ of the client, then $abs\_up$ simply inflates it from the
+repository. Otherwise, CVS \cvscmd{update} originally distinguishes between four cases. The
+working copy is \ldots
+\begin{itemize}
+  \item up-to-date and not locally modified. There is no action.
+  \item up-to-date and locally modified. The message \glqq locally
+    modified\grqq{} is displayed.
+  \item outdated but not locally modified. The old version is replaced by the
+    new one.
+  \item both outdated and locally modified. An RCS~\cite{tichy85rcs}\index{RCS} merge
+    operation (a 3-way-merge) is used to combine the working copy, the version
+    in the repository and the latest ancestor which they have in common. This is
+    the version of the file in the repository with the revisionnumber of the
+    corresponding file of the working copy.
+\end{itemize}
+
+In our model we simplify this procedure using a non-deterministic merge
+operation which implicitly handles all four cases.
+
+\begin{doc}{3}
+  \begin{axdef}
+    merge : (Abs\_Data \cross Abs\_Data) \fun Abs\_Data \\
+    \where
+    \forall x : Abs\_Data @ merge(x,x) = x \\
+  \end{axdef}
+\end{doc} 
+
+\begin{doc}{absops_up}
+  \begin{schema}{abs\_up}
+    \Delta ClientState \\
+    \Xi RepositoryState  \\
+    files?: \power Abs\_Name \\
+    \where 
+%wc' = wc \oplus (\{ n: wfiles \cap files? | n \in \dom rep \land n \in \dom
+%    wc\_uidtab \\
+%    \t1 \land (wc\_uidtab(n), abs\_passwd(wc\_uidtab~n)) \in \dom(authtab~rep) \\
+%    \t1 \land (rep\_permtab(n),authtab(rep)(wc\_uidtab(n), \\
+%    \t2 abs\_passwd(wc\_uidtab~n)))\in cvs\_perm\_order\} \dres rep) \\
+wc' = wc \oplus (\{ n: wfiles \cap files? | n \notin \dom wc \land n \in \dom rep \land n \in \dom
+    wc\_uidtab' \\
+    \t1 \land has\_access(rep\_permtab,rep,abs\_passwd,n,wc\_uidtab'(n))\} \dres rep) \\    
+    \oplus \{ n: wfiles \cap files? | n \in \dom wc \land n \in \dom rep \land n \in \dom
+    wc\_uidtab \\
+    \t1 \land has\_access(rep\_permtab,rep,abs\_passwd,n,wc\_uidtab(n)) @ n \mapsto (merge(rep(n), wc(n)))\}\\
+
+    wc\_uidtab' = wc\_uidtab \oplus \{ n: wfiles \cap files? |  n \in \dom rep \\
+    \t1 \land n \notin \dom wc\_uidtab \land (\exists id : \dom abs\_passwd @ \\
+    \t2 has\_access(rep\_permtab,rep,abs\_passwd,n,id)) @\\
+    \t2 n \mapsto (\mu id: \dom abs\_passwd | has\_access(rep\_permtab,rep,abs\_passwd,n,id)) \} \\
+
+    abs\_passwd' = abs\_passwd \land wfiles' = wfiles \\
+  \end{schema}
+\end{doc}
+
+In addition to these abstract models of the CVS operations we provide a modify operation which explicitly models interactions of users with their files via modifying the files of the working copy of the client state.
+
+\begin{doc}{absops_modify}
+  \begin{schema}{modify}
+    \Delta ClientState \\
+    \Xi RepositoryState  \\
+    filename? : Abs\_Name \\
+    newData? : Abs\_Data \\
+    \where 
+    filename? \in \dom wc\\
+    wc' = wc \oplus\{ filename? \mapsto merge(wc~filename?, newData?)\} \\
+    wfiles' = wfiles \\
+    wc\_uidtab' = wc\_uidtab \\
+    abs\_passwd' = abs\_passwd \\
+  \end{schema}
+\end{doc}
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

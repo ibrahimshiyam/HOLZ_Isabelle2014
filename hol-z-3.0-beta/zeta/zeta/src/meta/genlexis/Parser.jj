@@ -1,0 +1,110 @@
+options {
+  DEBUG_PARSER = false;
+  DEBUG_TOKEN_MANAGER = false;
+  JAVA_UNICODE_ESCAPE = true;
+  STATIC = false;
+}
+
+PARSER_BEGIN(Parser)
+
+package zeta.meta.genlexis;
+
+import java.lang.*;
+import java.util.Vector;
+
+class Parser {
+  String[][] languages;
+  String[][][] table;
+}
+
+PARSER_END(Parser)
+
+SKIP:
+{
+  " "
+| "\t"
+| "\n"
+| "\r"
+| "\f"
+}
+
+SPECIAL_TOKEN :
+{
+  <COMMENT: "#" (~["\n","\r"])* ("\n" | "\r" | "\n\r") > 
+}
+
+
+TOKEN :
+{
+  < STRING_LITERAL:
+      "\""
+      (   (~["\"","\\","\n","\r"])
+        | ("\\"
+            ( ["n","t","b","r","f","\\","'","\""]
+            | ["0"-"7"] ( ["0"-"7"] )?
+            | ["0"-"3"] ["0"-"7"] ["0"-"7"]
+            )
+          )
+      )*
+     "\""
+  > 
+	// {
+
+	//       if (!image.toString().endsWith("\"")){
+
+	// 	throw new ParseException("unterminated string literal at" +
+	//			 input_stream.getEndLine());
+
+	//       }
+
+	//     }
+| < LITERAL: ( ~[";",".","\""," ","\t","\n","\r","\f"] )+ >
+| < SEPARATOR : ";" >
+| < TERMINATOR : "." >
+}
+
+
+
+void lexTable():
+{ String[][] l;
+  Vector v = new Vector(); 
+}
+{
+  languages = line() 
+  ( l = line() 
+    { v.addElement(l); }
+  )*
+  <EOF>
+  {
+    table = new String[v.size()][][];
+    v.copyInto(table);
+  }
+}
+
+String[][] line():
+{ Vector v = new Vector();
+  String[] c;
+}
+{
+  c = column() { v.addElement(c); }
+  ( <SEPARATOR> c = column() { v.addElement(c); } )*
+  <TERMINATOR>
+  { String[][] res = new String[v.size()][];
+    v.copyInto(res);
+    return res;
+  }
+}
+
+String[] column():
+{ Vector v = new Vector();
+  Token t;
+}
+{
+  ( t = <LITERAL> { v.addElement(t.image); }
+  | t = <STRING_LITERAL> { v.addElement(t.image); }
+  )*
+  { String[] res = new String[v.size()];
+    v.copyInto(res);
+    return res;
+  }
+}

@@ -1,0 +1,179 @@
+package zeta.form;
+
+/**
+ * The class of top-level forms. <p>
+ *
+ * A top-level form represents an interaction which can be registered
+ * at the session system to be made available to the user.
+ *
+ * @version $Id: TopLevelForm.pizza,v 1.4 2000/05/14 17:43:32 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.*;
+
+public abstract class TopLevelForm extends CompoundForm {
+
+  /**
+   * The form associated with this top-level form.
+   */
+  public final Form subform;
+
+
+  /**
+   * The style of this top-level form, if handled by a GUI.
+   */
+  public final Style style;
+
+  /** 
+   * The class of styles, for GUIs.
+   */
+  public static class Style {
+
+    /** If this flag is set, then the dialog (if any, i.e. if the top-level 
+	form isn't atomic) is made modal. False by default.
+    */
+    public boolean isModal = false;
+
+    /** If this string is not null, it should be a file name of an
+	image relative to the images directory, and the form can be
+	also reached via the tool bar under this icon. By default null. */
+    public String toolIcon = null;
+
+    /** Make this top-level form available in the shell menu. */
+    public case Shell();
+
+    /** Make this top-level form available in the source menu. */
+    public case Source();
+
+    /** Make this top-level form available in the function menu. */
+    public case Function();
+
+    /** Make this top-level form available in the configuration menu. */
+    public case Config();
+
+    /** Make this top-level form available in some arbitrary other menu,
+	specified by the given path. */
+    public case MenuAt(String[] path);
+
+    /** Make this top-level form only available in the command interpreter. */
+    public case HIDDEN;
+
+    /** Set the modal-flag of this style. Return this style. */
+    public Style setModal(boolean yes){
+      this.isModal = yes;
+      return this;
+    }
+
+    /** Set the tool-icon of this style. Return this style. */
+    public Style setToolIcon(String toolIcon){
+      this.toolIcon = toolIcon;
+      return this;
+    }
+
+
+  }
+
+  /** 
+   * The long description of this top-level form.
+   */
+  public final String longDescr;
+
+  /** 
+   * A method which is called before the form is evaluated.
+   * May be overwritten in order to initialize state variables. 
+   */
+  public void setup(Session session){}
+
+
+  /** 
+   * A method representing the action associated with this top-level
+   * form. Passed is the session under which the form is evaluated. 
+   */
+  public abstract void perform(Session session, Locator locator)
+  throws Failures.FormFailed;
+
+  /**
+   * Construct a top-level form.
+   */
+  public TopLevelForm(Style style, Form subform, String longDescr){
+    this.style = style;
+    this.subform = subform;
+    this.longDescr = longDescr;
+  }
+
+  /**
+   * Make a top-level form, where the action is given as
+   * a Pizza function.
+   */
+  public static TopLevelForm 
+  make(Style style, Form subform, String longDescr,
+       final (Session,Locator) throws Failures.FormFailed->void function){
+    return
+      new TopLevelForm(style, subform, longDescr){
+	public void perform(Session session, Locator locator)
+	throws Failures.FormFailed{
+	  function(session, locator);
+	}
+      };
+  }
+
+  /**
+   * Make a top-level form, where setup and action are given as
+   * Pizza functions.
+   */
+  public static TopLevelForm 
+  make(Style style, Form subform, String longDescr,
+       final (Session)->void setupFun,
+       final (Session,Locator) throws Failures.FormFailed->void performFun){
+    return
+      new TopLevelForm(style, subform, longDescr){
+	public void setup(Session session){
+	  setupFun(session);
+	}
+	public void perform(Session session, Locator locator)
+	throws Failures.FormFailed{
+	  performFun(session, locator);
+	}
+      };
+  }
+
+  /**
+   * Parse the given sequence of words starting at index. By default,
+   * this parses the subform and performs the action on success.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start)
+  throws Failures.FormFailed {
+    int start1 = subform.parse(session, locator, words, start);
+    if (start1 >= 0){
+      perform(session, locator);
+      return start1;
+    } else
+      return -1;
+  }
+
+  /**
+   * Unparse the internal state of the form. 
+   */
+  public String[] unparse(Session session){
+    return subform.unparse(session);
+  }
+
+  /**
+   * Get the sub-forms.
+   */
+  public Form[] getSubforms(){
+    return new Form[]{subform};
+  }
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    if (longDescr != null)
+      return subform.getSyntax() + " - " + longDescr + ".";
+    else
+      return subform.getSyntax() + ".";
+  }
+
+}

@@ -1,0 +1,90 @@
+package zeta.tools.sh;
+
+/**
+ * A listener which echos messages to print writers. 
+ *
+ * @version $Id: MessagePrinter.pizza,v 1.3 2000/05/08 07:07:43 wg Exp $
+ */
+
+import java.io.*;
+import java.util.StringTokenizer;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.session.*;
+
+public class MessagePrinter implements Listener {
+
+  /**
+   * The print writer used for debug messages (or null if those messages
+   * should not be shown).
+   */
+  private PrintWriter debugWriter;
+
+  /**
+   * The print writer used for other messages (or null if those messages
+   * should not be shown).
+   */
+  private PrintWriter messageWriter;
+
+
+  /**
+   * Construct a print listener.
+   */
+  MessagePrinter(PrintWriter debugWriter, PrintWriter messageWriter){
+    this.debugWriter = debugWriter;
+    this.messageWriter = messageWriter;
+  }
+
+  /** Receive method of a message listener. */
+  public void receive(Name sender, Message message){
+    if (message instanceof DebugMessage || 
+	message instanceof SessionStateMessage ||
+	message instanceof EvalMessage){
+      if (debugWriter != null){
+	printPrefixed("@ " + sender + ": ", debugWriter,
+		      Format.build(message));
+      }
+    } else {
+      if (messageWriter != null){
+	if (message instanceof Diag){
+	  printPrefixed("! ", messageWriter, Format.build(message));
+	}
+	else if (message instanceof ResultMessage){
+	  printPrefixed("= ", messageWriter, Format.build(message));
+	}
+	else if (message instanceof ProgressMessage){
+	  printPrefixed("+ ", messageWriter, Format.build(message));
+	}
+	else if (message instanceof EvalMessage){
+	  // printPrefixed("~ ", messageWriter, Format.build(message));
+	}
+	else {
+	  printPrefixed("- ", messageWriter, Format.build(message));
+	}
+      }
+    }
+  }
+
+  private static void printPrefixed(String prefix, PrintWriter writer,
+				    Format format){
+    String string = format.toString(79 - prefix.length());
+    StringTokenizer tkn = new StringTokenizer(string, "\n\r");
+    int unprintedEmpty = 0;
+    while (tkn.hasMoreTokens()){
+      String line = tkn.nextToken();
+      if (line.length() == 0)
+	unprintedEmpty++;
+      else {
+	while (unprintedEmpty > 0){
+	  writer.println(prefix);
+	  unprintedEmpty--;
+	}
+	writer.print(prefix);
+	writer.println(line);
+      }
+    }
+    // ignore trailing empty lines
+    writer.flush();
+  }
+	  
+}

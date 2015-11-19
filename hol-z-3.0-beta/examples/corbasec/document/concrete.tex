@@ -1,0 +1,371 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{The Complete ORB Data Model} \label{sec:ORB-model}
+
+\zsection[ZSrbacAdmin]{ZSspecification}\vspace{2ex}
+
+\subsection{The system state}
+In this section, we define the parts that connect the whole specification.
+\begin{schema}{ORB}
+  InterfaceRepository \\
+  ImplementationRepository \\
+  PolicyS \\
+  Users \\
+  Domains \\
+  ObjectS \\
+  CredentialsS \\
+  CurrentS \\
+  RequiredRightsS \\
+  \where
+  \ran IRimplements = \dom IRinterface \\
+  \bigcup (\ran Ddomain) = \dom OobjectId \\
+  \forall o: \ran OobjectId; p,q: POLICY | p \in o.OoverridePolicies \land \\
+  \t1 q \in o.OoverridePolicies @ \\
+  \t2 Ppolicy(p) \in overridesAllowed \land (Ppolicy(p) = Ppolicy(q) \implies p
+  = q) \\
+
+  \forall d: \ran DmanagerId @ \ran d.DMpolicy \subseteq \dom Ppolicy \\
+\end{schema}
+The meaning of the predicates:
+\begin{enumerate}
+\item All objects in the implementation repositroy must be legal objects, i.e.\
+  must be registered with the object system.
+\item Every object is at least member of one domain.
+\item The policies in $Object::OoverridePolicies$ must be of different types.
+\end{enumerate}
+
+
+\subsection{Policies}
+Now, we define the access policies for the internal operations that should be
+orthogonal to any application-level access control policies.  For this, we
+introduce two groups: ``GroupId:user'' and ``GroupId:admin''.  Every normal user
+is in group $user$ and administrators are in the group $admin$.  Note, that a
+``normal'' user is a user that is registered and authenticated.  An
+unauthenticated user does not get the same privileges (only $Public$).  It is
+the administrators responsibility to set the attributes of new users
+appropriately, there is no automatic mechanism.  Additionally, we define an
+access domain $Internal$ for all internal objects, like $RequiredRights$.
+
+In the last section, we defined a \rbaci{} model for \corbasec.  The
+administration operations of this model will be collected in the $RbacAdmin$
+interface. 
+\begin{table}[ht]
+  \begin{center}
+    \begin{tabular}{l|l|l}
+      Interface & Operation & Rights \\ \hline
+      RequiredRights & get\_required\_rights & g \\
+      & set\_required\_rights & sm \\ \hline
+      UserAdmin & createPrincipal & sm \\
+      & deletePrincipal & m \\
+      & changeAuthData & sm \\
+      & setAttributes & sm \\ \hline
+      RbacAdmin & assignUser & sm \\
+      & deassignUser & m \\
+      & grantPermission & sm \\
+      & revokePermission & sm \\ \hline
+      DomainAdmin & createDomain & sm \\
+      & deleteDomain & m \\
+      & insertObject & sm \\
+      & removeObject & m \\
+    \end{tabular}
+    \caption{Required rights for internal operations}
+  \end{center}
+\end{table}
+\begin{table}[ht]
+  \begin{center}
+    \begin{tabular}{l|l}
+      Attribute & Rights \\ \hline
+      GroupId:user & g \\ \hline
+      GroupId:admin & gsm \\
+    \end{tabular}
+    \caption{Granted rights in domain $Internal$}
+  \end{center}
+\end{table}
+The domain access policy of this domain must return these granted rights.
+\begin{axdef}
+  group\_user, group\_admin: SecAttribute \\
+  internalDomainPolicy: DomainAccessPolicy \\
+  internalDomainPOLICY: POLICY \\
+  \where
+  internalDomainPolicy.Ppolicy\_type \in \{ SecClientInvocationAccess, \\
+  \t1 SecTargetInvocationAccess \} \\
+  internalDomainPolicy.PgrantedRights = \\
+  \t1 \{ (group\_user, SecInitiator) \mapsto \{ get \}, \\
+  \t1 (group\_admin, SecInitiator) \mapsto \{ get,set,manage \} \} \\
+\end{axdef}
+To do: connect this policy with the domain $Internal$ and verify that a call to
+granted\_rights really displays these rights.  Define the required rights
+object.  Axiomatically or with the proper operations?
+
+
+\subsection{Initialization of data} \label{sec:init-data}
+The most crucial part here is to develop mechanisms that enable one to specify
+the internal data independend of and extendible with external application
+interfaces and data.
+
+
+\subsubsection{Security attributes}
+The actual security attributes must be defined here, e.g. setting their family
+etc.
+
+\subsubsection{State schemas}
+In order to initialize the $InterfaceRepository$ and $ImplementationRepository$
+schemas, we must identify the interfaces that are subject to access control.
+
+As stated earlier in section~\ref{sec:intro}, all interfaces that are locality
+constrained cannot be exported from the current thread of execution and should
+also always be allowed to the principal of the current thread.  The only
+security checks must be on the parameters of the operations not on the
+operations themselves.  This must be handled within the operations.
+
+We must also define the rights and policies for these operations.
+
+The following interfaces are not locality constrained: RequiredRights,
+AccessPolicy, DomainAccessPolicy, AuditPolicy, SecureInvocationPolicy,
+DelegationPolicy.
+
+In the following, we will focus on the interfaces that are part of the access
+control scheme, namely RequiredRights and DomainAccessPolicy. 
+
+\begin{axdef}
+  \_RR\_get\_required\_rights: Identifier \\
+  \_RR\_set\_required\_rights: Identifier \\
+  \_U\_createPrincipal: Identifier \\
+  \_U\_deletePrincipal: Identifier \\
+  \_U\_changeAuthData: Identifier \\
+  \_U\_setAttributes: Identifier \\
+  \_D\_createDomain: Identifier \\
+  \_D\_deleteDomain: Identifier \\
+  \_D\_insertObject: Identifier \\
+  \_D\_removeObject: Identifier \\
+%  : Identifier \\
+  \_RequiredRights: RepositoryId \\
+  \_UserAdmin: RepositoryId \\
+  \_DomainAdmin: RepositoryId \\
+%  : RepositoryId \\
+  \_RequiredRights\_Impl: IMPLEMENTATION \\
+  \_UserAdmin\_Impl: IMPLEMENTATION \\
+  \_DomainAdmin\_Impl: IMPLEMENTATION \\
+  \_RequiredRights\_CURRENT: CURRENT \\
+  \_UserAdmin\_CURRENT: CURRENT \\
+  \_DomainAdmin\_CURRENT: CURRENT \\
+  \_RequiredRights\_Current: Current \\
+  \_UserAdmin\_Current: Current \\
+  \_DomainAdmin\_Current: Current \\
+  admin: SecurityName \\
+  empty: Opaque \\
+  internalDomain: DomainManager \\
+  internalDOMAIN: DOMAIN\_MANAGER \\
+\end{axdef}
+
+We initialize the interface repository with the interfaces of our security
+infrastructure that are visible outside the ORB and are accessible from
+every client by every user.
+\begin{schema}{InitInterfaceRepository}
+  InterfaceRepository \\
+  \where
+  IRinterface = \{ \< \_RequiredRights \mapsto \{\_RR\_get\_required\_rights, \\
+  \t1 \_RR\_set\_required\_rights \}, \\ 
+  \_UserAdmin \mapsto \{ \_U\_createPrincipal, \_U\_deletePrincipal, \\
+  \t1 \_U\_changeAuthData, \_U\_setAttributes \}, \\
+  \_DomainAdmin \mapsto \{ \_D\_createDomain, \_D\_deleteDomain, \\
+  \t1 \_D\_insertObject, \_D\_removeObject \} \} \> \\ 
+  % IRname
+  IRparents = \{ \< \_RequiredRights \mapsto \langle \_RequiredRights \rangle,\\
+   \_UserAdmin \mapsto \langle \_UserAdmin \rangle, \\
+   \_DomainAdmin \mapsto \langle \_DomainAdmin \rangle \} \>
+\end{schema}
+We define an implementation for these three internal objects and we define
+current objects for them.  Note, that yet no reference was created to them, and
+hence the domains and the object schema are still empty.
+\begin{schema}{InitImplementationRepository}
+  ImplementationRepository \\
+  \where
+  IRimplements = \{ \< \_RequiredRights\_CURRENT \mapsto \_RequiredRights, \\
+  \_UserAdmin\_CURRENT \mapsto \_UserAdmin, \\
+  \_DomainAdmin\_CURRENT \mapsto \_DomainAdmin \} \> \\
+  IRinstance = \{ \< \_RequiredRights\_CURRENT \mapsto \_RequiredRights\_Impl, \\
+  \_UserAdmin\_CURRENT \mapsto \_UserAdmin\_Impl, \\
+  \_DomainAdmin\_CURRENT \mapsto \_DomainAdmin\_Impl \} \>
+\end{schema}
+We create an internal policy domain in which the references for the internal
+objects will be inserted.
+\begin{schema}{InitPolicyS}
+  PolicyS \\
+  \where
+  Ppolicy = \{ internalDomainPOLICY \mapsto SecTargetInvocationAccess \} \\
+  PdomainAccessPolicy = \{ internalDomainPOLICY \mapsto internalDomainPolicy \} \\
+  PinvocationCredentialsPolicy = \emptyset \\
+\end{schema}
+Initially only the security administrator exists, but no other users.
+\begin{schema}{InitUsers}
+  Users \\
+  \where
+  Uprincipals = \{ admin \} \\
+  Uauthenticates = \{ admin \mapsto empty \} \\
+  Uattributes = \{ admin \mapsto \{ group\_admin \} \} \\
+%  Uprivileges = \{ \} \\
+\end{schema}
+\begin{schema}{InitDomains}
+  Domains \\
+  \where
+  DmanagerId = \{ internalDOMAIN \mapsto internalDomain \} \\
+  Ddomain = \{ internalDOMAIN \mapsto \emptyset \} \\
+\end{schema}
+\begin{schema}{InitObjectS}
+  ObjectS \\
+  \where
+  OobjectId = \emptyset \\
+  Otarget = \emptyset \\
+\end{schema}
+\begin{schema}{InitCredentialsS}
+  CredentialsS \\
+  \where
+  CcredentialsId = \emptyset \\
+  CreceivedCredentialsId = \emptyset \\
+  CisValid = \emptyset \\
+  CcredentialsType = \emptyset \\
+\end{schema}
+\begin{schema}{InitCurrentS}
+  CurrentS \\
+  \where
+  CUcurrentId = \{ \< \_RequiredRights\_CURRENT \mapsto \_RequiredRights\_Current, \\
+  \_UserAdmin\_CURRENT \mapsto \_UserAdmin\_Current, \\
+  \_DomainAdmin\_CURRENT \mapsto \_DomainAdmin\_Current \} \> \\
+  CUcurrentRole = \{ \< \_RequiredRights\_CURRENT \mapsto TargetCurrent, \\
+  \_UserAdmin\_CURRENT \mapsto TargetCurrent, \\
+  \_DomainAdmin\_CURRENT \mapsto TargetCurrent \} \>
+\end{schema}
+The required rights for the three internal interfaces must be defined:
+\begin{schema}{InitRequiredRights}
+  RequiredRightsS \\
+  \where
+  requiredRights =  \\
+  \t1 \{ \< (\_RR\_get\_required\_rights,\_RequiredRights) \mapsto (\langle get
+  \rangle, SecAllRights), \\ 
+  (\_RR\_set\_required\_rights, \_RequiredRights) \mapsto (\langle set, manage
+  \rangle, SecAllRights), \\ 
+  (\_U\_createPrincipal, \_UserAdmin) \mapsto (\langle set, manage \rangle,
+  SecAllRights), \\ 
+  (\_U\_deletePrincipal, \_UserAdmin) \mapsto (\langle manage \rangle,
+  SecAllRights), \\ 
+  (\_U\_changeAuthData, \_UserAdmin) \mapsto (\langle set, manage \rangle,
+  SecAllRights), \\ 
+  (\_U\_setAttributes, \_UserAdmin) \mapsto (\langle set, manage \rangle,
+  SecAllRights), \\ 
+  (\_D\_createDomain, \_DomainAdmin) \mapsto (\langle set, manage \rangle,
+  SecAllRights), \\ 
+  (\_D\_deleteDomain, \_DomainAdmin) \mapsto (\langle manage \rangle,
+  SecAllRights), \\ 
+  (\_D\_insertObject, \_DomainAdmin) \mapsto (\langle set, manage \rangle,
+  SecAllRights), \\ 
+  (\_D\_removeObject, \_DomainAdmin) \mapsto (\langle manage \rangle,
+  SecAllRights) \} \> 
+\end{schema}
+
+
+\subsubsection{Operations}
+Now, the operations of the internal interfaces must be defined in terms of an
+operation invocation of CORBA and enhanced with access control.
+
+\paragraph{RequiredRights}
+\begin{zedgroup}
+\begin{schema}{I\_RR\_get\_required\_rights}
+  RR\_get\_required\_rights \\
+  operation?: Identifier \\
+  \where
+  operation? = \_RR\_get\_required\_rights \\
+\end{schema}
+\begin{schema}{I\_RR\_set\_required\_rights}
+  RR\_set\_required\_rights \\
+  operation?: Identifier \\
+  \where
+  operation? = \_RR\_set\_required\_rights \\
+\end{schema}
+\end{zedgroup}
+
+
+\paragraph{DomainAccessPolicy}
+
+
+\paragraph{User administration}
+\begin{zedgroup}
+\begin{schema}{I\_U\_createPrincipal}
+  createPrincipal \\
+  operation?: Identifier \\
+  \where
+  operation? = \_U\_createPrincipal \\
+\end{schema}
+\begin{schema}{I\_U\_deletePrincipal}
+  deletePrincipal \\
+  operation?: Identifier \\
+  \where
+  operation? = \_U\_deletePrincipal \\
+\end{schema}
+\begin{schema}{I\_U\_changeAuthData}
+  changeAuthData \\
+  operation?: Identifier \\
+  \where
+  operation? = \_U\_changeAuthData \\
+\end{schema}
+\begin{schema}{I\_U\_setAttributes}
+  setAttributes \\
+  operation?: Identifier \\
+  \where
+  operation? = \_U\_setAttributes \\
+\end{schema}
+\end{zedgroup}
+
+
+\paragraph{Domain administration}
+\begin{zedgroup}
+\begin{schema}{I\_D\_createDomain}
+  createDomain \\
+  operation?: Identifier \\
+  \where
+  operation? = \_D\_createDomain \\
+\end{schema}
+\begin{schema}{I\_D\_deleteDomain}
+  deleteDomain \\
+  operation?: Identifier \\
+  \where
+  operation? = \_D\_deleteDomain \\
+\end{schema}
+\begin{schema}{I\_D\_insertObject}
+  insertObject \\
+  operation?: Identifier \\
+  \where
+  operation? = \_D\_insertObject \\
+\end{schema}
+\begin{schema}{I\_D\_removeObject}
+  removeObject \\
+  operation?: Identifier \\
+  \where
+  operation? = \_D\_removeObject \\
+\end{schema}
+\end{zedgroup}
+
+
+\paragraph{Internal operations}
+The internal operations are all operations together with access control:
+\begin{zed}
+  internalOps == AccessDecision \land \\
+  \t1 ( \< I\_RR\_get\_required\_rights \lor \\
+  I\_RR\_set\_required\_rights \lor \\
+  I\_U\_createPrincipal \lor \\
+  I\_U\_deletePrincipal \lor \\
+  I\_U\_changeAuthData \lor \\
+  I\_U\_setAttributes \lor \\
+  I\_D\_createDomain \lor \\
+  I\_D\_deleteDomain \lor \\
+  I\_D\_insertObject \lor \\
+  I\_D\_removeObject ) \>
+\end{zed}
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "model"
+%%% End: 

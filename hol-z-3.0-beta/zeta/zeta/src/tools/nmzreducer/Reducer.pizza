@@ -1,0 +1,3155 @@
+package zeta.tools.nmzreducer;
+
+/** Conversion from ZIRP terms to MZ expressions.
+  *
+  * @version $Id: Reducer.pizza,v 1.41 2000/07/26 13:40:21 wg Exp $
+  */
+
+import net.sf.pizzacompiler.lang.Pair;
+import java.util.NoSuchElementException;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.session.*;
+import zeta.content.zirp.*;
+import zeta.content.text.Lexem;
+import zeta.content.nmz.*;
+
+public class Reducer {
+
+  // ========================================================================
+  // Constructing a reducer
+  
+
+  /** ZIRP environment passed from the context. */
+  private UnitEnv env;
+
+  /** The native names declared in the environment. */
+  private Set<Name> natives;
+
+  /** The given names declared in the environment. */
+  private Set<Name> givens;
+
+  /** Make a new term reducer working on the given unit environment. */
+  public Reducer(UnitEnv env){
+    this.env = env;
+    UnitEnv.PragmaInfo[] pragmas = env.getPragmas();
+    natives = new HashSet();
+    givens = new HashSet();
+    Name zapPragma = new Name("zap");
+    for (int i = 0; i < pragmas.length; i++){
+      UnitEnv.PragmaInfo p = pragmas[i];
+      if (p.name.equals(zapPragma) && p.value.length > 1){
+	switch (p.value[0]){
+	case Word(String image):
+	  if (image.equals("native")){
+	    Pair<Name,int> on = parseOpName(p.value, 1);
+	    if (on != null)
+	      natives = natives.include(on.fst);
+	  } else if (image.equals("given")){
+	    Pair<Name,int> on = parseOpName(p.value, 1);
+	    while (on != null){
+	      givens = givens.include(on.fst);
+	      on = parseOpName(p.value, on.snd);
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  private Pair<Name,int> parseOpName(Lexem[] toks, int pos){
+    int state = 0;
+    String repr = "";
+    while (pos < toks.length){
+      switch (state){
+      case 0: // start
+	switch (toks[pos]){
+	case Lparenth:
+	  pos++;
+	  state = 1;
+	  continue;
+	case Word(String s):
+	  return new Pair(new Name(s), pos+1);
+	default:
+	  return null;
+	}
+      case 1: // components
+	switch (toks[pos]){
+	case Arg:
+	  repr += "_";
+	  pos++;
+	  continue;
+	case ListArg:
+	  repr += ",,";
+	  pos++;
+	  continue;
+	case Word(String s):
+	  repr += s;
+	  pos++;
+	  continue;
+	case Rparenth:
+	  return new Pair(new Name(repr), pos+1);
+	default:
+	  return null;
+	}
+      default:
+	return null;
+      }
+    }
+    return null;
+  }
+
+
+  // ========================================================================
+  // Diagnostics
+  
+
+  /** Diagnostics. */
+  private Diag diag = new Diag();
+
+  /** Get and clear diagnostics produced so far. */
+  public Diag getAndClearDiag(){
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+  /** Issue an error message that the syntactic form cannot be handled. */
+  private void cantHandleError(Locator where){
+    diag = diag.add(where,
+		    Diag.Category.Error,
+		    "cannot handle this form currently");
+  }
+
+  /** Issue a hint. */
+  private void hint(Locator where, String message){
+    diag = diag.add(where,
+		    Diag.Category.Hint,
+		    message);
+  }
+
+  // ========================================================================
+  // Retrieving Constructors
+
+  /** A cache for holding constructor names introduced by binding types. */
+  private Map<Seq<Name>,Name> bindingConsCache = new HashMap();
+
+  /** A cache for holding constructor names introduced by tuple types. */
+  private Map<int,Name> tupleConsCache = new HashMap();
+
+  /** Get tuple constructor name of given arity. */
+  private Name getTupleCons(int arity){
+    Name cons;
+    try {
+      cons = tupleConsCache.get(arity);
+    }
+    catch (NoSuchElementException e){
+      StringBuffer buf = new StringBuffer("(");
+      for (int i = 0; i < arity; i++){
+	if (i > 0) buf.append(",_"); else buf.append("_");
+      }
+      buf.append(")");
+      cons = new Name(buf.toString());
+      tupleConsCache = tupleConsCache.define(arity, cons);
+    }
+    return cons;
+  }
+
+  /** Get binding constructor for given sorted sequence of field names. */
+  private Name getBindingCons(Seq<Name> fields){
+    Name cons;
+    try {
+      cons = bindingConsCache.get(fields);
+    }
+    catch (NoSuchElementException e){
+      StringBuffer buf = new StringBuffer("<");
+      boolean first = true;
+      fields.apply(
+	fun (Name f)->void {
+	  if (!first) buf.append(",");
+	  first = false;
+	  buf.append(f.toString());
+	  buf.append("==_");
+	}
+      );
+      buf.append(">");
+      cons = new Name(buf.toString());
+      bindingConsCache = bindingConsCache.define(fields, cons);
+    }
+    return cons;
+  }
+
+  // ========================================================================
+  // Maintaing contexts
+
+  /** The set of global names defined. */
+  private Set<Name> defined = new HashSet();
+
+  /** The sequence of formal given types. */
+  private Seq<Name> currentFormals = new ArraySeq();
+
+
+  /** Class for representing a strict context. */
+  class Context {
+    Map<Name,MZ.Expr> scope = new HashMap(); // name |-> Variable(name) or Expr
+    Seq<MZ.Property> props = new BufferSeq();
+    Set<Name> applied = new HashSet();
+    Context parent;
+
+    Context(Context parent){
+      this.parent = parent;
+    }
+
+    MZ.Expr lookup(Name name){
+      return lookup(name, false);
+    }
+
+    MZ.Expr lookup(Name name, boolean markApplied){
+      try {
+	MZ.Expr expr = scope.get(name);
+	if (markApplied)
+	  applied = applied.include(name);
+	return expr;
+      }
+      catch (NoSuchElementException e){
+	if (parent != null)
+	  return parent.lookup(name, markApplied);
+	else
+	  return null;
+      }
+    }
+
+    int depth(Name name){
+      if (scope.defines(name) || parent == null)
+	return 0;
+      else
+	return 1 + parent.depth(name);
+    }
+
+    boolean isNative(Name name){
+      try {
+	return scope.get(name) != null 
+	  && parent == null && natives.contains(name);
+      }
+      catch (NoSuchElementException e){
+	if (parent != null)
+	  return parent.isNative(name);
+	else
+	  return false;
+      }
+    }
+
+    boolean isGiven(Name name){
+      try {
+	return scope.get(name) != null 
+	  && parent == null && givens.contains(name);
+      }
+      catch (NoSuchElementException e){
+	if (parent != null)
+	  return parent.isGiven(name);
+	else
+	  return false;
+      }
+    }
+
+    boolean isBound(Name name){
+      return scope.defines(name) || parent != null && parent.isBound(name);
+    }
+  }
+
+  /** The current context. */
+  private Context context = null;
+
+
+  /** A constant representing the empty set of names. */
+  private static final Set<Name> emptyNames = new HashSet();
+
+
+  /** Create a new variable expression. */
+  public MZ.Expr.Variable newVar(Locator loc, String repr){
+    MZ.Expr.Variable var = new MZ.Expr.Variable(new Name(repr));
+    var.locator = loc;
+    context.scope = context.scope.define(var.name, var);
+    return var;
+  }
+
+  /** Create a new anonymous variable expression. */
+  public MZ.Expr.Variable newAnonVar(Locator loc, String repr){
+    MZ.Expr.Variable var = new MZ.Expr.Variable(awayof(new Name(repr)));
+    var.locator = loc;
+    context.scope = context.scope.define(var.name, var);
+    return var;
+  }
+
+  /** Create a tuple of anonymous variable expressions. */
+  public Seq<MZ.Expr> 
+  newAnonVars(Locator loc, String repr, int arity){
+    Seq<MZ.Expr> vars = new BufferSeq();
+    for (int i = 0; i < arity; i++){
+      vars = vars.append(newAnonVar(loc, repr + i));
+    }
+    return ArraySeq.from(vars);
+  }
+
+  /** Generate new variables for names. */
+  private Seq<MZ.Expr> newVars(Locator locator, Seq<Name> names){
+    Seq<MZ.Expr> vars = new BufferSeq();
+    names.apply(
+      fun (Name n)->void {
+	vars = vars.append(newVar(locator, n.getRepr()));
+      }
+    );
+    return vars;
+  }
+
+
+  /** Make sequence of names to sequence of expressions. */
+  private Seq<MZ.Expr> makeArgs(Seq<Name> names, Locator loc){
+    return names.map(fun (Name n)->MZ.Expr {
+		       return new MZ.Expr.Variable(n).set(loc);
+		     }
+		    );
+  }
+
+
+  
+  /** Enter a new context. */
+  public void enterContext(){
+    context = new Context(context);
+  }
+
+
+  /** Enter a generic scope. */
+  private void setGenericScope(Locator locator,
+			       Seq<Name> formals, Seq<Name> constants){
+    /*
+    Seq<MZ.Expr> p = newVars(locator, formals);
+    constants.apply(
+      fun (Name n)->void {
+	MZ.Expr res = new MZ.Expr.Variable(n).set(locator);
+	if (!formals.isEmpty()){
+	  res = makeApply(locator,
+			  res, makeTuple(p).set(locator)).set(locator);
+	}
+	addBound(n, res);
+      }
+    );
+    */
+    currentFormals = formals;
+    defined = defined.includeAll(constants);
+  }
+
+
+
+  /** Exit a context, producing a schema representing the bindings in it,
+      and a mapping for names from the scope which are substituted. */
+  private Pair<Map<Name,MZ.Expr>,MZ.Expr> 
+  exitContext(MZ.Expr pat, Locator locator, boolean forceSchema){
+    if (!isPattern(pat, context.scope))
+      throw FatalError.assertionFailed("no pat " + pat);
+    // System.err.println("exit pat " + pat);
+    // System.err.println("exit scope " + context.scope);
+    Context curr = context;
+    context = context.parent;
+    if (curr.props == null){
+      // CHECKME hint(locator, "can never become true!");
+      return new Pair((Map)new HashMap(),
+		      new MZ.Expr.Empty().set(locator));
+    }
+    else {
+      // analyze variables 
+      Set<Name> usedVars = new HashSet();
+      Map<Name,MZ.Expr> subs = new HashMap();
+      Seq<MZ.Property> props = new BufferSeq();
+      curr.scope.apply(
+	fun (Pair<Name,MZ.Expr> p)->void {
+	  switch (p.snd){
+	  case Variable(Name n):
+	    if (n.equals(p.fst)){
+	      // free variable: suppose it is used
+	      usedVars = usedVars.include(p.fst);
+	      return;
+	    }
+	  }
+	  // bound variable:
+	  if (isPattern(p.snd, curr.scope)){
+	    // candidate for substitution.
+	    subs = subs.define(p.fst, p.snd);
+	  } else {
+	    // generate an equation for it
+	    usedVars = usedVars.include(p.fst);
+	    props = props.append(
+		      new MZ.Property.Equal(
+			    new MZ.Expr.Variable(p.fst).set(p.snd.locator),
+			    p.snd
+			  ).set(p.snd.locator)
+		    );
+	  }
+	}
+      );
+      props = props.appendAll(curr.props);
+      if (!subs.isEmpty()){
+	// apply substitution to properties
+	Seq<MZ.Property> newProps = new BufferSeq();
+	props.apply(
+	  fun (MZ.Property p)->void {
+	    p = p.substitute(subs);
+	    boolean done = false;
+	    switch (p){
+	    case Equal(Variable(Name n1),Variable(Name n2)):
+	      if (n1.equals(n2)){
+		// this equation becomes obsolete
+		done = true;
+	      } 
+	    }
+	    if (!done){
+	      newProps = newProps.append(p);
+	    }
+	  }
+	);
+	props = sortProps(newProps);
+	pat = pat.substitute(subs);
+      } else {
+	props = sortProps(props);
+      }
+      if (!forceSchema && isExhaustive(pat) && props.isEmpty()){
+	return new Pair((Map)new HashMap(),
+			       new MZ.Expr.Universal().set(locator));
+      } else {
+	return 
+	  new Pair(subs,
+		   new MZ.Expr.Schema(
+			 pat, usedVars.excludeAll(pat.freeVars()), 
+			 props)
+			 .set(locator)
+		  );
+      }
+    }
+  }
+
+  /** Sort properties regarding their locator position. */
+  private Seq<MZ.Property> sortProps(Seq<MZ.Property> props){
+    return ArraySeq.from(props)
+		   .sort(fun (MZ.Property p1, MZ.Property p2)->int{
+			   return p1.locator.compareTo(p2.locator);
+			 });
+  }
+  
+      
+  /** Exit a context, producing a schema for the bindings in it. */
+  private MZ.Expr exitContextWithSchema(MZ.Expr pat, Locator locator){
+    return exitContext(pat, locator, false).snd;
+  }
+
+  /** Exit a context, producing a mu-value of the bindings in it. */
+  private MZ.Expr exitContextWithMu(MZ.Expr res, Locator locator){
+    if (!isPattern(res, context.scope)){
+      MZ.Expr.Variable var = newAnonVar(locator, "%m");
+      addBound(var.name, res);
+      res = var;
+    }
+    MZ.Expr schema = exitContextWithSchema(res, locator);
+    switch (schema){
+    case Schema(Variable(Name n), Set<Name> freeVars, Seq<MZ.Property> props):
+      if (props.size() == 1 && freeVars.isEmpty()){
+	switch (props.head()){
+	case Equal(Variable(Name n1), MZ.Expr left):
+	  if (n.equals(n1))
+	    return left;
+	}
+      }
+    }
+    return new MZ.Expr.Hom(MZConstants.muHom, schema).set(locator);
+  }
+
+  /** Exit a context, producing a unit definition of it. */
+  public MZ.UnitDef exitContextWithUnit(Name unitName, Seq<Name> parents, 
+					Seq<Name> globals,
+					Locator locator){
+    // make a tuple of the global names as a pattern for schema exit
+    MZ.Expr pat = // FIXME EFFICIENCY: we can avoid this pseudo tuple
+      new MZ.Expr.Term(getTupleCons(globals.size()),
+		       globals.map(
+			 fun (Name n)->MZ.Expr {
+			   return new MZ.Expr.Variable(n);
+			 }
+		       )
+		      );
+    Pair<Map<Name,MZ.Expr>,MZ.Expr> p = exitContext(pat, locator, true);
+    // System.err.println("exit ctx unit: " + p);
+    switch (p.snd){
+    case Schema(MZ.Expr gpat, Set<Name> freeVars, Seq<MZ.Property> props):
+      // add equalities for global names which are substituted
+      Set<Name> globalSet = HashSet.from(globals);
+      p.fst.apply(
+	fun (Pair<Name,MZ.Expr> q)->void {
+	  boolean doGen = false;
+	  switch (q.snd){
+	  case Variable(Name name):
+	    doGen = !name.equals(q.fst) && globalSet.contains(q.fst);
+	    break;
+	  default:
+	    doGen = globalSet.contains(q.fst);
+	  }
+	  if (doGen){
+	    props = props.append(
+		      new MZ.Property.Equal(
+			    new MZ.Expr.Variable(q.fst).set(q.snd.locator),
+			    q.snd.substitute(p.fst)
+			  ).set(q.snd.locator)
+		    );
+	  }
+	}
+      );
+      props = sortProps(props);
+      return new MZ.UnitDef(
+		   unitName,
+		   parents,
+		   globals,
+		   ArraySeq.from(freeVars.includeAll(gpat.freeVars())
+					 .excludeAll(globalSet)),
+		   props
+		 );
+    case Empty():
+      return new MZ.UnitDef(
+		   unitName,
+		   parents,
+		   globals,
+		   new ArraySeq(),
+		   new ArraySeq(
+			 new MZ.Property.IsTrue(
+			       new MZ.Expr.Empty().set(p.snd.locator)
+			     ).set(p.snd.locator)
+		       )
+		 );
+    case Universal():
+      return new MZ.UnitDef(
+		   unitName,
+		   parents,
+		   globals,
+		   new ArraySeq(),
+		   new ArraySeq()
+		 );
+      
+    default:
+      throw FatalError.assertionFailed("result of exitContext");
+    }
+  }
+
+      
+  /** Add a bound variable to the scope. */
+  private void addBound(Name var, MZ.Expr def){
+    if (!context.scope.defines(var))
+      throw FatalError.assertionFailed("bound variable not in scope");
+    addProperty(
+      new MZ.Property.Equal(new MZ.Expr.Variable(var).set(def.locator),
+			    def
+			   ).set(def.locator)
+    );
+  }
+
+
+  /** Add a property to the current context. */
+  public void addProperty(MZ.Property prop){
+    if (prop.locator == null) throw FatalError.assertionFailed("no locator");
+    if (context.props != null){
+      // still a valid goal
+      switch (prop) {
+      case IsTrue(MZ.Expr expr):
+	if (tryUnify(prop.locator, expr, truthSet)) return;
+	break;
+      case Equal(MZ.Expr left, MZ.Expr right):
+	if (tryUnify(prop.locator, left, right)) return;
+	switch (reduce(left)){
+	case Variable(Name name):
+	  if (name.equals(MZConstants.boolTruth)){
+	    // true = right 
+	    addProperty(new MZ.Property.IsTrue(right).set(prop.locator));
+	    return;
+	  }
+	  break;
+	case Singleton(Term(Name cons, _)):
+	  if (cons.equals(MZConstants.unitCons)){
+	    // true = right 
+	    addProperty(new MZ.Property.IsTrue(right).set(prop.locator));
+	    return;
+	  }
+	}
+	switch (reduce(right)){
+	case Variable(Name name):
+	  if (name.equals(MZConstants.boolTruth)){
+	    // left = true 
+	    addProperty(new MZ.Property.IsTrue(left).set(prop.locator));
+	    return;
+	  }
+	  break;
+	case Singleton(Term(Name cons, _)):
+	  if (cons.equals(MZConstants.unitCons)){
+	    // left = true 
+	    addProperty(new MZ.Property.IsTrue(left).set(prop.locator));
+	    return;
+	  }
+	}
+	break;
+      case Member(MZ.Expr left, MZ.Expr right):
+	left = reduce(left);
+	right = reduce(right);
+	switch (right) {
+	case Universal():
+	  return;
+	case Empty():
+	  addFailure();
+	  return;
+	case Schema(MZ.Expr pat, Set<Name> fvars, Seq<MZ.Property> props):
+	  Map<Name,MZ.Expr> savedScope = context.scope;
+	  Set<Name> svars = fvars.includeAll(pat.freeVars());
+	  Map<Name,MZ.Expr> ren = rename(svars, right.locator);
+	  // System.err.println("ren: " + ren);
+	  if (!ren.isEmpty()){
+	    pat = pat.substitute(ren);
+	    // System.err.println("ren pat: " + pat);
+	  } 
+	  try {
+	    context.scope = unify(context.scope, left, pat);
+	    // System.err.println("uni scope: " + context.scope);
+	    if (!ren.isEmpty()){
+	      props = props.map(fun (MZ.Property p)->MZ.Property {
+				  return p.substitute(ren);
+				});
+	    }
+	    props.apply(
+	      fun (MZ.Property p)->void {
+		addProperty(p);
+		// addProperty(p.set(prop.locator));
+	      }
+	    );
+	    return;
+	  }
+	  catch (UnifyFailureException e){
+	    context.scope = savedScope;
+	    addFailure();
+	    return;
+	  }
+	  catch (UnifyUnknownException e){
+	    context.scope = savedScope;
+	  }
+	}
+	break;
+      case Subset(MZ.Expr left, MZ.Expr right):
+	switch(reduce(left)){
+	case Empty():
+	  return;
+	case Singleton(MZ.Expr x):
+	  switch (reduce(right)){
+	  case Singleton(MZ.Expr y):
+	    addProperty(new MZ.Property.Equal(x, y).setFrom(prop));
+	    return;
+	  default:
+	    addProperty(new MZ.Property.Member(x, right).setFrom(prop));
+	    return;
+	  }
+	}
+	switch(reduce(right)){
+	case Universal():
+	  return;
+	}
+	break;
+      }
+      context.props = context.props.append(prop);
+    }
+  }
+
+  /** Make a renaming substitution for the given names away of the
+      context names. */
+  private Map<Name,MZ.Expr> rename(Set<Name> names, Locator loc){
+    Map<Name,MZ.Expr> ren = new HashMap();
+    names.apply(
+      fun (Name name)->void {
+	Name vari = awayof(name, names);
+	MZ.Expr ve = new MZ.Expr.Variable(vari).set(loc);
+	context.scope = context.scope.define(vari, ve);
+	if (!vari.equals(name)){
+	  ren = ren.define(name, ve);
+	}
+      }
+    );
+    return ren;
+  }
+
+  private Name awayof(Name name){
+    return awayof(name, new HashSet());
+  }
+
+  private Name awayof(Name name, Set<Name> dontUse){
+    if (context.isBound(name) || dontUse.contains(name)){
+      Pair<String,int> p = splitName(name);
+      return awayof(new Name(p.fst + "~" + (p.snd+1)), dontUse);
+    } else 
+      return name;
+  }
+
+  private Pair<String,int> splitName(Name n){
+    String s = n.getRepr();
+    int l = s.length()-1;
+    while (l >= 0 && Character.isDigit(s.charAt(l))) l--;
+    if (l >= 0 && s.charAt(l) == '~'){
+      // has a qualification
+      return new Pair(s.substring(0,l),
+		      Integer.valueOf(s.substring(l+1)).intValue());
+    } else 
+      return new Pair(s, 0);
+  }
+      
+    
+
+
+  /** Try to convert an equality to an assignment. */
+  private boolean tryUnify(Locator locator, MZ.Expr left, MZ.Expr right){
+    // try to express by unification
+    try {
+      context.scope = unify(context.scope, left, right);
+      return true;
+    }
+    catch (UnifyFailureException e){
+      addFailure();
+      return true;
+    }
+    catch (UnifyUnknownException e){
+      return false;
+    }
+  }
+
+  /** Calculate the strictly used variables of an expression. */
+  /*
+  private Set<Name> strictVars(MZ.Expr expr){
+    switch (expr) {
+    case Call(_, Seq<MZ.Expr> args):
+      return expr.freeVars(); // !! strictVarsSeq(args);
+    case Variable(Name name):
+      return new HashSet(name);
+    case Term(_, Seq<MZ.Expr> args):
+      return strictVarsSeq(args);
+    case Singleton(MZ.Expr arg):
+      return strictVars(arg);
+    case Hom(_, MZ.Expr arg):
+      return arg.freeVars(); // !! strictVars(arg);
+    case Intersection(MZ.Expr left, MZ.Expr right):
+      return strictVars(left).includeAll(strictVars(right));
+    case Union(MZ.Expr left, MZ.Expr right):
+      return strictVars(left).includeAll(strictVars(right));
+    case Apply(MZ.Expr left, MZ.Expr right):
+      return strictVars(left).includeAll(strictVars(right));
+    case Complement(MZ.Expr arg):
+      return strictVars(arg);
+    case Conditional(MZ.Expr cond, MZ.Expr left, MZ.Expr right):
+      return cond.freeVars()
+		 .includeAll(strictVars(left))
+		 .includeAll(strictVars(right));
+    case Translate(MZ.Expr arg, _, _):
+      return strictVars(arg);
+    default:
+      return new HashSet();
+    }
+  }
+
+  private Set<Name> strictVarsSeq(Seq<MZ.Expr> exprs){
+    Set<Name> names = new HashSet();
+    exprs.apply(
+      fun (MZ.Expr expr)->void {
+	names = names.includeAll(strictVars(expr));
+      }
+    );
+    return names;
+  }
+  */
+
+
+  /** Check whether the given expression is a pattern
+   * over the given variables. */
+  private boolean isPattern(MZ.Expr cand, Map<Name,MZ.Expr> subs){
+    switch (cand){
+    case Variable(Name name):
+      return subs.defines(name); 
+    case Term(_, Seq<MZ.Expr> args):
+      return args.forall(
+	       fun (MZ.Expr e)->boolean{
+		 return isPattern(e, subs);
+	       }
+	     );
+    default:
+      return false;
+    }
+  }
+
+  /** Indicate that the current context fails. */
+  private void addFailure(){
+    context.props = null;
+  }
+
+
+  /** Resolve a name expression. */
+  private MZ.Expr resolve(Locator locator, Name name, 
+			  Seq<MZ.Expr> actuals){
+    MZ.Expr res = context.lookup(name, true);
+    if (res == null)
+      throw FatalError.assertionFailed("unbound name: " + name);
+
+    switch (res){
+    case Variable(_): case Empty(): case Universal(): 
+      break;
+    default:
+      // on resolve, actuallly yield the variable instead of its substitution
+      // if this is not a pattern
+      if (!isPattern(res,context.scope))
+	res = new MZ.Expr.Variable(name).set(locator);
+    }
+    if (actuals.size() == 0)
+      return res;
+    else {
+      // check if we can use the universal instance
+      if (actuals.forall(fun (MZ.Expr e)->boolean {
+			   return e instanceof MZ.Expr.Universal;
+			 }
+			)){
+	return makeUnivInst(locator, name);
+      } else {
+	return makeApply(locator,
+			 res, makeTuple(actuals).set(locator)).set(locator);
+      }
+    }
+  }
+
+  /** Create the "universal instance" name expression of a generic. */
+  private MZ.Expr makeUnivInst(Locator locator, Name name){
+    Name uiname = new Name(name.getRepr() + "[]");
+    MZ.Expr res = context.lookup(uiname, true);
+    if (res == null){
+      Context globals = context;
+      while (globals.parent != null) globals = globals.parent;
+      res = new MZ.Expr.Variable(uiname).set(locator);
+      globals.scope = globals.scope.define(uiname, res);
+    } else {
+      res = new MZ.Expr.Variable(uiname).set(locator);
+    }
+    return res;
+  }
+      
+    
+
+  /** Get full evaluation information of expression. */
+  private MZ.Expr reduce(MZ.Expr e){
+    switch (e){
+    case Variable(Name name):
+      try {
+	MZ.Expr e1 = context.lookup(name);
+	switch (e1){
+	case Variable(Name name1):
+	  if (name.equals(name1))
+	    return e;
+	  else
+	    return reduce(e1);
+	case Empty():
+	case Universal():
+	  return e1;
+	case Schema(MZ.Expr pat, Set<Name> fvars, Seq<MZ.Property> props):
+	  if (props.isEmpty()){
+	    return e1;
+	  } else
+	    return e;
+	default:
+	  return e;
+	}
+      }
+      catch (NoSuchElementException ex){
+	return e;
+      }
+    }
+    return e;
+  }
+
+
+  
+
+  // ========================================================================
+  // Lifting expressions
+
+
+  /** Lift the given expressions to strict equations. */
+  private MZ.Expr strictify(Seq<MZ.Expr> exprs, (Seq<MZ.Expr>)->MZ.Expr gen){
+    Seq<MZ.Expr> lifted = new BufferSeq();
+    exprs.apply(
+      fun (MZ.Expr expr)->void {
+	if (isTrivial(expr))
+	  lifted = lifted.append(expr);
+	else {
+	  MZ.Expr.Variable var = newAnonVar(expr.locator, "%l");
+	  addBound(var.name, expr);
+	  lifted = lifted.append(var);
+	}
+      }
+    );
+    return gen(lifted);
+  }
+
+  /** Lift the given single expression to a strict equation. */
+  private MZ.Expr strictifyOne(MZ.Expr expr, (MZ.Expr)->MZ.Expr gen){
+    return strictify(new ArraySeq(expr),
+		     fun (Seq<MZ.Expr> lifted)->MZ.Expr {
+		       return gen(lifted.head());
+		     }
+		    );
+  }
+
+  /** Check whether the given expression is trivial and shall not be
+      lifted. */
+  private boolean isTrivial(MZ.Expr expr){
+    switch (expr){
+    case Denotation(_):
+    case Variable(_):
+    case Empty():
+    case Universal():
+    case Schema(_,_,_):
+      return true;
+    default:
+      return false;
+    }
+  }
+      
+
+  // ========================================================================
+  // Unification
+  
+  private class UnifyFailureException extends Exception {}
+  private class UnifyUnknownException extends Exception {}
+
+  private Map<Name,MZ.Expr> unify(Map<Name,MZ.Expr> subs,
+				  MZ.Expr e1, MZ.Expr e2) 
+  throws UnifyFailureException, UnifyUnknownException {
+    if (e1 == e2) return subs;
+    Name f1 = null;
+    Name f2 = null;
+    MZ.Expr s1 = null;
+    MZ.Expr s2 = null;
+    switch (e1) {
+    case MZ.Expr.Variable(Name n1):
+      switch (e2) {
+      case MZ.Expr.Variable(Name n2):
+	if (n1.equals(n2)) return subs;
+      }
+      try {
+	s1 = subs.get(n1);
+	switch (s1){
+	case Variable(Name m):
+	  if (n1.equals(m)) {
+	    // a free variable
+	    f1 = n1;
+	  }
+	}
+      }
+      catch (NoSuchElementException e){
+	// throw new UnifyUnknownException();
+      }
+    }
+    switch (e2) {
+    case MZ.Expr.Variable(Name n2):
+      try {
+	s2 = subs.get(n2);
+	switch (s2){
+	case Variable(Name m):
+	  if (n2.equals(m)) {
+	    f2 = n2;
+	  }
+	}
+      }
+      catch (NoSuchElementException e){
+	// throw new UnifyUnknownException();
+      }
+    }
+    if (f1 != null && f2 != null){
+      // two different free variables
+      if (moreRecent(f2,f1))
+	return assignVar(subs, f2, e1);
+      else
+	return assignVar(subs, f1, e2);
+    } else if (f1 != null) {
+      return assignVar(subs, f1, e2);
+    } else if (f2 != null){
+      return assignVar(subs, f2, e1);
+    } else if (s1 != null){
+      return unify(subs, s1, e2);
+    } else if (s2 != null){
+      return unify(subs, e1, s2);
+    }
+
+    switch (e1){
+    case MZ.Expr.Term(Name cons1, Seq<MZ.Expr> args1):
+      switch (e2){
+      case MZ.Expr.Term(Name cons2, Seq<MZ.Expr> args2):
+	if (cons1.equals(cons2)){
+	  int s = args1.size();
+	  for (int i = 0; i < s; i++){
+	    subs = unify(subs, args1.at(i), args2.at(i));
+	  }
+	  return subs;
+	} else
+	  throw new UnifyFailureException();
+      }
+    }
+    throw new UnifyUnknownException();
+  }
+
+  private Map<Name,MZ.Expr> assignVar(Map<Name,MZ.Expr> subs,
+				      Name n, MZ.Expr e) 
+    throws UnifyUnknownException {
+    if (!isAdmissable(n, e)){
+      throw new UnifyUnknownException();
+    }
+    return subs.define(n, e);
+  }
+
+  private boolean isAdmissable(Name n, MZ.Expr e){
+    return !e.freeVars().contains(n);
+    /*
+    switch (e){
+    case MZ.Expr.Variable(Name n1):
+      return !n.equals(n1);
+    case MZ.Expr.Term(_, Seq<MZ.Expr> args):
+      return args.forall(
+	       fun (MZ.Expr arg)->boolean {
+		 return isAdmissable(n, arg);
+	       }
+	     );
+    default:
+      return false;
+    }
+    */
+  }
+
+  private boolean moreRecent(Name n1, Name n2){
+    String r1 = n1.getRepr();
+    String r2 = n2.getRepr();
+    if (r1.startsWith("%") && !r2.startsWith("%"))
+      return true;
+    Pair<String,int> p1 = splitName(n1);
+    Pair<String,int> p2 = splitName(n2);
+    return p1.snd > p2.snd;
+  }
+
+
+
+  // ========================================================================
+  // Miscellaneous
+
+  /** Calculate the names of a binding type. */
+  private static Seq<Name> getBindingSign(Expr schema){
+    Expr type = ReducerUtil.getTypeAn(schema);
+    switch (type){
+    case Expr.Signature(Name[] names, _):
+      return new ArraySeq(names);
+    default:
+      throw FatalError.assertionFailed(
+	      "expected a binding type; found: " + type + 
+	      "; at: " + ReducerUtil.getLocatorAn(schema)
+	    );
+    }
+  }
+
+  /** Calculate the arity of a tuple. */
+  private static int getTupleArity(Expr tuple){
+    Expr type = ReducerUtil.getTypeAn(tuple);
+    switch (type){
+    case Expr.Product(Expr[] comps):
+      return comps.length;
+    default:
+      throw FatalError.assertionFailed(
+	      "expected a product type; found: " + type + 
+	      "; at: " + ReducerUtil.getLocatorAn(tuple)
+	    );
+    }
+  }
+
+  /** Calculate the names of a schema type. */
+  private static Seq<Name> getSchemaSign(Expr schema){
+    Expr type = ReducerUtil.getTypeAn(schema);
+    switch (type){
+    case Expr.Unary(Expr.UnaryKind.Power,
+		    Expr.Signature(Name[] names, _)):
+      return new ArraySeq(names);
+    default:
+      throw FatalError.assertionFailed(
+	      "expected a schema type; found: " + type + 
+	      "; at: " + ReducerUtil.getLocatorAn(schema)
+	    );
+    }
+  }
+
+  /** Test whether schemas have the same signature. */
+  private static boolean sameSchemaSign(Expr s1, Expr s2){
+    // FIXME: efficiency
+    Seq<Name> n1 = getSchemaSign(s2).sort(Name.lexCompare);
+    Seq<Name> n2 = getSchemaSign(s1).sort(Name.lexCompare);
+    return s1.equals(s2);
+  }
+
+
+  /** Add decore to a name */
+  private static (Name)->Name addStroke(char stroke){
+    return fun (Name n)->Name {
+      return n.decorate(new String(new char[]{stroke}));
+    };
+  }
+
+  /** Add decore to a name */
+  private static (Name)->Name addStroke(String stroke){
+    return fun (Name n)->Name {
+      return n.decorate(stroke);
+    };
+  }
+
+  /** Deconstruct a ZIRP pair. */
+  private static Expr[] unpair(Expr expr){
+    switch (expr){
+    case Tuple(Expr[] elements):
+      if (elements.length == 2)
+	return elements;
+    }
+    return null;
+  }
+
+  /** Deconstruct a ZIRP tuple (arity >= 1). */
+  private static Expr[] untuple(Expr expr){
+    switch (expr){
+    case Tuple(Expr[] elements):
+      return elements;
+    default:
+      return new Expr[]{expr};
+    }
+  }
+    
+  
+  /** A constant representing the boolean unit constructor term. */
+  private static final MZ.Expr unitTerm =
+    new MZ.Expr.Term(MZConstants.unitCons, new ArraySeq());
+
+  /** A constant representing the boolean truth set. */
+  private static final MZ.Expr truthSet =
+    new MZ.Expr.Singleton(unitTerm);
+
+
+  /** Make a tuple expression. */
+  private MZ.Expr makeTuple(Seq<MZ.Expr> args){
+    if (args.size() == 1)
+      return args.head();
+    else {
+      Name cons = getTupleCons(args.size());
+      return new MZ.Expr.Term(cons, args);
+    }
+  }
+
+  /** Make a pair expression. */
+  private MZ.Expr makePair(MZ.Expr e1, MZ.Expr e2){
+    return makeTuple(new ArraySeq(e1, e2));
+  }
+
+  /** Make an apply expression. */
+  private MZ.Expr makeApply(Locator loc, MZ.Expr e1, MZ.Expr e2){
+    return new MZ.Expr.Apply(e1, e2).set(loc);
+    /*
+    enterContext();
+    MZ.Expr y = newVar(loc);
+    addProperty(
+      new MZ.Property.Member(
+	    makePair(e2, y)
+		    .set(loc),
+	    e1
+	  ).set(loc)
+    );
+    MZ.Expr schema =
+      exitContextWithSchema(y, loc);
+    return new MZ.Expr.Mu(schema).set(loc);
+    */
+  }
+
+  /** Check whether the given pattern is exhaustive. This is
+   * the case if its constructors are all bindings and tuples
+   * of local variables. */
+  private boolean isExhaustive(MZ.Expr pat){
+    return isexh(new HashSet(), pat) != null;
+  }
+
+  private Set<Name> isexh(Set<Name> used, MZ.Expr pat){
+    switch (pat){
+    case MZ.Expr.Variable(Name name):
+      if (true || context.scope.defines(name)){
+	if (!used.contains(name)){
+	  return used.include(name);
+	} else 
+	  // the pattern is not exhaustive since it is not linear
+	  return null;
+      } else {
+	return null;
+      }
+    case MZ.Expr.Term(Name cons, Seq<MZ.Expr> args):
+      String repr = cons.getRepr();
+      if ((repr.startsWith("(") || repr.startsWith("<")) &&
+	  args.forall(
+	    fun (MZ.Expr spat)->boolean {
+	      used = isexh(used, spat);
+	      return used != null;
+	    }
+	  )
+	 ){
+	return used;
+      }
+      else
+	return null;
+    default:
+      return null;
+    }
+  }
+  
+  /** Make an undefined expression. */
+  private MZ.Expr makeUndef(Locator loc){
+    return new MZ.Expr.Hom(MZConstants.muHom,
+			   new MZ.Expr.Empty().set(loc)).set(loc);
+  }
+
+  /** Check whether the given expressions represents a total
+      function. We are only able to identify constructor functions
+      (where the definition of is known) to be total*/
+  private boolean checkTotal(MZ.Expr expr){
+    switch (reduce(expr)){
+    case Schema(MZ.Expr pat, Set<Name> fvars, Seq<MZ.Property> props):
+      return props.isEmpty();
+    default:
+      return false;
+    }
+  }
+
+
+
+  // ========================================================================
+  // Generating patterns
+
+  /** Get pattern for schema. 
+   * In <code>p = schemaPattern(schema)</code>, p is the
+   * pattern for the schema, with new variables added to the context. */
+  private MZ.Expr schemaPattern(Expr schema){
+    Seq<Name> names = getSchemaSign(schema).sort(Name.lexCompare);
+    Seq<MZ.Expr> p = newVars(ReducerUtil.getLocatorAn(schema), names);
+    return new MZ.Expr.Term(getBindingCons(names), p);
+  }
+
+  /** Get patterns to relate schema with characteristic tuple.
+   * In <code>(p,p') = ctuplePatterns(schema)</code>, p is the
+   * pattern for the schema and p' for the tuple. */
+  private 
+    Pair<MZ.Expr,MZ.Expr> ctuplePatterns(Expr schema){
+    MZ.Expr spat = schemaPattern(schema);
+    Seq<MZ.Expr> comps = new BufferSeq();
+    switch (schema) {
+    case Text(Expr.Decl[] decls, _):
+      for (int i = 0; i < decls.length; i++){
+	switch (decls[i]) {
+	case Direct(NameDecl[] names, _):
+	  for (int j = 0; j < names.length; j++){
+	    MZ.Expr var = Map.tryGet(context.scope, names[j].name);
+	    comps = comps.append(var);
+	  }
+	  break;
+	case Eqn(NameDecl name, Expr def):
+	  comps = comps.append(Map.tryGet(context.scope, name.name));
+	  break;
+	case Inclusion(Expr ischema):
+	  Seq<Name> names = getSchemaSign(ischema).sort(Name.lexCompare);
+	  comps = comps.append(
+		    new MZ.Expr.Term(
+			  getBindingCons(names),
+			  makeArgs(names, ReducerUtil.getLocatorAn(decls[i]))
+			)
+		  );
+	  break;
+	}
+      }
+      break;
+    default:
+      Seq<Name> names = getSchemaSign(schema).sort(Name.lexCompare);
+      comps = comps.append(
+		new MZ.Expr.Term(
+		      getBindingCons(names),
+		      makeArgs(names, ReducerUtil.getLocatorAn(schema))
+		    )
+	      );
+    }
+    return new Pair(spat,
+		    comps.size() == 1 ? comps.head() :
+		    new MZ.Expr.Term(
+			  getTupleCons(comps.size()),
+			  comps
+			)
+		   );
+  }
+
+  /** Get patterns for joined schemas. 
+   * In <code>(p,p1,p2) = joinedPatterns(res,schema1,schema2)</code>, p is the
+   * pattern for the joined schema, p1 for schema1, and p2 for schema2. 
+   * The function returns null if no joining is necessary, since the
+   * schemas have the same type. */
+  private 
+    Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> 
+    joinedPatterns(Expr res, Expr schema1, Expr schema2, boolean force){
+    Seq<Name> names1 = getSchemaSign(schema1).sort(Name.lexCompare);
+    Seq<Name> names2 = getSchemaSign(schema2).sort(Name.lexCompare);
+    Seq<Name> resNames = getSchemaSign(res).sort(Name.lexCompare);
+    if (!force && names1.equals(names2) && names1.equals(resNames))
+      return null;
+    else {
+      Seq<Name> allNames = ArraySeq.from(
+			     HashSet.from(resNames)
+				    .includeAll(names1)
+				    .includeAll(names2)
+			   ).sort(Name.lexCompare);
+      Locator loc = ReducerUtil.getLocatorAn(res);
+      Seq<MZ.Expr> p = newVars(loc, allNames);
+      return
+	new Pair(
+	      (MZ.Expr)new MZ.Expr.Term(
+		    getBindingCons(resNames),
+		    makeArgs(resNames, loc)
+		   ),
+	      new Pair(
+		    (MZ.Expr)new MZ.Expr.Term(
+			  getBindingCons(names1),
+			  makeArgs(names1, loc)
+			),
+		    (MZ.Expr)new MZ.Expr.Term(
+			  getBindingCons(names2),
+			  makeArgs(names2, loc)
+			)
+		  )
+	    );
+    }
+  }
+
+
+  /** Get patterns for composed schemas. */
+  private 
+    Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> 
+    composedPatterns(Expr res, Expr schema1, Expr schema2,
+		     (Name)->Name matcher){
+    Locator loc1 = ReducerUtil.getLocatorAn(schema1);
+    Locator loc2 = ReducerUtil.getLocatorAn(schema2);
+    Locator loc3 = ReducerUtil.getLocatorAn(res);
+    Seq<Name> names1 = getSchemaSign(schema1).sort(Name.lexCompare);
+    Seq<Name> names2 = getSchemaSign(schema2).sort(Name.lexCompare);
+    Seq<Name> names3 = getSchemaSign(res).sort(Name.lexCompare);
+    Map<Name,MZ.Expr> id1 = new HashMap();
+    Map<Name,MZ.Expr> id2 = new HashMap();
+    Set<Name> set1 = HashSet.from(names1);
+    int i = 0;
+    names2.apply(
+      fun (Name n)->void {
+	Name n1 = matcher(n);
+	if (n1 != null && set1.contains(n1)){
+	  MZ.Expr var = newAnonVar(loc3, "%j" + (++i));
+	  id1 = id1.define(n1,var);
+	  id2 = id2.define(n,var);
+	}
+      }
+    );
+    Map<Name,MZ.Expr> idr = new HashMap();
+    Seq<MZ.Expr> args1 =
+      names1.map(fun (Name n)->MZ.Expr {
+		   if (id1.defines(n))
+		     return id1.get(n);
+		   else if (idr.defines(n)){
+		     return idr.get(n);
+		   } else {
+		     MZ.Expr var = newAnonVar(loc1, n.getRepr());
+		     idr = idr.define(n,var);
+		     return var;
+		   }
+		 });
+    Seq<MZ.Expr> args2 =
+      names2.map(fun (Name n)->MZ.Expr {
+		   if (id2.defines(n))
+		     return id2.get(n);
+		   else if (idr.defines(n)){
+		     return idr.get(n);
+		   } else {
+		     MZ.Expr var = newAnonVar(loc1, n.getRepr());
+		     idr = idr.define(n,var);
+		     return var;
+		   }
+		 });
+    Seq<MZ.Expr> args3 =
+      names3.map(fun (Name n)->MZ.Expr {
+		   if (idr.defines(n)){
+		     return idr.get(n);
+		   } else {
+		     MZ.Expr var = newAnonVar(loc1, n.getRepr());
+		     idr = idr.define(n,var);
+		     return var;
+		   }
+		 });
+    return
+      new Pair(
+	    (MZ.Expr)new MZ.Expr.Term(
+			   getBindingCons(names3),
+			   args3
+			 ),
+	     new Pair(
+		   (MZ.Expr)new MZ.Expr.Term(
+				  getBindingCons(names1),
+				  args1
+				),
+		    (MZ.Expr)new MZ.Expr.Term(
+				   getBindingCons(names2),
+				   args2
+				 )
+		 )
+	  );
+  }
+
+
+
+  /** Get patterns for projections. 
+   * In <code>(p,x) = projectionPatterns(oper,name)</code>, p is the
+   * pattern to extract component name by variable x. */
+  private Pair<MZ.Expr,MZ.Expr.Variable> 
+  projectionPatterns(Expr oper, Name name){
+    if (name.getRepr().startsWith("#")){
+      // tuple selection
+      int pos = Integer.parseInt(name.getRepr().substring(1))-1;
+      int arity = getTupleArity(oper);
+      Seq<MZ.Expr> vars = new BufferSeq();
+      MZ.Expr.Variable var = null;
+      Locator loc = ReducerUtil.getLocatorAn(oper);
+      for (int i = 0; i < arity; i++){
+	MZ.Expr.Variable v = newVar(loc, "#" + i);
+	if (i == pos) var = v;
+	vars = vars.append(v);
+      }
+      return 
+	new Pair(
+	      (MZ.Expr)new MZ.Expr.Term(getTupleCons(arity), vars),
+	       var
+	    );
+    } else {
+      Seq<Name> names = getBindingSign(oper).sort(Name.lexCompare);
+      Seq<MZ.Expr> vars = newVars(ReducerUtil.getLocatorAn(oper), names);
+      return
+	new Pair(
+	      (MZ.Expr)new MZ.Expr.Term(getBindingCons(names), vars),
+	       (MZ.Expr.Variable)vars.at(names.indexOf(name))
+	    );
+    }
+  }
+
+  /** Get patterns for DELTA. 
+   * In <code>(p,p1,p2) = deltaPatterns(oper)</code>, p is the
+   * pattern containing the primed and unprimed components, and
+   * p1 and p2 are patterns for oper. */
+  private Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>>
+    deltaPatterns(Expr res, Expr oper){
+    Seq<Name> allNames = getSchemaSign(res).sort(Name.lexCompare);
+    Seq<Name> baseNames = getSchemaSign(oper).sort(Name.lexCompare);
+    Seq<Name> primeNames = baseNames.map(addStroke(Name.prime))
+				    .sort(Name.lexCompare);
+    Locator loc = ReducerUtil.getLocatorAn(oper);
+    Seq<MZ.Expr> p = newVars(loc, allNames);
+    return 
+      new Pair((MZ.Expr)new MZ.Expr.Term(
+			      getBindingCons(allNames),
+			      makeArgs(allNames, loc)
+			    ),
+	       new Pair(
+		     (MZ.Expr)new MZ.Expr.Term(
+				    getBindingCons(baseNames),
+				    makeArgs(baseNames, loc)
+				  ),
+		     (MZ.Expr)new MZ.Expr.Term(
+				    getBindingCons(baseNames),
+				    makeArgs(primeNames, loc)
+				  )
+		   )
+       );
+  }
+
+  /** Get patterns for decoration. 
+   * In <code>(p',p) = decoratedPatterns(oper, decore)</code>, p' is the
+   * decorated version of p. */
+  private Pair<MZ.Expr,MZ.Expr>
+    decoratedPatterns(Expr oper, String decore){
+    Seq<Name> names = getSchemaSign(oper).sort(Name.lexCompare);
+    Seq<Name> primeNames = names.map(addStroke(decore))
+				.sort(Name.lexCompare);
+    Locator loc = ReducerUtil.getLocatorAn(oper);
+    Seq<MZ.Expr> p = newVars(loc, primeNames);
+    return 
+      new Pair(
+	    (MZ.Expr)new MZ.Expr.Term(
+			   getBindingCons(primeNames),
+			   p
+			 ),
+	     (MZ.Expr)new MZ.Expr.Term(
+			    getBindingCons(names),
+			    p // assumes lexical ordering!
+			  )
+	  );
+  }
+
+  /** Get patterns for hiding. 
+   * In <code>(p',p) = hidePatterns(oper,pred)</code>, p' is the
+   * pattern with names hidden according to pred. */
+  private Pair<MZ.Expr,MZ.Expr>
+    hidePatterns(Expr oper, (Name)->boolean hide){
+    Seq<Name> names = getSchemaSign(oper).sort(Name.lexCompare);
+    Seq<Name> hnames = names.filter(
+			 fun (Name n)->boolean {
+			   return !hide(n);
+			 }
+		       );
+    Locator loc = ReducerUtil.getLocatorAn(oper);
+    Seq<MZ.Expr> p = newVars(loc,names);
+    return 
+      new Pair(
+	     (MZ.Expr)new MZ.Expr.Term(
+			    getBindingCons(hnames),
+			    makeArgs(hnames, loc)
+			  ),
+	    (MZ.Expr)new MZ.Expr.Term(
+			   getBindingCons(names),
+			   p
+			 )
+	  );
+  }
+
+
+  
+  // ========================================================================
+  // Reducing expressions
+
+
+  /** Reduce an expression. */
+  public MZ.Expr ereduce(Expr expr){
+    
+    MZ.Expr newExpr;
+    Locator exprLocator = ReducerUtil.getLocatorAn(expr);
+
+    switch (expr){
+
+    case Number(String value):
+      newExpr = new MZ.Expr.Call(MZConstants.makeNumberPrim,
+				 new ArraySeq(
+				       new MZ.Expr.Denotation(value)
+					     .set(exprLocator))
+				);
+      break;
+
+    case Denotation(String value):
+      newExpr = new MZ.Expr.Denotation(value);
+      break;
+
+    case Variable(NameAppl appl):
+      // check if the name is builtin
+      if (appl.name.equals(ZNames.typeinfo)){
+	Expr type = getElemType(ReducerUtil.getTypeAn(appl.actuals[0]));
+	newExpr = new MZ.Expr.Term(
+			ZNames.TypeInfo,
+			new ArraySeq(makeTypeInfoDeno(exprLocator, type))
+		      );
+      } else if (appl.name.equals(ZNames.giventypeinfo)){
+	Expr type = getElemType(ReducerUtil.getTypeAn(appl.actuals[0]));
+	switch (type){
+	case Variable(NameAppl app):
+	  newExpr = 
+	    new MZ.Expr.Call(
+		  MZConstants.givenTypeInfoFunc,
+		  new ArraySeq(
+			new MZ.Expr.Variable(
+			      MZConstants.makeGivenTypeInfoName(app.name)
+			    ).set(exprLocator),
+			makeTypeInfoDeno(exprLocator,
+					 type)
+		      )
+		);
+	  break;
+	default:
+	  diag = diag.add(exprLocator,
+			  Diag.Category.Error,
+			  "'giventypeinfo' only applicable for given types");
+	  newExpr = new MZ.Expr.Empty();
+	}
+      } else if (false && appl.name.equals(ZNames.typegen)){
+	Expr type = getElemType(ReducerUtil.getTypeAn(appl.actuals[0]));
+	switch (type){
+	case Variable(NameAppl app):
+	  newExpr = 
+	    new MZ.Expr.Variable(
+		  MZConstants.makeGivenTypeGenName(app.name)
+		).set(exprLocator);
+	  break;
+	default:
+	  diag = diag.add(exprLocator,
+			  Diag.Category.Error,
+			  "'typgen' only applicable for given types");
+	  newExpr = new MZ.Expr.Empty();
+	}
+      } else if (appl.name.equals(ZNames.emptyset)){
+	newExpr = new MZ.Expr.Empty();
+      } 
+      // check if the name is forced to be given
+      else if (context.isGiven(appl.name)){
+	newExpr = new MZ.Expr.Universal();
+      } else {
+	// normal procedure
+	Seq<MZ.Expr> actuals;
+	if (appl.actuals.length > 0){ 
+	  // explicite actualization
+	  actuals = new ArraySeq(appl.actuals).map(ereduce);
+	} else if (Act.isProvided(appl.an)){
+	  // actuals = new ArraySeq(Act.get(appl.an)).map(ereduce);
+	  // implicite actualization: make universal 
+	  actuals =  
+	    new ArraySeq(Act.get(appl.an).length,
+			 fun (int i)->MZ.Expr{
+			   return MZ.Expr.Universal();
+			 });
+	} else
+	  actuals = new ArraySeq();
+	newExpr = resolve(exprLocator, appl.name, actuals);
+      }
+      break;
+
+    case Tuple(Expr[] elements):
+      Name cons = getTupleCons(elements.length);
+      newExpr = new MZ.Expr.Term(cons, new ArraySeq(elements).map(ereduce));
+      break;
+
+    case Product(Expr[] elements):
+      newExpr = 
+	strictify(
+	  new ArraySeq(elements).map(ereduce),
+	  fun (Seq<MZ.Expr> els)->MZ.Expr {
+	    Seq<MZ.Expr> vars = new BufferSeq();
+	    enterContext();
+	    int i = 1;
+	    els.apply(
+	      fun (MZ.Expr ex)->void {
+		MZ.Expr var = newAnonVar(ex.locator, "%c"+(i++));
+		vars = vars.append(var);
+		addProperty(
+		  new MZ.Property.Member(var, ex).set(ex.locator)
+		);
+	      }
+	    );
+	    return exitContextWithSchema(
+		     new MZ.Expr.Term(
+			   getTupleCons(elements.length),
+			   vars
+			 ),
+		     exprLocator
+		   );
+	  }
+	);
+      break;
+			 
+    case Binding(Expr.Decl.Eqn[] bindings):
+      Seq<Expr.Decl.Eqn> sorted =
+	new ArraySeq(bindings).sort(
+	      fun (Expr.Decl.Eqn e1, Expr.Decl.Eqn e2)->int {
+		return Name.lexCompare(e1.name.name, e2.name.name);
+	      }
+	    );
+      Seq<Name> fields = new BufferSeq();
+      Seq<MZ.Expr> args = new BufferSeq();
+      sorted.apply(
+	fun (Expr.Decl.Eqn e)->void {
+	  fields = fields.append(e.name.name);
+	  args = args.append(ereduce(e.def));
+	}
+      );
+      Name cons = getBindingCons(fields);
+      newExpr = new MZ.Expr.Term(cons, ArraySeq.from(args));
+      break;
+
+    case Display(Expr[] elements):
+      if (elements.length == 0) {
+	newExpr = new MZ.Expr.Empty();
+      } else {
+	newExpr = null;
+	for (int i = 0; i < elements.length; i++){
+	  MZ.Expr ex = ereduce(elements[i]);
+	  ex = new MZ.Expr.Singleton(ex).set(ex.locator);
+	  if (newExpr == null) 
+	    newExpr = ex;
+	  else
+	    newExpr = new MZ.Expr.Union(newExpr, ex).set(exprLocator);
+	}
+      }
+      break;
+					
+    case Cond(Predicate cond, Expr thenPath, Expr elsePath):
+      MZ.Expr prop = liftProp(cond);
+      enterContext();
+      MZ.Expr e1 = exitContextWithMu(ereduce(thenPath),
+				     ReducerUtil.getLocatorAn(thenPath));
+      enterContext();
+      MZ.Expr e2 = exitContextWithMu(ereduce(elsePath),
+				     ReducerUtil.getLocatorAn(elsePath));
+      newExpr = 
+	new MZ.Expr.Conditional(prop, e1, e2);
+      break;
+
+    case Quantor(Expr.QuantorKind kind, Expr matrix, Expr range):
+      switch (kind) {
+      case Expr.QuantorKind.Lambda:
+	// [[\\ matrix @ range]] == 
+	//    LET t == [[matrix]] IN { (p,y) | p' in t; y = [E[range]] }
+	//                where (E,p',p) = ctuplePatterns(matrix)
+	// FIXME: optimizations!
+	MZ.Expr mexpr = ereduce(matrix);
+	enterContext();
+	Pair<MZ.Expr,MZ.Expr> ctup = ctuplePatterns(matrix);
+	MZ.Expr rexpr = ereduce(range);
+	newExpr =
+	  strictifyOne(
+	    mexpr,
+	    fun (MZ.Expr mvar)->MZ.Expr {
+	      MZ.Expr.Variable y = newAnonVar(rexpr.locator, "%r");
+	      addBound(y.name, rexpr);
+	      addProperty(
+		new MZ.Property.Member(ctup.fst, mvar)
+		      .set(mexpr.locator)
+	      );
+	      return 
+		exitContextWithSchema(
+		  makePair(ctup.snd, y),
+		  exprLocator
+		);
+	    }
+	  );
+	break;
+      case Expr.QuantorKind.Mu:
+      case Expr.QuantorKind.Let:
+      case Expr.QuantorKind.Set:
+	// [[MU matrix @ range]] ==
+	//   LET t == [[matrix]] IN [MU]{y\X | p in t; y = [E[range]]}
+	//      where (E,p) = binderPattern(matrix), X = vars(p)
+	// FIXME: optimizations!
+	MZ.Expr mexpr = ereduce(matrix);
+	enterContext();
+	MZ.Expr mpat = schemaPattern(matrix);
+	MZ.Expr rexpr = ereduce(range);
+	newExpr = 
+	  strictifyOne(
+	    mexpr,
+	    fun (MZ.Expr t)->MZ.Expr {
+	      MZ.Expr.Variable y = newAnonVar(rexpr.locator, "%b");
+	      addBound(y.name, rexpr);
+	      addProperty(
+		new MZ.Property.Member(mpat, t)
+		      .set(mexpr.locator)
+	      );
+	      MZ.Expr schema = exitContextWithSchema(y, rexpr.locator);
+	      switch (kind) {
+	      case Expr.QuantorKind.Set:
+		return schema;
+	      default:
+		return new MZ.Expr.Hom(MZConstants.muHom, schema)
+			     .set(rexpr.locator);
+	      }
+	    }
+	  );
+	break;
+
+      case Expr.QuantorKind.Exists:
+      case Expr.QuantorKind.Exists1:
+	// [[EX matrix @ range]] ==
+	//   LET t1 == [[matrix]] t2 == [[range]] IN {p\X|p1 in t1; p2 in t2}
+	//       where (p,p1,p2) = quantifiedPatterns(matrix, range)
+	//             X = vars(p1)
+	newExpr =
+	  strictify(
+	    new ArraySeq(ereduce(matrix), ereduce(range)),
+	    fun (Seq<MZ.Expr> es)->MZ.Expr {
+	      MZ.Expr t1 = es.at(0);
+	      MZ.Expr t2 = es.at(1);
+	      enterContext();
+	      Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> jpat = 
+		joinedPatterns(expr, matrix, range, true);
+	      addProperty(
+		new MZ.Property.Member(jpat.snd.fst, t1)
+		      .set(t1.locator)
+	      );
+	      addProperty(
+		new MZ.Property.Member(jpat.snd.snd, t2)
+		      .set(t2.locator)
+	      );
+	      MZ.Expr schema = exitContextWithSchema(jpat.fst, exprLocator);
+	      switch (kind){
+	      case Expr.QuantorKind.Exists1:
+		return new MZ.Expr.Hom(
+			     MZConstants.exists1SchemaHom,
+			     schema
+			   ).set(schema.locator);
+	      default:
+		return schema;
+	      }
+	    }
+	  );
+	break;
+      case Expr.QuantorKind.Forall:
+	// [[ALL matrix @ range]] ==
+	//   LET t1 == [[matrix]] t2 == [[range]] IN 
+	//          {p\X|p1 in t1; p2 in t2; t1 <= t2[p2->p1]}
+	//       where (p,p1,p2) = joinedPatterns(expr, matrix, range)
+	//             X = vars(p1)
+        // CHECKME, OPTIMIZE
+	newExpr =
+	  strictify(
+	    new ArraySeq(ereduce(matrix), ereduce(range)),
+	    fun (Seq<MZ.Expr> es)->MZ.Expr {
+	      MZ.Expr t1 = es.at(0);
+	      MZ.Expr t2 = es.at(1);
+	      enterContext();
+	      Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> jpat = 
+		joinedPatterns(expr, matrix, range, true);
+	      addProperty(
+		new MZ.Property.Member(jpat.snd.fst, t1)
+		      .set(t1.locator)
+	      );
+	      addProperty(
+		new MZ.Property.Member(jpat.snd.snd, t2)
+		      .set(t2.locator)
+	      );
+	      addProperty(
+		new MZ.Property.Subset(t1,
+				       new MZ.Expr.Translate(
+					     t2,
+					     jpat.snd.snd, jpat.snd.fst
+					   ).set(t2.locator)
+				      ).set(exprLocator)
+	      );
+	      return
+		exitContextWithSchema(jpat.fst, exprLocator);
+	    }
+	  );
+	break;
+
+	/*
+      default:
+	// FIXME: case Expr.QuantorKind.Exists1:
+	cantHandleError(exprLocator);
+	newExpr = makeUndef(exprLocator);
+	*/
+      }
+      break;
+
+    case Select(Expr oper, NameAppl(Name name, _)):
+      // addProperty([[p = oper]]) |- x 
+      //    where (p,x) = projectionPattern(oper, name)
+      MZ.Expr eoper = ereduce(oper);
+      // enterContext();
+      Pair<MZ.Expr,MZ.Expr.Variable> proj = projectionPatterns(oper, name);
+      addProperty(
+	new MZ.Property.Equal(proj.fst, eoper).set(eoper.locator)
+      );
+      newExpr = proj.snd; // exitContextWithMu(proj.snd, exprLocator);
+      break;
+
+
+    case Unary(Expr.UnaryKind kind, Expr oper):
+
+      switch (kind) {
+
+      case Power:
+	// [[P oper]] == LET t = [[oper]] IN {x|x <= t}
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      MZ.Expr x = newAnonVar(exprLocator, "%s");
+	      addProperty(
+		new MZ.Property.Subset(x, t).set(exprLocator)
+	      );
+	      return
+		exitContextWithSchema(x, exprLocator);
+	    }
+	  );
+	break;
+
+      case Theta:
+	// [[THETA oper']] == <n1==n1',...,nn==nn'>
+	MZ.Expr newOper = ereduce(oper);
+	Seq<Name> names = getSchemaSign(oper);
+	String decore;
+	switch (oper){
+	case Unary(Expr.UnaryKind.Decorate(String d), _):
+	  decore = d;
+	  break;
+	default:
+	  decore = "";
+	}
+	Map<Name,MZ.Expr> args = new HashMap();
+	names.apply(
+	  fun (Name n)->void {
+	    String repr = n.getRepr();
+	    if (repr.endsWith(decore)){
+	      repr = repr.substring(0, repr.length()-decore.length());
+	    } else {
+	      throw FatalError.assertionFailed(
+		      "expected a name decorated with `" + 
+		      decore + "'; found: " + repr + " at " +
+		      exprLocator
+		    );
+	    }
+	    args = args.define(new Name(repr), 
+			       resolve(exprLocator, n, new ArraySeq()));
+	  }
+	);
+	Seq<Name> rnames = 
+	  ArraySeq.from(args.domain()).sort(Name.lexCompare);
+	newExpr = new MZ.Expr.Term(getBindingCons(rnames), 
+				   rnames.map(
+				     fun (Name n)->MZ.Expr {
+				       return args.get(n);
+				     }
+				   )
+				  );
+	break;
+
+      case Not:
+	newExpr = new MZ.Expr.Complement(ereduce(oper));
+	break;
+
+      case Delta:
+	// [[DELTA oper]] == LET t = [[oper]] IN {p|p1 in t;p2 in t}
+	//      where (p,p1,p2) = deltaPatterns(expr, oper)
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> delta = 
+		deltaPatterns(expr, oper);
+	      addProperty(
+		new MZ.Property.Member(delta.snd.fst,t)
+		      .set(exprLocator)
+	      );
+	      addProperty(
+		new MZ.Property.Member(delta.snd.snd,t)
+		      .set(exprLocator)
+	      );
+	      return exitContextWithSchema(delta.fst, exprLocator);
+	    }
+	  );
+	break;
+
+      case Decorate(String decore):
+	// [[oper ']] == LET t = [[oper]] IN {p|p1 in t}
+	//      where (p,p1) = decoratedPatterns(oper, decore)
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Pair<MZ.Expr,MZ.Expr> dpat = decoratedPatterns(oper, decore);
+	      addProperty(
+		new MZ.Property.Member(dpat.snd, t).set(exprLocator)
+	      );
+	      return exitContextWithSchema(dpat.fst, exprLocator);
+	    }
+	  );
+	break;
+
+      case Xi:
+	// [[XI oper]] == LET t = [[oper]] 
+	//                IN {p|x1=x1';...;xn=xn';p1 in t;p2 in t}
+	//      where (p,p1,p2) = deltaPatterns(oper)
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> delta = 
+		deltaPatterns(expr, oper);
+	      Seq<MZ.Expr> args1 = ((MZ.Expr.Term)delta.snd.fst).args;
+	      Seq<MZ.Expr> args2 = ((MZ.Expr.Term)delta.snd.snd).args;
+	      for (int i = 0; i < args1.size() && i < args2.size(); i++){
+		addProperty(
+		  new MZ.Property.Equal(args1.at(i), args2.at(i))
+			.set(exprLocator)
+		);
+	      }
+	      addProperty(
+		new MZ.Property.Member(delta.snd.fst,t).set(exprLocator)
+	      );
+	      addProperty(
+		new MZ.Property.Member(delta.snd.snd,t)
+		      .set(exprLocator)
+	      );
+	      return exitContextWithSchema(delta.fst, exprLocator);
+	    }
+	  );
+	break;
+
+      case Pre:
+	// [[PRE oper]] == LET t = [[oper]] IN {p|p1 in t}
+	//       where (p,p1) = hidePatterns(oper, prime or output )
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Pair<MZ.Expr,MZ.Expr> pat = 
+		hidePatterns(oper, 
+			     fun (Name n)->boolean {
+			       String r = n.getRepr(); int s = r.length();
+			       return r.charAt(s-1) == Name.prime ||
+				      r.charAt(s-1) == Name.output; 
+			     }
+			    );
+	      addProperty(
+		new MZ.Property.Member(pat.snd, t).set(exprLocator)
+	      );
+	      return exitContextWithSchema(pat.fst, exprLocator);
+	    }
+	  );
+	break;
+
+      case Hide(NameAppl[] names):
+	// [[oper \ names]] == LET t = [[oper]] IN {p|p1 in t}
+	//       where (p,p1) = hidePatterns(oper, names )
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Pair<MZ.Expr,MZ.Expr> pat = 
+		hidePatterns(oper, 
+			     fun (Name n)->boolean {
+			       for (int i = 0; i < names.length; i++){
+				 if (names[i].name.equals(n)) return true;
+			       }
+			       return false;
+			     }
+			    );
+	      addProperty(
+		new MZ.Property.Member(pat.snd, t)
+		      .set(exprLocator)
+	      );
+	      return exitContextWithSchema(pat.fst, exprLocator);
+	    }
+	  );
+	break;
+
+
+      case Renaming(Expr.Rename[] renames):
+	// [[oper[newi/oldi]] == LET t = [[oper]] IN {p|xi=yi;...;p1 in t}
+	//       where (eqns,p,p1) = renamePatterns(oper, renames);
+	newExpr = 
+	  strictifyOne(
+	    ereduce(oper),
+	    fun (MZ.Expr t)->MZ.Expr {
+	      enterContext();
+	      Seq<Name> names = getSchemaSign(oper).sort(Name.lexCompare);
+	      Seq<Name> resNames = getSchemaSign(expr).sort(Name.lexCompare);
+	      Seq<MZ.Expr> vars = newVars(ReducerUtil.getLocatorAn(oper),
+					  names);
+	      Seq<MZ.Expr> resVars = newVars(ReducerUtil.getLocatorAn(expr), 
+					     resNames);
+	      for (int i = 0; i < renames.length; i++){
+		addProperty(
+		  new MZ.Property.Equal(
+			context.lookup(renames[i]._new.name),
+			context.lookup(renames[i].old.name)
+		      ).set(ReducerUtil.getLocatorAn(renames[i]))
+		);
+	      }
+	      addProperty(
+		new MZ.Property.Member(
+		      new MZ.Expr.Term(
+			    getBindingCons(names),
+			    vars
+			  ),
+		      t)
+		      .set(exprLocator)
+	      );
+	      return exitContextWithSchema(
+		       new MZ.Expr.Term(
+			     getBindingCons(resNames),
+			     resVars
+			   ),
+		       exprLocator
+		     );
+	    }
+	  );
+	break;
+
+      default:
+	// MISSING: SelectiveDelta
+	cantHandleError(exprLocator);
+	newExpr = makeUndef(exprLocator);
+      }
+      break;
+
+    case Binary(Expr.BinaryKind kind, Expr left, Expr right):
+      switch (kind) {
+
+      case Apply:
+	newExpr = null;
+	switch (left){
+	case Variable(NameAppl(Name name, Expr[] act)):
+	  Expr[] args;
+	  // test for builtin transformations
+	  if (name.equals(ZNames.mapsto)){
+	    newExpr = ereduce(right);
+	  } 
+	  else if (name.equals(ZNames.intersect) && act.length == 0
+		   && (args = unpair(right)) != null) {
+	    newExpr =
+	      new MZ.Expr.Intersection(ereduce(args[0]), ereduce(args[1]));
+	  }
+	  else if (name.equals(ZNames.union) && act.length == 0
+		   && (args = unpair(right)) != null) {
+	    newExpr =
+	      new MZ.Expr.Union(ereduce(args[0]), ereduce(args[1]));
+	  }
+	  else if (name.equals(MZConstants.homWrapper)){
+	    args = unpair(right);
+	    if (args != null){
+	      switch (args[0]){
+	      case Variable(NameAppl(Name hname, Expr[] hact)):
+		newExpr = new MZ.Expr.Hom(hname, ereduce(args[1]));
+		break;
+	      default:
+		args = null;
+	      }
+	    }
+	    if (args == null){
+	      cantHandleError(exprLocator);
+	      newExpr = makeUndef(exprLocator);
+	    }
+	  }
+	  // test for native call
+	  else if (context.isNative(name)){
+	    // NB. Whether the argument has the right structure 
+	    // (is a literal tuple) is unchecked
+	    newExpr =
+	      new MZ.Expr.Call(name,
+			       new ArraySeq(untuple(right)).map(ereduce));
+	  }
+	}
+	if (newExpr == null){
+	  MZ.Expr f = ereduce(left);
+	  MZ.Expr a = ereduce(right);
+	  if (checkTotal(f)){
+	    // lift to a member test
+	    newExpr = newAnonVar(exprLocator, "%y");
+	    addProperty(
+	      new MZ.Property.Member(
+		    makePair(a, newExpr).set(exprLocator),
+		    f
+		  ).set(exprLocator)
+	    );
+	  } else {
+	    newExpr = makeApply(exprLocator, f, a);
+	  }
+	}
+	break;
+
+      case And:
+	if (sameSchemaSign(left, right)){
+	  // both schemas have the same type
+	  newExpr = new MZ.Expr.Intersection(ereduce(left),
+					     ereduce(right));
+	} else {
+	  // [[left /\ right]] ==
+	  //   LET t1 == [[left] t2 == [[right]] IN
+	  //   {p|p1 in left; p2 in right}
+	  //     where (p, p1,p2) = joinedPatterns(expr, left, right)
+	  newExpr =
+	    strictify(
+	      new ArraySeq(ereduce(left), ereduce(right)),
+	      fun (Seq<MZ.Expr> ts)->MZ.Expr {
+		MZ.Expr t1 = ts.at(0);
+		MZ.Expr t2 = ts.at(1);
+		enterContext();
+		Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> pats =
+		  joinedPatterns(expr, left, right, true);
+		addProperty(
+		  new MZ.Property.Member(
+			pats.snd.fst,
+			ts.at(0)
+		      ).set(ts.at(0).locator)
+		);
+		addProperty(
+		  new MZ.Property.Member(
+			pats.snd.snd,
+			ts.at(1)
+		      ).set(ts.at(1).locator)
+		);
+		return exitContextWithSchema(pats.fst, exprLocator);
+	      }
+	    );
+	}
+	 break;
+
+      case Or:
+	if (sameSchemaSign(left, right)){
+	  // both schemas have the same type
+	  newExpr = new MZ.Expr.Union(ereduce(left),
+					      ereduce(right));
+	 } else {
+	   // [[left \/ right]] ==
+	   //   LET t1 == [[left] t2 == [[right]] IN
+	   //   {p|p1 in left} + {p| p2 in right}
+	   //     where (p, p1,p2) = joinedPatterns(expr, left, right)
+	   newExpr =
+	     strictify(
+	       new ArraySeq(ereduce(left), ereduce(right)),
+	       fun (Seq<MZ.Expr> ts)->MZ.Expr {
+		 MZ.Expr t1 = ts.at(0);
+		 MZ.Expr t2 = ts.at(1);
+		 enterContext();
+		 Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> pats =
+		   joinedPatterns(expr, left, right, true);
+		 addProperty(
+		   new MZ.Property.Member(
+			 pats.snd.fst,
+			 t1
+		       ).set(t1.locator)
+		 );
+		 MZ.Expr schema1 = exitContextWithSchema(pats.fst, t1.locator);
+		 enterContext();
+		 // FIXME: avoid recalculate because of variables in ctx
+		 pats = joinedPatterns(expr, left, right, true);
+		 addProperty(
+		   new MZ.Property.Member(
+			 pats.snd.snd,
+			 t2
+		       ).set(t2.locator)
+		 );
+		 MZ.Expr schema2 = exitContextWithSchema(pats.fst, t2.locator);
+		 return new MZ.Expr.Union(schema1, schema2).set(exprLocator);
+	       }
+	     );
+	 }
+	 break;
+	 
+      case Implies:
+	if (sameSchemaSign(left, right)){
+	  // both schemas have the same type
+	  newExpr = new MZ.Expr.Union(
+			  new MZ.Expr.Complement(ereduce(left))
+				.set(exprLocator),
+			  ereduce(right)
+			);
+	} else {
+	  // [[left => right]] ==
+	  //   LET t1 == [[left] t2 == [[right]] IN
+	  //   ~{p|p1 in left} + {p|p2 in right}
+	  //       where (p,p1,p2) = joinedPatterns(expr, left, right)
+	  newExpr =
+	     strictify(
+	       new ArraySeq(ereduce(left), ereduce(right)),
+	       fun (Seq<MZ.Expr> ts)->MZ.Expr {
+		 MZ.Expr t1 = ts.at(0);
+		 MZ.Expr t2 = ts.at(1);
+		 enterContext();
+		 Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> pats =
+		   joinedPatterns(expr, left, right, true);
+		 addProperty(
+		   new MZ.Property.Member(
+			 pats.snd.fst,
+			 t1
+		       ).set(t1.locator)
+		 );
+		 MZ.Expr schema1 = exitContextWithSchema(pats.fst, t1.locator);
+		 enterContext();
+		 pats = joinedPatterns(expr, left, right, true);
+		 addProperty(
+		   new MZ.Property.Member(
+			 pats.snd.snd,
+			 t2
+		       ).set(t2.locator)
+		 );
+		 MZ.Expr schema2 = exitContextWithSchema(pats.fst, t2.locator);
+		 return 
+		   new MZ.Expr.Union(
+			 new MZ.Expr.Complement(schema1).set(schema1.locator),
+			 schema2
+		       );
+	       }
+	     );
+		 
+	}
+	break;
+      case Compose:
+      case Pipe:
+	newExpr =
+	  strictify(
+	    new ArraySeq(ereduce(left), ereduce(right)),
+	    fun (Seq<MZ.Expr> ts)->MZ.Expr {
+	      MZ.Expr t1 = ts.at(0);
+	      MZ.Expr t2 = ts.at(1);
+	      enterContext();
+	      (Name)->Name matcher;
+	      switch (kind){
+	      case Compose:
+		matcher = fun (Name n)->Name {
+			    return n.decorate("" + Name.prime); 
+			  };
+		break;
+	      default:
+		matcher = fun (Name n)->Name {
+			    String[] comps = n.getComponents();
+			    if (comps.length > 1 &&
+				comps[comps.length-1].equals("" + Name.input)){
+			      return n.undecorate(1)
+				      .decorate("" + Name.output);
+			    } else
+			      return null;
+			  };
+	      }
+	      Pair<MZ.Expr,Pair<MZ.Expr,MZ.Expr>> pats =
+		composedPatterns(expr, left, right, matcher);
+	      addProperty(
+		new MZ.Property.Member(
+		      pats.snd.fst,
+		      ts.at(0)
+		    ).set(ts.at(0).locator)
+	      );
+	      addProperty(
+		new MZ.Property.Member(
+		      pats.snd.snd,
+		      ts.at(1)
+		    ).set(ts.at(1).locator)
+	      );
+	      return exitContextWithSchema(pats.fst, exprLocator);
+	    }
+	  );
+	break;
+
+      default:
+	cantHandleError(exprLocator);
+	newExpr = makeUndef(exprLocator);
+	/*
+      case Iff:
+	throw FatalError.notImplemented();
+
+      case Compose:
+	throw FatalError.notImplemented();
+	
+      case Pipe:
+	throw FatalError.notImplemented();
+
+      case Project:
+	throw FatalError.notImplemented();
+	*/
+      }
+      break;
+
+    case Text(Expr.Decl[] decls, Predicate[] props):
+      Pair<Map<Name,MZ.Expr>,
+           Pair<Seq<(MZ.Expr)->Seq<MZ.Property>>,Seq<MZ.Expr>>> ds = 
+	liftDecls(decls);
+      newExpr =
+	strictify(
+	  ds.snd.snd,
+	  fun (Seq<MZ.Expr> ts)->MZ.Expr {
+	    enterContext();
+	    ds.fst.apply(
+	      fun (Pair<Name,MZ.Expr> p)->void {
+		context.scope = context.scope.define(p.fst, p.snd);
+		addBound(p.fst, p.snd);
+	      }
+	    );
+	    for (int i = 0; i < ts.size(); i++){
+	      Seq<MZ.Property> dprops = ds.snd.fst.at(i)(ts.at(i));
+	      dprops.apply(
+		fun (MZ.Property prop)->void {
+		  addProperty(prop);
+		}
+	      );
+	    }
+	    for (int i = 0; i < props.length; i++){
+	      preduce(props[i]);
+	    }
+	    Seq<Name> sortedNames = ArraySeq.from(ds.fst.domain())
+					    .sort(Name.lexCompare);
+	    MZ.Expr pat =
+	      new MZ.Expr.Term(getBindingCons(sortedNames),
+			       makeArgs(sortedNames, exprLocator));
+	    return exitContextWithSchema(pat, exprLocator);
+	  }
+	);
+	    
+      break;
+
+    case Signature(Name[] names, Expr[] types):
+      newExpr =
+	strictify(
+	  new ArraySeq(types).map(ereduce),
+	  fun (Seq<MZ.Expr> els)->MZ.Expr {
+	    Seq<MZ.Expr> vars = new BufferSeq();
+	    enterContext();
+	    int i = 0;
+	    els.apply(
+	      fun (MZ.Expr ex)->void {
+		MZ.Expr var = newVar(ex.locator, names[i++].getRepr());
+		vars = vars.append(var);
+		addProperty(
+		  new MZ.Property.Member(var, ex).set(ex.locator)
+		);
+	      }
+	    );
+	    Seq<Name> snames = new ArraySeq(names).sort(Name.lexCompare);
+	    return exitContextWithSchema(
+		     new MZ.Expr.Term(
+			   getBindingCons(snames),
+			   vars
+			 ),
+		     exprLocator
+		   );
+	  }
+	);
+      break;
+	    
+    default:
+      // MISSING on this level: GivenType, FreeType
+      // throw FatalError.assertionFailed("cannot handle: " + expr);
+      cantHandleError(exprLocator);
+      newExpr = makeUndef(exprLocator);
+    }
+
+    newExpr.locator = exprLocator;
+    return newExpr;
+  }
+
+
+  /** Lifting declarations. */
+  private Pair<Map<Name,MZ.Expr>, 
+               Pair<Seq<(MZ.Expr)->Seq<MZ.Property>>, Seq<MZ.Expr>>>
+  liftDecls(Expr.Decl[] decls){
+    Map<Name,MZ.Expr> mapping = new HashMap();
+    Seq<(MZ.Expr)->Seq<MZ.Property>> gens = new BufferSeq();
+    Seq<MZ.Expr> bounds = new BufferSeq();
+    for (int i = 0; i < decls.length; i++){
+      Locator declLoc = ReducerUtil.getLocatorAn(decls[i]);
+      switch (decls[i]){
+      case Direct(NameDecl[] names, Expr type):
+	MZ.Expr mtype;
+	boolean trivial;
+	if (ReducerUtil.checkDecls){
+	  // declarations shall be incorporated
+	  mtype = ereduce(type); 
+	  switch (mtype) {
+	  case Universal():
+	    trivial = true;
+	    break;
+	  default:
+	    trivial = false;
+	  }
+	} else {
+	  mtype = null;
+	  trivial = true;
+	}
+	Seq<MZ.Expr> vars = new BufferSeq();
+	for (int j = 0; j < names.length; j++){
+	  MZ.Expr var;
+	  Name name = names[j].name;
+	  try {
+	    var = mapping.get(name);
+	  }
+	  catch (NoSuchElementException e){
+	    var = new MZ.Expr.Variable(name).set(
+			ReducerUtil.getLocatorAn(names[j])
+		      );
+            mapping = mapping.define(name, var);
+	  }
+	  if (!trivial){
+	    vars = vars.append(var);
+	  }
+	}
+	if (!trivial){
+	  gens = gens.append(
+		   fun (MZ.Expr bound)->Seq<MZ.Property> {
+		     return
+		       vars.map(
+			 fun (MZ.Expr var)->MZ.Property {
+			   return new MZ.Property.Member(var, bound)
+					.set(declLoc);
+			 }
+		       );
+		   }
+		 );
+	  bounds = bounds.append(mtype);
+	}
+	break;
+
+      case Eqn(NameDecl name, Expr def):
+	MZ.Expr mdef = ereduce(def);
+	MZ.Expr var;
+	try {
+	  var = mapping.get(name.name);
+	}
+	catch (NoSuchElementException e){
+	  var = new MZ.Expr.Variable(name.name).set(declLoc);
+	  mapping = mapping.define(name.name, var);
+	}
+	gens = gens.append(
+		 fun (MZ.Expr bound)->Seq<MZ.Property> {
+		   return new ArraySeq(
+				new MZ.Property.Equal(var, bound)
+				      .set(declLoc)
+			      );
+		 }
+	       );
+	bounds = bounds.append(mdef);
+	break;
+
+      case Inclusion(Expr schema):
+	MZ.Expr mschema = ereduce(schema);
+	Seq<Name> snames = getSchemaSign(schema).sort(Name.lexCompare);
+	Seq<MZ.Expr> vars = new BufferSeq();
+	snames.apply(
+	  fun (Name n)->void {
+	    MZ.Expr var;
+	    try {
+	      var = mapping.get(n);
+	    }
+	    catch (NoSuchElementException e){
+	      var = new MZ.Expr.Variable(n).set(declLoc);
+	      mapping = mapping.define(n, var);
+	    }
+	    vars = vars.append(var);
+	  }
+	);
+	gens = gens.append(
+		 fun (MZ.Expr bound)->Seq<MZ.Property> {
+		   return 
+		     new ArraySeq(
+			   new MZ.Property.Member(
+				 new MZ.Expr.Term(
+				       getBindingCons(snames),
+				       vars
+				     ).set(declLoc),
+				 bound
+			       ).set(declLoc)
+			 );
+		 }
+	       );
+	bounds = bounds.append(mschema);
+	break;
+      }
+    }
+    return new Pair(mapping, new Pair(gens, bounds));
+  }
+
+
+  // ========================================================================
+  // Reducing predicates
+
+
+  /** Reduce a predicate, adding it as a property to the current context. */
+  private void preduce(Predicate pred){
+    
+    Locator loc = ReducerUtil.getLocatorAn(pred);
+
+    switch (pred){
+
+    case Fact(Predicate.FactKind.True):
+      break;
+
+
+    case Fact(Predicate.FactKind.False):
+      addFailure();
+      break;
+
+    case Schema(Expr schema):
+      Seq<Name> snames = getSchemaSign(schema).sort(Name.lexCompare);
+      MZ.Expr pat =
+	new MZ.Expr.Term(
+	      getBindingCons(snames),
+	      snames.map(fun (Name n)->MZ.Expr { 
+			   return resolve(loc, n, new ArraySeq());
+			 }
+			)
+	    ).set(loc);
+      addProperty(
+	new MZ.Property.Member(
+	      pat,
+	      ereduce(schema)
+	    ).set(loc)
+      );
+      break;
+
+    case Test(Expr elem, Expr set):
+      Expr[] args;
+      switch (set) {
+      case Variable(NameAppl(Name name, _)):
+	// test for builtin transformations
+	if (name.equals(ZNames.in) && (args = unpair(elem)) != null){
+	  // test for membership on a native predicate
+	  switch (args[1]){
+	  case Variable(NameAppl(Name predName, _)):
+	    if (context.isNative(predName)){
+	      addProperty(
+		new MZ.Property.Call(predName, 
+				     new ArraySeq(untuple(args[0]))
+						 .map(ereduce))
+		      .set(loc)
+	      );
+	      return;
+	    }
+	  }
+	  addProperty(
+	    new MZ.Property.Member(ereduce(args[0]), 
+				   ereduce(args[1]))
+		  .set(loc)
+	  );
+	  return;
+	} else if (name.equals(ZNames.equal) && 
+		   (args = unpair(elem)) != null){
+	  addProperty(
+	    new MZ.Property.Equal(ereduce(args[0]), 
+				     ereduce(args[1]))
+		  .set(loc)
+	  );
+	  return;
+	} else if (name.equals(ZNames.subseteq) && 
+		   (args = unpair(elem)) != null){
+	  addProperty(
+	    new MZ.Property.Subset(ereduce(args[0]), 
+				   ereduce(args[1]))
+		  .set(loc)
+	  );
+	  return;
+	}
+      }
+      addProperty(
+	new MZ.Property.Member(ereduce(elem), ereduce(set))
+	      .set(loc)
+      );
+      break;
+
+    case Unary(Predicate.UnaryKind.Not, Predicate oper):
+      addProperty(
+	new MZ.Property.IsTrue(
+	      new MZ.Expr.Hom(MZConstants.isEmptyHom,
+			      liftProp(oper)
+			     ).set(loc)
+	      ).set(loc)
+      );
+      break;
+      
+    case Binary(Predicate.BinaryKind.And, Predicate left, Predicate right):
+      preduce(left); preduce(right);
+      break;
+
+    case Binary(Predicate.BinaryKind.Or, Predicate left, Predicate right):
+      addProperty(
+	new MZ.Property.IsTrue(
+	      new MZ.Expr.Hom(MZConstants.isNotEmptyHom,
+			      new MZ.Expr.Union(
+				    liftProp(left),
+				    liftProp(right)
+				  ).set(loc)
+			     ).set(loc)
+	    ).set(loc)
+      );
+      break;
+
+    case Binary(Predicate.BinaryKind.Implies, Predicate left, Predicate right):
+      addProperty(
+	new MZ.Property.Subset(
+	      liftProp(left),
+	      liftProp(right)
+	    ).set(loc)
+      );
+      break;
+      
+    case Binary(Predicate.BinaryKind.Iff, Predicate left, Predicate right):
+      addProperty(
+	new MZ.Property.Equal(
+	      liftProp(left),
+	      liftProp(right)
+	    ).set(loc)
+      );
+      break;
+
+    case Quantor(Predicate.QuantorKind kind, Expr matrix, Predicate range):
+      switch (kind){
+      case Predicate.QuantorKind.Exists:
+      case Predicate.QuantorKind.Exists1:
+      case Predicate.QuantorKind.Let:
+        // [[EX S @ P]] = [[fvars IN [S|P]]]
+	// [[EX1 S @ P]] = [[HOM(EX1, {S|P}) = true]]
+	Locator mloc = ReducerUtil.getLocatorAn(matrix);
+	Seq<Name> names = getSchemaSign(matrix).sort(Name.lexCompare);
+	Name cons = getBindingCons(names);
+	enterContext();
+	Seq<MZ.Expr> vars = newVars(mloc, names);
+	MZ.Expr pat = new MZ.Expr.Term(cons, vars).set(mloc);
+	addProperty(
+	  new MZ.Property.Member(pat, ereduce(matrix)).set(mloc)
+	);
+	preduce(range);
+	MZ.Expr schema = exitContextWithSchema(pat,loc);
+	switch (kind){
+	case Predicate.QuantorKind.Exists:
+	  Seq<MZ.Expr> nvars = newVars(loc, names); // possibly renamed for
+	                                            // current context
+	  MZ.Expr npat = new MZ.Expr.Term(cons, nvars).set(loc);
+	  addProperty(
+	    new MZ.Property.Member(npat, schema).set(loc)
+	  );
+	  break;
+	case Predicate.QuantorKind.Exists1:
+	case Predicate.QuantorKind.Let:
+	  addProperty(
+	    new MZ.Property.IsTrue(
+		  new MZ.Expr.Hom(MZConstants.exists1Hom,
+				  schema).set(loc)
+		).set(loc)
+	  );
+	}
+	break;
+      case Predicate.QuantorKind.Forall:
+	// [[ALL S @ P]] == [[S]] <= [[{sign(S) | P}]]
+	Seq<Name> names = getSchemaSign(matrix).sort(Name.lexCompare);
+	Name cons = getBindingCons(names);
+	enterContext();
+	Seq<MZ.Expr> vars = newVars(loc, names);
+	preduce(range);
+	MZ.Expr rhs = 
+	  exitContextWithSchema(
+	    new MZ.Expr.Term(
+		  cons,
+		  vars
+		).set(loc),
+	    loc
+	  );
+	addProperty(
+	  new MZ.Property.Subset(
+		ereduce(matrix),
+		rhs
+	      ).set(loc)
+	);
+	break;
+	
+	/*
+      default:
+	cantHandleError(loc);
+	*/
+      }
+      break;
+
+    default:
+      cantHandleError(loc);
+    }
+
+  }
+
+  /** Reduce and lift a property to a boolean set expression. */
+  private MZ.Expr liftProp(Predicate pred){
+    enterContext();
+    preduce(pred);
+    return exitContextWithSchema(unitTerm, ReducerUtil.getLocatorAn(pred));
+  }
+    
+  // ========================================================================
+  // Reducing items
+
+  /** Reduce the given ZIRP item to MZ declarations. */
+  public void reduce(Item item){
+    Locator locator = ReducerUtil.getLocatorAn(item);
+
+    if (context.parent != null)
+      throw FatalError.assertionFailed("context");
+
+    switch (item){
+    case AxiomaticDef(NameDecl[] formalDecls, 
+		      FreeType(NameDecl name,
+			       Expr.Branch[] branches)):
+      
+      Seq<Name> names = new BufferSeq().append(name.name);
+      for (int i = 0; i < branches.length; i++){
+	switch (branches[i]){      
+	case Constant(NameDecl cname):
+	  names = names.append(cname.name);
+	  break;
+	case Function(NameDecl fname, _):
+	  names = names.append(fname.name);
+	}
+      }
+      Seq<Name> formals = getFormals(formalDecls);
+      setGenericScope(locator, formals, names);
+
+      MZ.Expr generator = null;
+      for (int i = 0; i < branches.length; i++){
+	// constructor == {((x_1,...,x_n),#constructor(x1,...,x_n)) | 
+	//                                              (x_1,...,x_n) : dom}
+	Locator bloc = ReducerUtil.getLocatorAn(branches[i]);
+	switch (branches[i]){
+	case Constant(NameDecl cname):
+	  Name constName = cname.name;
+	  MZ.Expr def = new MZ.Expr.Term(constName, new ArraySeq()).set(bloc);
+	  MZ.Expr gen = new MZ.Expr.Singleton(def).set(bloc);
+	  if (generator == null){
+	    generator = gen;
+	  } else {
+	    generator = new MZ.Expr.Union(generator, gen)
+			      .set(generator.locator.combine(bloc));
+	  }
+	  addDecls(
+	    bloc,
+	    false,
+	    formals,
+	    new ArraySeq(constName),
+	    fun (MZ.Expr pat)->MZ.Property {
+	      return new MZ.Property.Equal(
+			   pat,
+			   def
+			 ).set(bloc);
+	    }
+	  );
+	  break;
+	case Function(NameDecl fname, Expr type):
+	  Name constName = fname.name;
+	  addDecls(
+	    bloc,
+	    false,
+	    formals,
+	    new ArraySeq(constName),
+	    fun (MZ.Expr pat)->MZ.Property {
+	      enterContext();
+	      MZ.Expr def = 
+		strictifyOne(
+		  ereduce(type),
+		  fun (MZ.Expr dom)->MZ.Expr {
+		    enterContext();
+		    Seq<MZ.Expr> vars = 
+		      (Seq)newAnonVars(
+			bloc, "%a",
+			getConsArity(ReducerUtil.getTypeAn(type))
+			   );
+		    MZ.Expr x = makeTuple(vars).set(bloc);
+		    addProperty(
+		      new MZ.Property.Member(x, dom).set(bloc)
+		    );
+		    return
+		      exitContextWithMu(
+			exitContextWithSchema(
+			  makePair(x,
+				   new MZ.Expr.Term(constName, vars)
+					 .set(bloc)
+				  ).set(bloc),
+			  bloc
+			),
+			bloc
+		      );
+		  }
+		);
+	      return new MZ.Property.Equal(
+			   pat,
+			   def
+			 ).set(bloc);
+	    }
+	  );
+	  MZ.Expr gen = new MZ.Expr.Apply(
+			      makeUnivInst(bloc, ZNames.ran),
+			      new MZ.Expr.Variable(constName).set(bloc)
+			    ).set(bloc);
+	  if (generator == null){
+	    generator = gen;
+	  } else {
+	    generator = new MZ.Expr.Union(generator, gen)
+			      .set(generator.locator.combine(bloc));
+	  }
+
+	}
+      }
+      if (generator == null)
+	generator = new MZ.Expr.Empty().set(locator);
+      addDecls(
+	locator,
+	false,
+	formals,
+	new ArraySeq(name.name),
+	fun (MZ.Expr pat)->MZ.Property {
+	  return new MZ.Property.Equal(
+		       pat,
+		       generator // new MZ.Expr.Universal().set(locator)
+		     ).set(locator);
+	}
+      );
+      //      addBound(MZConstants.makeGivenTypeGenName(name.name),
+	      //       generator);
+      addBound(MZConstants.makeGivenTypeInfoName(name.name),
+	       new MZ.Expr.Term(
+		     ZNames.GivenTypeInfo,
+		     new ArraySeq(
+			   new MZ.Expr.Denotation(
+				 makeFreeTypeInfo(branches)
+			       ).set(locator)
+			 )
+		   ).set(locator)
+	      );
+      break;
+
+    case AxiomaticDef(NameDecl[] formals, GivenType(NameDecl name)):
+      if (context.isGiven(name.name)){
+	setGenericScope(locator, getFormals(formals), 
+			new ArraySeq(name.name));
+	addDecls(
+	  locator,
+	  false,
+	  getFormals(formals),
+	  new ArraySeq(name.name),
+	  fun (MZ.Expr pat)->MZ.Property {
+	    return new MZ.Property.Equal(
+			 pat,
+			 new MZ.Expr.Universal().set(locator)
+		       ).set(locator);
+	  }
+	);
+	      //addBound(MZConstants.makeGivenTypeGenName(name.name),
+	      //	 new MZ.Expr.Universal().set(locator));
+	addBound(MZConstants.makeGivenTypeInfoName(name.name),
+		 new MZ.Expr.Term(
+		       ZNames.GivenTypeInfo,
+		       new ArraySeq(
+			     new MZ.Expr.Denotation(
+				   "1"
+				 ).set(locator)
+			   )
+		     ).set(locator)
+		);
+      }
+      break;
+
+    case AxiomaticDef(NameDecl[] formalDecls, Expr def):
+      Seq<Name> formals = getFormals(formalDecls);
+      Seq<Name> names = getSchemaSign(def).sort(Name.lexCompare);
+      setGenericScope(locator, formals, names);
+      addDecls(
+	locator,
+	true,
+	formals,
+	names,
+	fun (MZ.Expr pat)->MZ.Property {
+	  return new MZ.Property.Member(
+		       pat,
+		       ereduce(def)
+		     ).set(locator);
+	}
+      );
+      break;
+		
+    case FixityDef(_): case EmbeddedText(_):
+      // no semantic meaning
+      break;
+
+    default:
+      diag = diag.add(locator,
+		      Diag.Category.Warning,
+		      "cannot handle this kind of paragraph currently");
+      throw FatalError.assertionFailed("cannot handle: " + item);
+    }
+  }
+
+  private static Seq<Name> getFormals(NameDecl[] formals){
+    return 
+      new ArraySeq(formals.length,
+		   fun (int i)->Name {return formals[i].name;});
+  }
+
+  private void addDecls(Locator locator,
+			boolean forceBinding,
+			Seq<Name> formals,
+			Seq<Name> names,
+			(MZ.Expr)->MZ.Property def){
+    Name cons = null;
+    if (forceBinding || names.size() != 1)
+      cons = getBindingCons(names);
+    if (formals.size() == 0){
+      Seq<MZ.Expr> vars = 
+	names.map(fun(Name n)->MZ.Expr {
+		    return new MZ.Expr.Variable(n).set(locator);
+		  });
+      MZ.Expr pat = cons != null ? new MZ.Expr.Term(cons, vars).set(locator)
+					 : vars.head();
+      addProperty(
+	def(pat)
+      );
+    } else {
+      // code for arbitrary instance
+      enterContext();
+      // FIXME: possibility for name clash?
+      Seq<MZ.Expr> fvars = newVars(locator, formals);
+      Seq<MZ.Expr> vars = newVars(locator, names);
+      MZ.Expr pat = cons != null ? new MZ.Expr.Term(cons, vars).set(locator)
+					 : vars.head();
+      addProperty(
+	def(pat)
+      );
+      MZ.Expr schema = 
+	exitContextWithSchema(
+	  makePair(makeTuple(fvars).set(locator), pat).set(locator),
+	  locator
+	);
+      if (vars.size() != 1){
+	MZ.Expr gvar = newAnonVar(locator, "%gen");
+	addProperty(
+	  new MZ.Property.Equal(
+		gvar,
+		schema
+	      ).set(locator)
+	);
+	schema = gvar;
+      }
+      vars.apply(
+	fun (MZ.Expr var)->void {
+	  // var := {(fpat,var)\ovars| (fpat,pat) \in schema}
+	  enterContext();
+	  Seq<MZ.Expr> fvars1 = newVars(locator, formals);
+	  Seq<MZ.Expr> vars1 = newVars(locator, names);
+	  MZ.Expr pat1 = 
+	    cons != null ? new MZ.Expr.Term(cons, vars).set(locator)
+				 : vars.head();
+	  MZ.Expr fpat1 = makeTuple(fvars1).set(locator);
+	  addProperty(
+	    new MZ.Property.Member(
+		  makePair(fpat1, pat1).set(locator),
+		  schema
+		).set(locator)
+	  );
+	  addProperty(
+	    new MZ.Property.Equal(
+		  var,
+		  exitContextWithSchema(
+		    makePair(fpat1,var).set(locator),
+		    locator
+		  )
+		).set(locator)
+	  );
+	}
+      );
+      // code for universal instance
+      Set<Name> oldGivens = givens;
+      givens = givens.includeAll(formals);
+      Seq<MZ.Expr> uivars =
+	names.map(fun(Name n)->MZ.Expr {
+	  return makeUnivInst(locator, n);
+	});
+      pat = cons != null ? new MZ.Expr.Term(cons, uivars).set(locator)
+					 : uivars.head();
+      addProperty(
+	def(pat)
+      );
+      givens = oldGivens;
+    }
+  }
+
+
+  private static int getConsArity(Expr type){
+    switch (type) {
+    case Expr.Unary(Expr.UnaryKind.Power, Expr.Product(Expr[] components)):
+      return components.length;
+    default:
+      return 1;
+    }
+  }
+
+  // ========================================================================
+  // Generating type information
+
+  private String makeTypeInfo(Expr type){
+    switch (type) {
+    case Variable(NameAppl(Name name, Expr[] acts)):
+      int inx = currentFormals.indexOf(name);
+      if (inx >= 0){
+	return "%%" + (inx+1);
+      } else {
+	String res = name.toString();
+	if (acts.length > 0){
+	  res += "[";
+	  for (int i = 0; i < acts.length; i++){
+	    if (i > 0) res += ",";
+	    res += makeTypeInfo(acts[i]);
+	  }
+	  res += "]";
+	}
+	return res;
+      }
+    case Product(Expr[] comps):
+      String res = "(";
+      for (int i = 0; i < comps.length; i++){
+	if (i > 0) res += ",";
+	res += makeTypeInfo(comps[i]);
+      }
+      return res + ")";
+    case Signature(Name[] names, Expr[] types):
+      String res = "[";
+      for (int i = 0; i < names.length; i++){
+	if (i > 0) res += ";";
+	res += names[i] + ":" + makeTypeInfo(types[i]);
+      }
+      return res + "]";
+    case Unary(Power, Expr elemType):
+      return "!" + makeTypeInfo(elemType);
+    default:
+      throw FatalError.assertionFailed(
+	      "expected a type at " +
+	      ReducerUtil.getLocatorAn(type) 
+	    );
+    }
+  }
+
+  private String makeFreeTypeInfo(Expr.Branch[] branches){
+    String res = "";
+    for (int i = 0; i < branches.length; i++){
+      if (i > 0) res += "|";
+      switch (branches[i]){      
+      case Constant(NameDecl cname):
+	res += cname.name.toString();
+	break;
+      case Function(NameDecl fname, Expr type):
+	res += fname.name.toString() + "<" 
+	        + makeTypeInfo(getElemType(ReducerUtil.getTypeAn(type)))
+		+ ">";
+      }
+    }
+    return res;
+  }
+  
+  private MZ.Expr makeTypeInfoDeno(Locator loc, Expr type){
+    String info = makeTypeInfo(type);
+    if (info.indexOf("%%") >= 0){
+      diag = diag.add(loc,
+		      Diag.Category.Error,
+		      "cannot be used with generic types");
+    }
+    return new MZ.Expr.Denotation(info).set(loc);
+  }
+
+  private static Expr getElemType(Expr type){
+    switch (type) {
+    case Unary(Power, Expr actType):
+      return actType;
+    default:
+      throw FatalError.assertionFailed(
+	      "expected powerset type at " + ReducerUtil.getLocatorAn(type) 
+	    );
+    }
+  }
+
+      
+      
+}

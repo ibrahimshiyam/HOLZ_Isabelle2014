@@ -1,0 +1,111 @@
+\section{Model of Use Cases}
+
+We define the formal model of our version of use cases in Z. An
+\emph{interaction} is given by the schema $Interaction$, generic over
+the type of actors $\alpha$ and of actions $\pi$.  A dialogue is
+a sequence of interactions:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{UseCasesModel}   
+\end{zdirectives} \\
+\begin{schema}{Interaction[\alpha,\pi]}
+  actor: \alpha; action: \pi
+\end{schema}
+\begin{zed}
+  Dialogue[\alpha,\pi] == \seq Interaction[\alpha,\pi] 
+\end{zed}
+\end{zedgroup}
+
+A \emph{pattern} is a sequence of interactions paired with a state
+transition relation over the state type $\Sigma$. A \emph{fragment}
+is a set of patterns:
+\begin{zedgroup}
+\begin{zed}
+  Pattern[\alpha,\pi,\Sigma] == 
+    \seq (Interaction[\alpha,\pi] \cross (\Sigma \rel \Sigma)) \\
+  Fragment[\alpha,\pi,\Sigma] == 
+    \power Pattern[\alpha,\pi,\Sigma]
+\end{zed}
+\end{zedgroup}
+
+Our constructor functions for fragments are defined as follows:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zfunction{65 (\_ \ucmki \_)} \t3 \\
+  \zfunction{60 (\_ \ucmk \_)} \\
+  \zfunction{60 (\_ \ucmkt \_ \uctrans \_)} \t2 \\
+               %% CHECKME: ESZ MIXFIX BUG (\ucmk should be usable in both)
+  \zfunction{50 \rightassoc (\_ \ucthen \_)} \\
+  \zfunction{40 \leftassoc (\_ \ucexcept \_)}
+\end{zdirectives}
+\begin{axdef}[\alpha,\pi]
+  \_ \ucmki \_ ==
+    \lambda actor: \alpha; action: \pi @ % \\\t9
+      \theta Interaction[\alpha,\pi]  \\
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucmkt \_ \uctrans \_ == 
+    \lambda actor: \alpha; action: \pi; r: \Sigma \rel \Sigma @ \\\t9
+      \{\langle (actor \ucmki action, r) \rangle\}  \\
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucmk \_ ==
+    \lambda actor: \alpha; action: \pi @ 
+         actor \ucmkt action \uctrans \id[\Sigma]
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucthen \_ == 
+    \lambda f,f': Fragment[\alpha,\pi,\Sigma] @ \\\t9
+      \{ p: f; p': f' @ p \cat p' \}
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+ \ucrepeat == \lambda f: Fragment[\alpha,\pi,\Sigma] ~ @ \\\t1
+    \{p_1: Pattern[\alpha,\pi,\Sigma]; p_2 : f @ (p_1, p_1 \cat p_2)\}\star
+     \limg \{\langle\rangle\} \rimg  
+\end{axdef}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucexcept \_ == 
+    \lambda f,f': Fragment[\alpha,\pi,\Sigma] @ f \cup ~ \\\t1
+       \{ \< p: f; p': f'; i: \nat | 
+            i \in \dom p;
+            first(p~i) = first(p'~1) \\
+          @ ((1 \upto i-1) \dres p) \cat p'\}\>
+\end{axdef}
+
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \ucselect == 
+    \lambda fs: \power Fragment[\alpha,\pi,\Sigma] @ \bigcup fs
+\end{axdef}
+\end{zedgroup}
+
+
+The satisfaction relation on fragments, $(d,\sigma) \ucin f$, holds iff
+the dialogue $d$ and the initial state $\sigma$ confirm to~$f$,
+which is defined as follows:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zrelation{(\_ \ucin \_)}
+\end{zdirectives}
+\begin{axdef}[\alpha,\pi,\Sigma]
+  \_ \ucin \_ : Dialogue[\alpha,\pi] \cross \Sigma \rel 
+                  Fragment[\alpha,\pi,\Sigma]
+\where
+  \forall \<d: Dialogue[\alpha,\pi]; \sigma: \Sigma; 
+          f: Fragment[\alpha,\pi,\Sigma]@\\\>\\\t1
+    (d,\sigma) \ucin f \iff \\\t2
+    (\exists \<p: f @ \\ % \bigcup (glues\star \limg \{ f \} \rimg  @ \\
+                     \sigma \in \dom(fold(\_\comp\_)(second \circ p)) 
+                            \land 
+                       first \circ p = d)\>
+\end{axdef}
+\end{zedgroup}
+
+\noindent
+Thus, a dialogue confirms to a fragment if there exists a pattern in
+the fragment such that the initial state is in the domain of the
+composition of all state transitions in the pattern and the
+interactions of the pattern match the dialogue.
+

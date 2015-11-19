@@ -1,0 +1,149 @@
+digraph "abs_ci_df" {                graph [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                label = "abs_ci_df"
+                center = "true"
+                color = "black"
+               rankdir = "LR"
+        ]
+        node [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                shape = "ellipse"
+                color = "black"
+        ]
+        edge [
+                fontsize = "14"
+                fontname = "Times-Roman"
+                fontcolor = "black"
+                color = "black"
+        ]
+        "abs_ci_df" [
+                label = "abs_ci_df"
+        ]
+        "subgoal_1" [
+                label = "Subgoal 1"
+        ]
+        "OplSDom" [
+                label = "OplSDom"
+                style = "bold"
+                shape = "box"
+        ]
+        "STrans" [
+                label = "STrans"
+                style = "bold"
+                shape = "box"
+        ]
+        "SubsElem" [
+                label = "SubsElem"
+                style = "bold"
+                shape = "box"
+        ]
+        "subgoal_2" [
+                label = "Subgoal 2"
+        ]
+        "HS_1" [
+                label = "L 1"
+        ]
+        "HS_2" [
+                label = "L 2"
+        ]
+        "OplDomUn" [
+                label = "OplDomUn"
+                style = "bold"
+                shape = "box"
+        ]
+        "UnKomm" [
+                label = "UnKomm"
+                style = "bold"
+                shape = "box"
+        ]
+        "UnAss" [
+                label = "UnAss"
+                style = "bold"
+                shape = "box"
+        ]
+        "DresSub" [
+                label = "DresSub"
+                style = "bold"
+                shape = "box"
+        ]
+        "DomMaplet" [
+                label = "DomMaplet"
+                style = "bold"
+                shape = "box"
+        ]
+        "SubDres" [
+                label = "SubDres"
+                style = "bold"
+                shape = "box"
+        ]
+        "subgoal_3" [
+                label = "Subgoal 3"
+        ]
+        "ApplOpl" [
+                label = "ApplOpl"
+                style = "bold"
+                shape = "box"
+        ]
+        "setConstraint_1" [
+                label = "Setconstraint 1"
+        ]
+        "OplDom" [
+                label = "OplDom"
+                style = "bold"
+                shape = "box"
+        ]
+        "DomRestr" [
+                label = "DomRestr"
+                style = "bold"
+                shape = "box"
+        ]
+        "setConstraint_2" [
+                label = "Setconstraint 2"
+        ]
+        "abs_ci_df" -> "subgoal_1" [
+        ]
+        "abs_ci_df" -> "subgoal_2" [
+        ]
+        "subgoal_2" -> "HS_1" [
+        ]
+        "subgoal_2" -> "HS_2" [
+        ]
+        "HS_1" -> "DresSub" [
+        ]
+        "HS_2" -> "DresSub" [
+        ]
+        "HS_2" -> "DomMaplet" [
+        ]
+        "HS_2" -> "SubDres" [
+        ]
+        "subgoal_1" -> "OplSDom" [
+        ]
+        "subgoal_1" -> "STrans" [
+        ]
+        "subgoal_1" -> "SubsElem" [
+        ]
+        "abs_ci_df" -> "subgoal_3" [
+        ]
+        "abs_ci_df" -> "setConstraint_1" [
+        ]
+        "abs_ci_df" -> "setConstraint_2" [
+        ]
+        "subgoal_2" -> "OplDomUn" [
+        ]
+        "subgoal_2" -> "UnKomm" [
+        ]
+        "subgoal_2" -> "UnAss" [
+        ]
+        "subgoal_3" -> "ApplOpl" [
+        ]
+        "setConstraint_1" -> "OplDom" [
+        ]
+        "setConstraint_1" -> "DomRestr" [
+        ]
+        "setConstraint_2" -> "OplDom" [
+        ]
+        }

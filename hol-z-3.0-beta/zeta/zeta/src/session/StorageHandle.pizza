@@ -1,0 +1,13 @@
+package zeta.session;
+
+/**
+ * The type of storage handles.
+ *
+ * @see Session#allocate
+ *
+ * @version $Id: StorageHandle.pizza,v 1.1.1.1 1998/09/01 10:51:21 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+public interface StorageHandle extends java.io.Serializable {
+}

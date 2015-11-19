@@ -1,0 +1,36 @@
+package zeta.tools.nzap;
+
+/** A program for dumping ZAM files.
+  *
+  * @version $Id: DumpZAM.pizza,v 1.1 2000/01/02 17:37:10 wg Exp $
+  */
+
+import java.io.*;
+import zeta.format.*;
+import zeta.agl.*;
+import zeta.util.*;
+
+
+public class DumpZAM {
+
+  public static void main(String[] args){
+    if (args.length != 1){
+      System.err.println("expected one argument");
+      System.exit(1);
+    }
+    try {
+      InputStream ins =
+	new BufferedInputStream(
+	      new FileInputStream(
+		    new File(args[0])
+		  )
+	    );
+      ZAM.Unit unit = ZAM.Unit.read(ins);
+      System.out.println(Format.build(unit).toString());
+    }
+    catch (IOException e){
+      System.err.println(e.toString());
+      System.exit(2);
+    }
+  }
+}

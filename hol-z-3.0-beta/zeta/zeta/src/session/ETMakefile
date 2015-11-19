@@ -1,0 +1,14 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	Errors.pizza Failures.pizza \
+	Locator.pizza \
+	Message.pizza DebugMessage.pizza ProgressMessage.pizza \
+	ResultMessage.pizza Diag.pizza \
+	SessionStateMessage.pizza \
+	Listener.pizza \
+	Unit.pizza \
+	Adaptor.pizza DefaultAdaptor.pizza \
+	Shell.pizza TextEditor.pizza \
+	ContentType.pizza Target.pizza \
+	StorageHandle.pizza Session.pizza SessionManager.pizza 
+NODEKIND	= java

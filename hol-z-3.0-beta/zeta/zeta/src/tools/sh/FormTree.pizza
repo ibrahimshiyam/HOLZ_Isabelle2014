@@ -1,0 +1,521 @@
+
+package zeta.tools.sh;
+
+/**
+ * Form trees. Used to represent menu and panel structures, and
+ * to build swing components from them. <p>
+ *
+ * A form tree allows to dynamically add and remove top-level forms
+ * according to a leading path of literals (such as
+ * <code>SeqForm(SeqLiteral("File"),SeqLiteral("Save As"),
+ * ...)</code>). The top-level form is added into the hierarchy as
+ * determined by this path. Remaining subforms of the top-level form
+ * are handled as dialogs. <p>
+ *
+ * From a form tree, either a menu or a panel can be build.
+ *
+ * @version $Id: FormTree.pizza,v 1.10 2000/05/14 17:43:32 wg Exp $ */
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.form.*;
+import zeta.session.*;
+
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+
+
+class FormTree {
+
+  /** 
+   * The case of leafs. 
+   * @param literal   the literal form  
+   * @param restForm  a remaining form, or null, if none
+   * @param origForm  the original form from which this leaf is build.
+   * @param dialog    null, or a dialog created for this leaf
+   */
+  private case Leaf(LiteralForm literal, Form restForm, TopLevelForm origForm,
+		    Component display);
+
+  /** 
+   * The case of nodes. 
+   * @param literal   the literal form 
+   * @param subtrees  the subnodes
+   */
+  private case Node(LiteralForm literal, Seq<FormTree> subtrees);
+
+
+  /** Construct an empty form tree. */
+  static FormTree make(){
+    return new Node(null, 
+    	        (Seq)new ArraySeq(
+		  Node(
+			(LiteralForm)new LiteralForm("Shell"),
+			new ArraySeq()
+		  ),
+    	          Node(
+			(LiteralForm)new LiteralForm("Source"),
+			new ArraySeq()
+		  ),
+    	          Node(
+			(LiteralForm)new LiteralForm("Operation"),
+			new ArraySeq()
+		  ),
+    	          Node(
+			(LiteralForm)new LiteralForm("Configure"),
+			new ArraySeq()
+		  )
+	     )
+	   );
+   }
+
+
+
+  /** Add a form to this form tree. */
+  void add(String[] prefix, TopLevelForm form){
+    Pair<Seq<LiteralForm>, Form> p = makePrefix(prefix, form.subform);
+    if (p.fst.isEmpty())
+      throw FatalError.assertionFailed(
+	      "invalid top-level form: expected prefix of literals");
+    add(form, p.snd, p.fst.head(), p.fst.tail());
+  }
+ 
+  private void add(TopLevelForm origForm, Form restForm, 
+		   LiteralForm head, Seq<LiteralForm> rest){
+    if (rest.isEmpty()){
+      // add to this node
+      switch (this) {
+      case Leaf(LiteralForm literal,_,_,_):
+	throw FatalError.assertionFailed(
+		"invalid top-level form: cannot add to leaf: " + 
+		literal.keyword);
+      case Node(LiteralForm literal, Seq<FormTree> subtrees):
+	FormTree subtree = find(head, subtrees);
+	if (subtree != null)
+	  throw FatalError.assertionFailed(
+		  "invalid top-level form: would overwrite: " + head.keyword);
+	((Node)this).subtrees =
+	  subtrees.append(Leaf(head, restForm, origForm, null));
+      }
+    } else {
+      // walk down in tree
+      switch (this) {
+      case Leaf(LiteralForm literal,_,_,_):
+	throw FatalError.assertionFailed(
+		"invalid top-level form: cannot add to leaf: " + 
+		literal.keyword);
+      case Node(LiteralForm literal, Seq<FormTree> subtrees):
+	FormTree subtree = find(head, subtrees);
+	if (subtree == null){
+	  subtree = Node(head, new ArraySeq());
+	  ((Node)this).subtrees = subtrees.append(subtree);
+	} 
+	subtree.add(origForm, restForm, rest.head(), rest.tail());
+      }
+    }
+  }
+
+  /** Remove a form from this form tree. */
+  void remove(String[] prefix, TopLevelForm form){
+    Pair<Seq<LiteralForm>, Form> p = makePrefix(prefix, form.subform);
+    if (p.fst.isEmpty())
+      throw FatalError.assertionFailed(
+	      "invalid top-level form: expected prefix of literals");
+    remove(p.fst.head(), p.fst.tail());
+  }
+
+  private void remove(LiteralForm head, Seq<LiteralForm> rest){
+    if (rest.isEmpty()){
+      switch (this) {
+      case Node(LiteralForm literal, Seq<FormTree> subtrees):
+	((Node)this).subtrees = removeTree(head, subtrees);
+      }
+    } else {
+      // walk down in tree
+      switch (this) {
+      case Node(_, Seq<FormTree> subtrees):
+	FormTree subtree = find(head, subtrees);
+	if (subtree != null){
+	  subtree.remove(rest.head(), rest.tail());
+	}
+      }
+      // remove empty nodes
+      switch (this) {
+      case Node(_, Seq<FormTree> subtrees):
+	FormTree subtree = find(head, subtrees);
+	if (subtree != null &&
+	    subtree instanceof Node && 
+	    ((Node)subtree).subtrees.isEmpty())
+	  ((Node)this).subtrees = removeTree(head, subtrees);
+      }
+    }
+  }
+
+  /** Extract prefix of literals from form. */
+  private Pair<Seq<LiteralForm>, Form> makePrefix(String[] prefix, Form form){
+    Seq<LiteralForm> s = 
+      new ArraySeq(prefix).map(fun (String s)->LiteralForm {
+				 return new LiteralForm(s);
+			       }
+			      );
+    if (form instanceof SeqForm){
+      Form[] subForms = ((SeqForm)form).getSubforms();
+      int i = 0;
+      Seq<LiteralForm> buf = new BufferSeq();
+      while (i < subForms.length && subForms[i] instanceof LiteralForm){
+	buf = buf.append((LiteralForm)subForms[i++]);
+      }
+      if (i == subForms.length)
+	return new Pair(s.appendAll(buf), null);
+      else if (i == subForms.length-1)
+	return new Pair(s.appendAll(buf), subForms[i]);
+      else {
+	return new Pair(s.appendAll(buf), 
+			(Form)(new SeqForm(new ArraySeq(subForms).subseq(i)
+						.toArray(Form.class))
+					  .style(((SeqForm)form).style)));
+      }
+    } 
+    else if (form instanceof LiteralForm){
+      return new Pair(s.append((LiteralForm)form), null);
+    } else
+      return new Pair(s, form);
+  }
+
+  /** Find a subtree which matches the given literal. */
+  private static FormTree find(LiteralForm literal, Seq<FormTree> forest){
+    int i = forest.indexOf(
+	      fun (FormTree tree)->boolean {
+		  return tree.getLiteral().keyword.equals(literal.keyword);
+	      }
+	    );
+    if (i >= 0)
+      return forest.at(i);
+    else
+      return null;
+  }
+
+  /** Remove a subtree which matches the given literal. */
+  private static 
+  Seq<FormTree> removeTree(LiteralForm literal, Seq<FormTree> forest){
+    int i = forest.indexOf(
+	      fun (FormTree tree)->boolean {
+		return tree.getLiteral().keyword.equals(literal.keyword);
+	      }
+	    );
+    if (i >= 0)
+      return forest.subseq(0, i).appendAll(forest.subseq(i+1));
+    else
+      return forest;
+  }
+
+  /** Get literal of tree. */
+  private LiteralForm getLiteral(){
+    switch (this) {
+    case Node(LiteralForm lit, _):
+      return lit;
+    case Leaf(LiteralForm lit, _, _,_):
+      return lit;
+    }
+  }
+
+
+  /** 
+   * Build a menu bar from this form tree, working in the given component
+   * under the given shell state. 
+   */
+  JMenuBar makeMenu(JFrame frame, ShellState state){
+    switch (this){
+    case Node(_, Seq< FormTree> subtrees):    
+      JMenuBar bar = new JMenuBar();
+      subtrees.apply(
+	fun (FormTree t)->void {
+	  bar.add(t.makeSubMenu(frame, state));
+	}
+      );
+      return bar;
+    default:
+      throw FatalError.unexpectedCase();
+    }
+  }
+
+  private JMenuItem makeSubMenu(JFrame frame, ShellState state){
+    switch (this) {
+    case Node(LiteralForm literal, Seq<FormTree> subtrees):
+      JMenu menu = new JMenu(getLabel(literal));
+      subtrees.apply(
+	fun (FormTree t)->void {
+	  menu.add(t.makeSubMenu(frame, state));
+	}
+      );
+      return menu;
+    case Leaf(LiteralForm literal, Form restForm, TopLevelForm origForm, _):
+      String label = getLabel(literal);
+      if (isRequired(restForm)) label += " ...";
+      JMenuItem item = new JMenuItem(label);
+      item.addActionListener(new LeafAction(frame, state, (Leaf)this));
+      return item;
+    }
+  }
+
+  private static class MyToolBar extends JToolBar {}
+
+  static class LeafAction implements ActionListener {
+    private final JFrame frame;
+    private final ShellState state;
+    private final Leaf leaf;
+    private LeafAction(JFrame frame, ShellState state, Leaf leaf){
+      this.frame = frame;
+      this.state = state;
+      this.leaf = leaf;
+    }
+    public void actionPerformed(ActionEvent event){
+      if (isRequired(leaf.restForm)){
+	// this menu action requires a further dialog
+	leaf.origForm.setup(state.session);
+	if (leaf.display == null){
+	  // display not yet build
+	  final FormComponents gen = new FormComponents(state);
+	  JPanel panel;
+	  if (leaf.origForm.style.isModal){
+	    panel = gen.makeDialog(gen.makeComponent(leaf.restForm),
+				   new String[]{"@dismiss.gif;<<", 
+						 "@apply.gif;>>"}, 1,
+				   fun (int i)->void {
+				     if (i == 1) eval();
+				     leaf.display.setVisible(false);
+				   }
+				  );
+	    JDialog dialog = new JDialog(
+				   frame,
+				   getLabel(leaf.literal),
+				   leaf.origForm.style.isModal
+				 );
+	    dialog.getContentPane().add(panel);
+	    dialog.pack();
+	    if (state.master != null &&
+		state.master instanceof Component){
+	      FormComponents.setLocationRelative((Component)state.master, 
+						 dialog);
+	    }
+	    leaf.display = dialog;
+	  } else {
+	    String applyString = leaf.origForm.style.toolIcon;
+	    if (applyString == null) applyString ="@apply.gif;>>";
+	    panel = gen.makeDialog(gen.makeComponent(leaf.restForm),
+				   new String[]{applyString,
+						 "@dismiss.gif;<<"},
+				   0,
+				   fun (int i)->void {
+				     if (i == 0) 
+				       eval();
+				     else {
+				       if (leaf.display.getParent() ==
+					   frame.getContentPane()){
+					 // toolbar docked
+					 frame.getContentPane()
+					      .remove(leaf.display);
+					 frame.validate();
+					 // frame.getContentPane().invalidate();
+					 // frame.getContentPane().validate();
+					 // frame.getContentPane().doLayout();
+					 // frame.repaint();
+				       } else {
+					 // toolbar not docked:
+					 // set the visible flag of
+					 // frame
+					 FormComponents.getFrame(leaf.display)
+						       .setVisible(false);
+				       }
+				     }
+				   },
+				   true
+				  );
+	    JToolBar toolBar = new MyToolBar();
+	    toolBar.add(panel);
+	    leaf.display = toolBar;
+	  }
+	}
+	if (leaf.origForm.style.isModal){
+	  ((JDialog)leaf.display).show();
+	} else {
+	  JToolBar bar = (JToolBar)leaf.display;
+	  Container cont = frame.getContentPane();
+	  if (bar.getParent() == null){
+	    // not active
+	    remove(cont, cont.getComponents());
+	    cont.add(bar, BorderLayout.SOUTH);
+	    bar.revalidate();
+	    frame.getContentPane().invalidate();
+	    frame.getContentPane().validate();
+	    frame.repaint();
+	  } else if (bar.getParent() == cont){
+	    // already displayed docked
+	  } else {
+	    // make parent visible
+	    FormComponents.getFrame(leaf.display)
+			  .setVisible(true);
+	    FormComponents.getFrame(leaf.display).validate();
+	  }
+	}
+      } else 
+	// can directly eval
+	eval();
+    }
+
+    private void remove(Container cont, Component[] comps){
+      for (int i = 0; i < comps.length; i++){
+	if (comps[i] instanceof MyToolBar){
+	  cont.remove(comps[i]);
+	}
+      }
+    }
+
+    private void eval(){
+      // all the states of the original form should be filled out:
+      // unparse and evaluate it
+      state.doEval(new ChoiceForm(state.session.getForms()),
+		   state.defaultLocator, 
+		   leaf.origForm.unparse(state.session));
+    }
+  }
+
+  /**
+   * Check whether a form is required to be displayed.
+   */
+  private static boolean isRequired(Form form){
+    if (form == null) return false;
+    for (int i = 0; i < form.style.length; i++){
+      switch (form.style[i]){
+      case  INVISIBLE: return false;
+      }
+    }
+    if (form instanceof SeqForm){
+      // if none of the childs is required, we aren't too
+      SeqForm sform = (SeqForm)form;
+      for (int i = 0; i < sform.subforms.length; i++){
+	if (isRequired(sform.subforms[i])) return true;
+      }
+      return false;
+    } else
+      return true;
+  }
+
+  /**
+   * Add buttons for this form tree to tool bar.
+   */
+  void addToolBar(JFrame frame, ShellState state, JToolBar bar){
+    switch (this){
+    case Node(LiteralForm literal, Seq<FormTree> subtrees):
+      subtrees.apply(
+	fun (FormTree t)->void {
+	  t.addToolBar(frame, state, bar);
+	}
+      );
+      break;
+    case Leaf(LiteralForm literal, Form restForm, 
+	      TopLevelForm origForm, _):
+      if (origForm.style.toolIcon != null){
+	FormComponents gen = new FormComponents(state);
+	JButton button = gen.makeButton(origForm.style.toolIcon);
+	button.addActionListener(new LeafAction(frame, state, (Leaf)this));
+	if (origForm.longDescr != null){
+	  button.setToolTipText(origForm.longDescr);
+	}
+	bar.add(button);
+      }
+    }
+  }
+
+
+  
+  // FIXME: update the below code to use FormComponents.makeDialog
+  /**
+   * Build a tabbed-pane hierachy from this form tree, working under
+   * the given shell state.
+   */
+  JComponent makeTabbedPanel(final ShellState state){
+    return makeTabbed(state);
+    /*
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.add(makeTabbed(state), BorderLayout.CENTER);
+    return panel;
+    */
+  }
+
+  private JComponent makeTabbed(final ShellState state){
+    switch (this){
+    case Node(LiteralForm literal, Seq<FormTree> subtrees):
+      JTabbedPane panel = new JTabbedPane();
+      subtrees.apply(
+	fun (FormTree t)->void {
+	  panel.addTab(getLabel(t.getLiteral()), 
+		       t.makeTabbed(state));
+	               // FIXME t.getLiteral().longDescr);
+	}
+      );
+      panel.setSelectedIndex(0);
+      return panel;
+    case Leaf(LiteralForm literal, Form restForm, 
+	      final TopLevelForm origForm, _):
+      final JPanel panel = new JPanel();
+    // panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 0, 10));
+    // handle a bug of tabbedpane that doesn't calculates the correct height
+    // by adding space at the bottom
+      panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 15, 10));
+      panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+      FormComponents gen = new FormComponents(state);
+      panel.add(gen.makeComponent(restForm));
+      final JButton commitButton = new JButton("Apply");
+      JPanel buttons = new JPanel();
+      buttons.setLayout(new BoxLayout(buttons, BoxLayout.X_AXIS));
+      buttons.add(Box.createHorizontalGlue());
+      buttons.add(commitButton);
+      buttons.setBorder(BorderFactory.createEmptyBorder(10,0,5,0));
+      panel.add(Box.createVerticalGlue());
+      panel.add(buttons);
+      // panel.getRootPane().setDefaultButton(commitButton);
+      commitButton.addActionListener(
+	new ActionListener(){
+	  public void actionPerformed(ActionEvent event){
+	    state.doEval(new ChoiceForm(state.session.getForms()),
+			 state.defaultLocator, 
+			 origForm.unparse(state.session));
+	  }
+	}
+      );
+      panel.addAncestorListener(
+	new AncestorListener(){
+	  public void ancestorAdded(AncestorEvent event){
+	    panel.getRootPane().setDefaultButton(commitButton);
+	    panel.getRootPane().requestDefaultFocus();
+	  }
+	  public void ancestorMoved(AncestorEvent event){
+	  }
+	  public void ancestorRemoved(AncestorEvent event){
+	  }
+	}
+      );
+
+      return panel;
+    }
+  }
+
+  private static String getLabel(LiteralForm form){
+    for (int i = 0; i < form.style.length; i++){
+      switch (form.style[i]){
+      case Label(String l):
+	return l;
+      }
+    }
+    return form.keyword;
+  }
+
+}
+

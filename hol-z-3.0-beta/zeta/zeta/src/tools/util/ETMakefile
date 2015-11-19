@@ -1,0 +1,6 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= SessionUtil.pizza ZirpUtil.pizza \
+		  Executor.pizza \
+		  ExprForm.pizza PredicateForm.pizza
+JAVA_FILES 	= 
+NODEKIND	= java

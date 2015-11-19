@@ -1,0 +1,83 @@
+package zeta.form;
+
+/**
+ * The abstract class of list forms. <p>
+ *
+ * A list form represents a variable collections of items where a selection
+ * can be made from. 
+ *
+ * @version $Id: ListForm.pizza,v 1.6 2000/05/14 17:43:32 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.*;
+
+public abstract class ListForm extends Form {
+
+  /** The style of the list form. */
+  public Style style = Style.ComboBox(false, 5);
+
+  /** The class of styles of list forms. */
+  public static class Style {
+    /** Display as a combobox. 
+     * @param editable  whether the contents of the combobox is editable
+     *                  (doesn't works currently)
+     * @param maxPopupRows  the maximal rows of the popup. If the 
+     *                      size of the range succeeds this number, a 
+     *                      scrollbar will be used in the popup
+     */
+    public case ComboBox(boolean editable, int maxPopupRows);
+  }
+
+  /** The state of the list form. */
+  public final State state;
+
+  /** The abstract class of list form states. */
+  public static abstract class State extends FormState {
+
+    /** Get the range of this list form as a sequence of strings. */
+    public abstract String[] getRange(Session session);
+    
+    /** Get the index of the selected object in the range. */
+    public abstract int getSelected(Session session);
+
+    /** Set the index of the selected object in the range. */
+    public abstract void setSelected(Session session, int index,
+				     Object source);
+  }
+				     
+
+  /** Create a new list form. */
+  public ListForm(State state){
+    this.state = state;
+  }
+
+  /** Attach a style to this list form. Return this list form. */
+  public ListForm style(Style style){
+    this.style = style;
+    return this;
+  }
+
+  public int
+  parse(Session session, Locator locator, String[] words, int start)
+  throws Failures.FormFailed {
+    String[] range = state.getRange(session);
+    for(int i = 0; i < range.length; i++)
+      if(range[i].equals(words[start])) {
+	state.setSelected(session, i, this);
+	return start+1;
+      }
+    return -1;
+  }
+
+  public String[] unparse(Session session) {
+    int selected = state.getSelected(session);
+    String[] range = state.getRange(session);
+    if(selected < 0 || selected >= range.length)
+      return new String[0];
+    else
+      return new String[] { range[selected] };
+  }
+  
+
+
+}

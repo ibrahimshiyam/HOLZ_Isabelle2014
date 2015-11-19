@@ -1,0 +1,284 @@
+package zeta.tools.latex;
+
+import java.io.*;
+import java.util.Date;
+import zeta.agl.*;
+import zeta.content.text.*;
+import zeta.format.Format;
+import zeta.util.Name;
+import zeta.session.*;
+import zeta.tools.util.SessionUtil;
+
+class LatexFormatter {
+
+  private static final int MAXERRORS = 40;
+
+
+  private final Session session;
+  private final LatexAdaptor client;
+
+  private LatexFormatter(Session session, LatexAdaptor client){
+    this.session = session;
+    this.client = client;
+  }
+
+  static void computeDoc(Session session, LatexAdaptor client,
+			 Target target,
+			 File file, Seq<Unit> units)
+  throws Failures.CannotCompute, Failures.ComputationFailed {
+    new LatexFormatter(session, client).run(target, file, units);
+  }
+
+  private void run(Target target, File file, Seq<Unit> units)
+  throws Failures.CannotCompute, Failures.ComputationFailed {
+    try {
+      String name = file.getPath(); // FIXME: remove me
+      Seq<Target> deps = writeZetaInputs(ArraySeq.from(getIncludes(units)));
+      client.sendProgress("runnnig latex for source " + name);
+      Process p = Runtime.getRuntime().exec(new String[] { 
+	System.getProperty("zeta.prog.latex"), 
+	"\\nonstopmode\\input{"+name+"}" 
+      });
+      // blocks under Windows NT if we do not close the output stream
+      // we can use the LaTeX log file instead
+      // p.getInputStream().close();
+      // p.waitFor();
+      // int i = name.lastIndexOf(".");
+      // InputStream in = new BufferedInputStream(new FileInputStream(
+      //   (i < 0 ? name : name.substring(0, i)) + ".log"));
+      // client.sendProgress("analyzing latex output");
+      // SEEMS TO BE FIXED IN JDK 1.2
+      InputStream in = new BufferedInputStream(p.getInputStream());
+
+      if (!filterLatexOutput(in, name)) {
+	p.destroy();
+	throw new Failures.ComputationFailed(target);
+      } else {
+	p.destroy();
+	File outFile;
+	int i = name.lastIndexOf(".");
+	if (i >= 0)
+	  outFile = new File(name.substring(0, i) + ".dvi");
+	else
+	  outFile = new File(name + ".dvi");
+	Date definedAt = new Date();
+	units.apply(
+	  fun (Unit unit)->void {
+	    unit.define(TextContentTypes.dvi,
+			outFile,
+			true,
+			definedAt,
+			units.map(
+			  fun (Unit u)->Target {
+			    return new Target(u, TextContentTypes.text);
+			  }).appendAll(deps).toArray(Target.class),
+			client
+		       );
+	  }
+	);
+      }
+    } catch(InterruptedException e) {
+      client.sendDiag(new Diag(
+			    LatexAdaptor.thisLocator,
+			    Diag.Category.Error,
+			    "execution of latex command failed: interrupted"
+			  ));
+      return;
+    } catch(IOException e) {
+      client.sendDiag(new Diag(
+			    LatexAdaptor.thisLocator,
+			    Diag.Category.Error,
+			    "execution of latex command failed: I/O error: " + 
+			    e.getMessage()));
+      return;
+    }
+  }
+
+  private char last;
+
+  private String readUntil(InputStream in, char e1) throws IOException {
+    return readUntil(in, new char[] { e1 });
+  }
+  private String readUntil(InputStream in, char e1, char e2) 
+  throws IOException {
+    return readUntil(in, new char[] { e1, e2 });
+  }
+
+  private String readUntil(InputStream in, char[] end) throws IOException {
+    StringBuffer s = new StringBuffer();
+    while(in.available() > 0) {
+      char c = (char) in.read();
+      for(int i = 0; i < end.length; i++)
+	if(c == end[i]) {
+	  last = c;
+	  return new String(s);
+	}
+      s.append(c);
+    }
+    return new String(s);
+  }
+
+  private boolean filterLatexOutput(InputStream in, String name) 
+  throws IOException {
+    int errors = 0;
+    File actFile = client.locateFile(new File(name));
+    if (actFile == null) actFile = new File(name);
+    Seq<File> file_stack = new BufferSeq().append(actFile);
+    BufferedReader rd = new BufferedReader(new InputStreamReader(in));
+    String line;
+    while ((line = rd.readLine()) != null){
+      if (line.startsWith("! ")){
+	errors++;
+	Seq<Format> lines = new BufferSeq();
+	lines = lines.append(Format.literal(line.trim()));
+	int lno = -1; int cno = -1;
+	int limit = 8;
+	for (int i = 0 ; i < limit; i++){
+	  line = rd.readLine();
+	  if (line == null) break;
+	  if (line.startsWith("l.")){
+	    line = line.substring(2);
+	    int j = 0;
+	    while (Character.isDigit(line.charAt(j))){
+	      j++;
+	    }
+	    lno = Integer.parseInt(line.substring(0, j));
+	    cno = line.length()-j-1;
+	    lines = lines.append(Format.literal(line.substring(j)));
+	    break;
+	  } else {
+	    if (lno >= 0) lines = lines.append(Format.literal(line));
+	  }
+	}
+	if (errors > MAXERRORS){
+	  // do nothing
+	} else if (errors == MAXERRORS){
+	  client.sendDiag(
+	    new Diag(
+		  LatexAdaptor.thisLocator,
+		  Diag.Category.Error,
+		  Format.literal("more then " + errors + " errors")
+		)
+	  );
+	} else if (file_stack.isEmpty() || lno < 0){
+	  client.sendDiag(
+	    new Diag(
+		  LatexAdaptor.thisLocator,
+		  Diag.Category.Error,
+		  Format.beneath(
+		    Format.literal("LaTeX top-level error:"),
+		    Format.indent(Format.beneath(lines))
+		  )
+		)
+	  );
+	} else {
+	  client.sendDiag(
+	    new Diag(
+		  new TextLocator(new Name(file_stack.head().getPath()),
+				  (short)lno, 1, // FIXME: cast errors
+				  (short)lno, (short)cno),
+		  Diag.Category.Error, // FIXME: always error??
+		  Format.beneath(lines))
+	  );
+	}
+      } else {
+	// normal input line: scan for file opens
+	for (int i = 0; i < line.length(); i++){
+	  char c = line.charAt(i);
+	  if (c == '(') {
+	    String file_name = "";
+	    while (i+1 < line.length() 
+			     && line.charAt(i+1) != '['
+			     && line.charAt(i+1) != ')'){
+	      file_name += line.charAt(++i);
+	    }
+	    file_name = file_name.trim();
+	    if (file_name.endsWith(".tex"))
+	      file_name = file_name.substring(0, file_name.length()-4);
+	    actFile = client.locateFile(new File(file_name));
+	    if (actFile == null) actFile = new File(file_name);
+	    file_stack = file_stack.prepend(actFile);
+	  } else if(c == ')') {
+	    if (file_stack.isEmpty())
+	      // this seems to happen at emergency stop, ignore it
+	      ;
+	    else
+	      file_stack = file_stack.tail();
+	  }
+	}
+      }
+    }
+    return errors == 0;
+  }
+
+  private Set<Name> getIncludes(Seq<Unit> units) 
+  throws Failures.CannotCompute, Failures.ComputationFailed {
+    Set<Name> names = new HashSet();
+    for (Enum<Unit> en = units.enumerate(); en.more(); en.advance()){
+      Unit unit = en.current();
+      Text text = (Text) unit.query(TextContentTypes.text);
+      names = names.includeAll(getIncludes1(new BufferSeq(), text));
+    }
+    return names;
+  }
+
+  private Seq<Name> getIncludes(Unit unit) 
+  throws Failures.CannotCompute, Failures.ComputationFailed {
+    Text text = (Text) unit.query(TextContentTypes.text);
+    return getIncludes1(new BufferSeq(), text);
+  }
+
+  private Seq<Name> getIncludes0(Seq<Name> includes, Text[] text) {
+    return new ArraySeq(text).reduce(includes, getIncludes1);
+  }
+
+  private Seq<Name> getIncludes1(Seq<Name> includes, Text text) {
+    switch(text) {
+      case DocMarkup(_, _, Text[] subtexts) : 
+	return getIncludes0(includes, subtexts);
+      case ModelInclusion(Name name) :
+	return includes.append(name);
+      case ZedSection(_, _, Text[] subtexts) :
+	return getIncludes0(includes, subtexts);
+      case ZedClass(_, _, _, Text[] subtexts) :
+	return getIncludes0(includes, subtexts);
+      case ZedPragma(_, Text[] subtexts) :
+	return getIncludes0(includes, subtexts);
+      case ZedMarkup(_, Text[] header, Text[] decls, Text[] props) :
+	includes = getIncludes0(includes, header);
+	includes = getIncludes0(includes, decls);
+	return getIncludes0(includes, props);
+      default : return includes;
+    }
+  }
+
+  private String defCommand(String com, String def) {
+    return "\\expandafter\\def\\csname "+com+"\\endcsname{"+def+"}";
+  }
+  
+  private Seq<Target> writeZetaInputs(Seq<Name> includes) 
+  throws IOException, Failures.ComputationFailed, Failures.CannotCompute {
+    PrintWriter w = new PrintWriter(new FileWriter("zeta-in.tex"));
+    Seq<Target> deps = new BufferSeq();
+    for(Enum<Name> e = includes.enumerate(); e.more(); e.advance()) {
+      Unit unit = SessionUtil.lookupUnit(session,
+					 LatexAdaptor.thisLocator,
+					 e.current());
+      if (unit == null){
+	// diagnostics have been produced
+	continue;
+      }
+
+      LaTeXFragment tfrag = (LaTeXFragment) 
+			    unit.query(TextContentTypes.latexFragment);
+      deps = deps.append(new Target(unit, TextContentTypes.latexFragment));
+      w.println(tfrag.header);
+      w.println(defCommand(e.current().getRepr(), tfrag.content));
+    }
+    w.close();
+    return deps;
+  }
+      
+  
+}
+

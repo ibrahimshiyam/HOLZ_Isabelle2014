@@ -1,0 +1,453 @@
+package zeta.tools.zchecker;
+
+/**
+ * A class for type checking units.
+ *
+ * @version $Id: UnitChecker.pizza,v 1.3 1998/09/13 15:24:11 wg Exp $
+ */
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.Format;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.content.zirp.*;
+
+
+public class UnitChecker {
+
+  // METHODS
+
+  /**
+   * Check and annotate the given section. Return diagnostics
+   * produced by checking. The given environment must be setup
+   * to contain definitions for all parent units. <p>
+   *
+   * If checking succeeds (the category Error is not contained 
+   * in the returned diagnostics) then the following can be asserted:
+   *
+   * <UL>
+   * <LI> the unit is type-correct
+   * <LI> the items in the unit are sorted definition-before-use
+   * <LI> all expressions have a type annotation
+   * <LI> all name applications of generic names have an actualization
+   *      annotation
+   * <LI> the passed unit environment is enriched by the constant
+   *      declarations of this unit
+   * </UL>
+   */
+  public static Diag checkSection(Session session,
+				  UnitEnv unitEnv, UnitAbsy absy){
+    switch (absy){
+    case Section(Name name, Name[] parents, Item[] items):
+      Env env = Env.sectionEnv(unitEnv);
+      for (int i = 0; i < items.length; i++){
+	CheckerThread checker = new CheckerThread(session, env, items[i]);
+	env.registerChecker(checker, intendedDefs(items[i]));
+      }
+      env.runCheckers();
+      return env.getAndClearDiag();
+    default:
+      throw FatalError.unexpectedCase("expected a section");
+    }
+  }
+
+  /**
+   * Check and annotate the given class. Like the section checker,
+   * but takes in addition an array of environments of the classes
+   * which are enriched by this class. Furthermore, the given
+   * abstract syntax is enriched by implicite definitions
+   * of types and schemas belonging to this class.
+   */
+  public static Diag checkClass(Session session,
+				UnitEnv unitEnv, UnitEnv[] enrichedEnvs,
+				UnitAbsy absy){
+    switch (absy){
+    case ClassDef(Name name, Name[] parents, Name[] formals, Item[] items):
+      Env env = Env.classEnv(unitEnv, enrichedEnvs, formals);
+      ((UnitAbsy.ClassDef)absy).items = items =
+	new ArraySeq(items)
+		    .appendAll(deriveItems(unitEnv, enrichedEnvs, 
+					   (UnitAbsy.ClassDef)absy))
+		    .toArray(Item.class);
+      for (int i = 0; i < items.length; i++){
+	CheckerThread checker = new CheckerThread(session, env, items[i]);
+	env.registerChecker(checker, intendedDefs(items[i]));
+      }
+      env.runCheckers();
+      return env.getAndClearDiag();
+    default:
+      throw FatalError.unexpectedCase("expected a class");
+    }
+  }
+
+
+  /**
+   * Thread class for checking items in parallel.
+   */
+  private static class CheckerThread extends Thread {
+
+    private Session session;
+    private Env env;
+    private Item item;
+
+    CheckerThread(Session session, Env env, Item item){
+      this.session = session;
+      this.env = env;
+      this.item = item;
+    }
+
+    public void run() {
+      try {
+	// run the term checker
+	new TermChecker(env.newLocal()).check(item);
+      }
+      catch (Exception e){
+	session.send(new Name("ZCHECKER"),
+	 	     new DebugMessage(Format.build(Locator.get(item.an))));
+	session.abort(e);
+	e.printStackTrace();
+      }
+      catch (ThreadDeath e){
+	throw e;
+      }
+      catch (Error e){
+	session.send(new Name("ZCHECKER"),
+	 	     new DebugMessage(Format.build(Locator.get(item.an))));
+	session.abort(e);
+	e.printStackTrace();
+      }
+      finally {
+	Set<Name> usage = env.unregisterChecker();
+	Used.put(item.an, usage.toArray(Name.class));
+      }
+    }
+
+  }
+
+  /**
+   * Calculate the approximated intended definitions of an item.
+   * This is an approximation because of arbitrary schema
+   * expressions in axiomatic definitions, but helps to
+   * detect deadlocks of checker threads.
+   */
+  private static Set<Name> intendedDefs(Item item){
+    switch (item) {
+    case AxiomaticDef(_, Expr schema):
+      switch (schema) {
+      case Text(Expr.Decl[] decls, _):
+	Set<Name> names = new HashSet();
+	for (int i = 0; i < decls.length; i++){
+	  switch (decls[i]) {
+	  case Direct(NameDecl[] nds, _):
+	    for (int j = 0; j < nds.length; j++){
+	      names = names.include(nds[j].name);
+	    }
+	    break;
+	  case Eqn(NameDecl nd, _):
+	    names = names.include(nd.name);
+	    break;
+	  default:
+	    // Inclusion: cannot decide
+	  }
+	}
+	return names;
+      case GivenType(NameDecl nd):
+	return new HashSet().include(nd.name);
+      case FreeType(NameDecl nd, Expr.Branch[] branches):
+	Set<Name> names = new HashSet().include(nd.name);
+	for (int i = 0; i < branches.length; i++){
+	  switch (branches[i]) {
+	  case Constant(NameDecl nd1):
+	    names = names.include(nd1.name);
+	    break;
+	  case Function(NameDecl nd1, _):
+	    names = names.include(nd1.name);
+	  }
+	}
+	return names;
+      default:
+	// nothing known
+	return new HashSet();
+      }
+    default:
+      return new HashSet();
+    }
+  }
+	   
+
+
+
+  // MSZ: BUILDING DERIVED ITEMS
+
+  /**
+   * Construct the derived items of a class, and define
+   * mSZ class-related information in environment.
+   */
+  private static Seq<Item> deriveItems(UnitEnv env,
+				       UnitEnv[] enrichedEnvs,
+				       UnitAbsy.ClassDef absy){
+
+    Set<Name> datas = new HashSet();
+    Set<Name> ports = new HashSet();
+    Set<Name> inits = new HashSet();
+    Set<Name> props = new HashSet();
+    Set<Name> states = new HashSet();
+
+    Item[] items = absy.items;
+
+    // visit items to sample information
+    for (int i = 0; i < items.length; i++){
+      switch (items[i]) {
+      case AxiomaticDef(_, Text(Expr.Decl[] decls, _)):
+	for (int j = 0; j < decls.length; j++){
+	  switch (decls[j]) {
+	  case Eqn(NameDecl ndec, _):
+	    DeclAttr attr = DeclAttr.get(ndec.an);
+	    if (attr != null){
+	      do {
+		switch (attr) {
+		case Data:
+		  datas = datas.include(ndec.name);
+		  break;
+		case Port:
+		  ports = ports.include(ndec.name);
+		  break;
+		case Init:
+		  inits = inits.include(ndec.name);
+		  break;
+		case Property:
+		  props = props.include(ndec.name);
+		  break;
+		case Alias(DeclAttr baseAttr, _):
+		  attr = baseAttr;
+		  continue;
+		}
+	      } while (false);
+	    }
+	  }
+	}
+	break;
+      case StatechartDef(State root):
+	states = states.includeAll(sampleStates(root));
+	break;
+      case EnrichDef(NameAppl nap):
+	for (int j = 0; j < enrichedEnvs.length; j++){
+	  if (enrichedEnvs[j].getName().equals(nap.name)){
+	    datas = datas.includeAll(
+		      new ArraySeq(enrichedEnvs[j].getDataSchemas())
+		    );
+	    ports = ports.includeAll(
+		      new ArraySeq(enrichedEnvs[j].getPortSchemas())
+		    );
+	    inits = inits.includeAll(
+		      new ArraySeq(enrichedEnvs[j].getInitSchemas())
+		    );
+	    props = props.includeAll(
+		      new ArraySeq(enrichedEnvs[j].getPropertySchemas())
+		    );
+	    states = states.includeAll(
+		       new ArraySeq(enrichedEnvs[j].getStateNames())
+		     );
+	  }
+	}
+	// if we didn't find an environment, then this is
+	// reported as an error elsewhere
+	break;
+      }
+    }
+
+    // set class information in environment
+    env.setDataSchemas(datas.toArray(Name.class));
+    env.setPortSchemas(ports.toArray(Name.class));
+    env.setInitSchemas(inits.toArray(Name.class));
+    env.setPropertySchemas(props.toArray(Name.class));
+    env.setStateNames(states.toArray(Name.class));
+    
+    // build the derived items
+    Locator loc = env.getLocator();
+    /* FIXME: what to do here?
+      new FreeLocator(
+	    env.getLocator().toString() + "[implicite declarations]"
+	  );
+    */
+			      
+    Item stateType =
+      makeType(
+	loc,
+	MSZNames.stateType,
+	states
+      );
+    Item controlDef = 
+      makeSchema(
+	loc, 
+	MSZNames.controlData,
+	DeclAttr.Data,
+	new HashSet().include(MSZNames.controlDefaultData)
+      );
+    Item historyDef = 
+      makeSchema(
+	loc, 
+	MSZNames.historyData,
+	DeclAttr.Data,
+	new HashSet().include(MSZNames.historyDefaultData)
+      );
+    Item portDef =
+      makeSchema(
+	loc, 
+	MSZNames.classPort,
+	DeclAttr.Port,
+	ports
+      );
+    Item dataDef =
+      makeSchema(
+	loc, 
+	MSZNames.classData,
+	DeclAttr.Data,
+	datas.include(MSZNames.classPort)
+	     .include(MSZNames.controlData)
+	     .include(MSZNames.historyData)
+      );
+    Item propDef =
+      makeSchema(
+	loc, 
+	MSZNames.classProperty,
+	DeclAttr.Property,
+	new HashSet().include(MSZNames.classData),
+	props
+      );
+    Item initDef =
+      makeSchema(
+	loc, 
+	MSZNames.classInit,
+	DeclAttr.Init,
+	new HashSet().include(MSZNames.classData),
+	inits
+      );
+    return new ArraySeq(new Item[]{ stateType, controlDef, historyDef,
+				    portDef, dataDef, propDef, initDef });
+  }
+
+  /**
+   * Sample declared state names.
+   */
+  private static Set<Name> sampleStates(State state){
+    switch (state) {
+    case BasicState(NameDecl nd):
+      return new HashSet().include(nd.name);
+    case RefState(_):
+      return new HashSet();
+    case SuperState(NameDecl nd, _, State[] substates, _, _):
+      // CHECKME: do connectors count? Supposedly not.
+      Set<Name> states = new HashSet().include(nd.name);
+      for (int i = 0; i < substates.length; i++){
+	states = states.includeAll(sampleStates(substates[i]));
+      }
+      return states;
+    }
+  }
+
+  /**
+   * Make a schema definition.
+   */
+  private static Item makeSchema(Locator loc, Name name, DeclAttr attr,
+				 Set<Name> included){
+    return makeSchema(loc, name, attr, included, new HashSet());
+  }
+  
+  /**
+   * Make a schema definition.
+   */
+  private static Item makeSchema(Locator loc, Name name, DeclAttr attr,
+				 Set<Name> included, Set<Name> referred){
+    Expr.Decl[] decls = new Expr.Decl[included.size()];
+    int i = 0;
+    included.apply(
+      fun (Name n)->void {
+	decls[i] = Expr.Decl.Inclusion(makeVar(n));
+	i++;
+      }
+    );
+    Predicate[] props = new Predicate[referred.size()];
+    i = 0;
+    referred.apply(
+      fun (Name n)->void {
+	props[i] = Predicate.Schema(makeVar(n));
+	i++;
+      }
+    );
+    NameDecl nd = new NameDecl(name);
+    Locator.put(nd.an, loc);
+    if (attr != null) DeclAttr.put(nd.an, attr);
+    Item def =
+      Item.AxiomaticDef(
+	new NameDecl[0],
+	Expr.Text(
+	  new Expr.Decl[]{Expr.Decl.Eqn(nd, Expr.Text(decls, props))},
+	  new Predicate[0]
+	)
+      );
+    propagateLocator(loc, def);
+    return def;
+  }
+
+  /**
+   * Make a variable application.
+   */
+  private static Expr makeVar(Name name){
+    return new Expr.Variable(new NameAppl(name, new Expr[0]));
+  }
+
+  /**
+   * Make a free type definition.
+   */
+  private static Item makeType(Locator loc, Name name, Set<Name> constants){
+    Item def;
+    NameDecl nd = new NameDecl(name);
+    Locator.put(nd.an, loc);
+    if (constants.size() == 0){
+      def =
+	Item.AxiomaticDef(
+	  new NameDecl[0],
+	  Expr.GivenType(nd)
+	);
+    } else {
+      Expr.Branch[] branches = new Expr.Branch[constants.size()];
+      int i = 0;
+      constants.apply(
+	fun (Name n)->void {
+	  NameDecl d = new NameDecl(n);
+	  Locator.put(d.an, loc);
+	  branches[i] = Expr.Branch.Constant(d);
+	  i++;
+	}
+      );
+      def =
+	Item.AxiomaticDef(
+	  new NameDecl[0],
+	  Expr.FreeType(nd, branches)
+	);
+    }
+    propagateLocator(loc, def);
+    return def;
+  }
+
+
+  /**
+   * Propgate locator annotation throughout term. 
+   */
+  // FIXME: move to library
+  // PROBLEM: TermVisitor doesn't visits NameDecl (and it shouldn't,
+  // because of efficiency)
+  private static void propagateLocator(final Locator loc, Item item){
+    class PutLocatorVisitor extends TermVisitor {
+      public void visit(Annotation an){
+	Locator.put(an, loc);
+      }
+    };
+    new PutLocatorVisitor().visit(item);
+  }
+  
+}

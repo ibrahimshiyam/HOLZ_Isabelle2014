@@ -1,0 +1,26 @@
+package zeta.content.zirp;
+
+/** The abstract syntax of Statechart Transitions.
+  *
+  * A transition connects starts and ends at states or at connectors.
+  * Connectors.  Connectors can belong to a sub-state.  In this case
+  * the transition enters or exits a sub-state directly.
+  *
+  * @version $Id: Transition.pizza,v 1.2 1998/09/06 15:24:32 wg Exp $
+  *
+  */
+
+import zeta.util.Term;
+import zeta.util.AnnotatedTerm;
+
+public class Transition extends AnnotatedTerm {
+
+  /** A transition.
+    * @param source  the source node
+    * @param target  the target node
+    * @param label   the label. 
+    */
+  public case Transition(NameAppl source, NameAppl target, LabelExpr label);
+
+
+}

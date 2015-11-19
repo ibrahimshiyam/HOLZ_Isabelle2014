@@ -1,0 +1,5 @@
+plugin HOLZAdaptor
+load leplas.tex
+holz -u LTX:operations#leplas
+holz -u LTX:creation#leplas
+quit

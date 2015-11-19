@@ -1,0 +1,19 @@
+NODEKIND	= java
+AUTOSUBNODES	= 
+PIZZA_FILES	= EvalMessage.pizza FinishedMessage.pizza \
+		  ShellState.pizza ShellLocator.pizza \
+		  CommandInterpreter.pizza \
+		  ShellForms.pizza \
+		  MessagePrinter.pizza \
+		  GuiOptions.pizza LogPanel.pizza \
+		  MessageMarkup.pizza \
+		  FormTree.pizza FormComponents.pizza \
+		  GuiCommander.pizza BatchCommander.pizza Driver.pizza
+
+
+inst:
+	$(ET_INSTALL) lib zetarc 
+	$(ET_INSTALL) bin zeta
+	$(ET_INSTALL) lib/images $(wildcard *.gif)
+	rm -f $(ET)/bin/runzeta.exe || true
+	cp runzeta/Release/jlaunch.exe $(ET)/bin/runzeta.exe

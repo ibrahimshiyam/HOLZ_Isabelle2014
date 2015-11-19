@@ -1,0 +1,335 @@
+package zeta.tools.nzap;
+
+/** Schema context.
+  *
+  * @version $Id: UnitContext.pizza,v 1.6 2000/05/08 07:07:43 wg Exp $
+  */
+
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.session.*;
+import zeta.content.zirp.UnitEnv;
+import zeta.content.text.Lexem;
+
+
+class UnitContext {
+
+  /** A mapping of native names to a sequence of argument
+      characterizations (flex=true,nonflex=false). */
+  private Map<Name,Seq<boolean>> natives;
+  
+  /** Name of the unit. */
+  private Name name;
+
+  /** Parent units. */
+  private Seq<Name> parents;
+
+  /** Get the name of the unit. */
+  Name getName(){
+    return name;
+  }
+
+  /** Test if context has natives. */
+  boolean hasNatives(){
+    return natives.size() > 0;
+  }
+
+  /** Construct a unit context. */
+  UnitContext(UnitEnv env, Name name, Seq<Name> parents){
+    this.name = name; this.parents = parents;
+    UnitEnv.PragmaInfo[] pragmas = env.getPragmas();
+    natives = new HashMap();
+    Name zapPragma = new Name("zap");
+    for (int i = 0; i < pragmas.length; i++){
+      UnitEnv.PragmaInfo p = pragmas[i];
+      if (p.name.equals(zapPragma) && p.value.length > 1){
+	switch (p.value[0]){
+	case Word(String image):
+	  if (image.equals("native")){
+	    Pair<Name,int> on = parseOpName(p.value, 1);
+	    if (on != null){
+	      Seq<boolean> b = parseNativeSpec(p.value, on.snd);
+	      if (b != null){
+		natives = natives.define(on.fst, b);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  private Seq<boolean> parseNativeSpec(Lexem[] toks, int pos){
+    int state = 0;
+    Seq<boolean> b = new BufferSeq();
+    while (pos < toks.length){
+      switch (state){
+      case 0: // start
+	switch (toks[pos]){
+	case Lparenth:
+	  pos++;
+	  state = 1;
+	  continue;
+	default:
+	  return null;
+	}
+      case 1: // characteristic
+	switch (toks[pos]){
+	case StrokeIn:
+	  b = b.append(false);
+	  pos++;
+	  state = 2;
+	  continue;
+	case StrokeOut:
+	  b = b.append(true);
+	  pos++;
+	  state = 2;
+	  continue;
+	default:
+	  return null;
+	}
+      case 2: // next
+	switch (toks[pos]){
+	case Comma:
+	  pos++;
+	  state = 1;
+	  continue;
+	case Rparenth:
+	  return ArraySeq.from(b);
+	default:
+	  return null;
+	}
+      default:
+	return null;
+      }
+    }
+    return null;
+  }
+
+ private Pair<Name,int> parseOpName(Lexem[] toks, int pos){
+    int state = 0;
+    String repr = "";
+    while (pos < toks.length){
+      switch (state){
+      case 0: // start
+	switch (toks[pos]){
+	case Lparenth:
+	  pos++;
+	  state = 1;
+	  continue;
+	case Word(String s):
+	  return new Pair(new Name(s), pos+1);
+	default:
+	  return null;
+	}
+      case 1: // components
+	switch (toks[pos]){
+	case Arg:
+	  repr += "_";
+	  pos++;
+	  continue;
+	case ListArg:
+	  repr += ",,";
+	  pos++;
+	  continue;
+	case Word(String s):
+	  repr += s;
+	  pos++;
+	  continue;
+	case Rparenth:
+	  return new Pair(new Name(repr), pos+1);
+	default:
+	  return null;
+	}
+      default:
+	return null;
+      }
+    }
+    return null;
+  }
+
+
+
+  /** A hash for denotations. */
+  private Map<String,int> denoMap = new HashMap();
+  private Seq<String> denoTab = new BufferSeq();
+
+  /** A hash for globals. */
+  private Map<Name,int> globalMap = new HashMap();
+  private Seq<ZAM.Global> globalTab = new BufferSeq();
+
+  /** A hash for constructors. */
+  private Map<Name,int> constructorMap = new HashMap();
+  private Seq<ZAM.Constructor> constructorTab = new BufferSeq();
+
+  /** A hash for native functions. */
+  private Map<Name,int> nativeFuncMap = new HashMap();
+  private Seq<ZAM.NativeFunc> nativeFuncTab = new BufferSeq();
+
+  /** A hash for native predicates. */
+  private Map<Name,int> nativePredMap = new HashMap();
+  private Seq<ZAM.NativePred> nativePredTab = new BufferSeq();
+
+  /** A hash for homomorphisms. */
+  private Map<Name,int> nativeHomMap = new HashMap();
+  private Seq<ZAM.NativeHom> nativeHomTab = new BufferSeq();
+
+  /** Table of schemas. */
+  private Seq<ZAM.Schema> schemaTab = new BufferSeq();
+
+  /** Code buffer. */
+  private byte[] code = new byte[2048];
+  private int fill = 0;
+
+
+  /** Get table index of denotation. */
+  int getDenotationIndex(String deno){
+    try {
+      return denoMap.get(deno);
+    }
+    catch (NoSuchElementException e){
+      int i = denoTab.size();
+      denoTab = denoTab.append(deno);
+      denoMap = denoMap.define(deno, i);
+      return i;
+    }
+  }
+
+  /** Get table index of native function. */
+  int getNativeFuncIndex(Name name, int arity){
+    try {
+      return nativeFuncMap.get(name);
+    }
+    catch (NoSuchElementException e){
+      int i = nativeFuncTab.size();
+      nativeFuncTab = 
+	nativeFuncTab.append(new ZAM.NativeFunc(name.getRepr(), arity));
+      nativeFuncMap = nativeFuncMap.define(name, i);
+      return i;
+    }
+  }
+
+  /** Get table index of native predicate. */
+  int getNativePredIndex(Name name, int arity){
+    try {
+      return nativePredMap.get(name);
+    }
+    catch (NoSuchElementException e){
+      int i = nativePredTab.size();
+      nativePredTab = 
+	nativePredTab.append(new ZAM.NativePred(name.getRepr(), arity));
+      nativePredMap = nativePredMap.define(name, i);
+      return i;
+    }
+  }
+
+  /** Get table index of homomorphism. */
+  int getHomIndex(Name name){
+    try {
+      return nativeHomMap.get(name);
+    }
+    catch (NoSuchElementException e){
+      int i = nativeHomTab.size();
+      nativeHomTab = 
+	nativeHomTab.append(new ZAM.NativeHom(name.getRepr()));
+      nativeHomMap = nativeHomMap.define(name, i);
+      return i;
+    }
+  }
+
+  /** Get table index of global. */
+  int getGlobalIndex(Name name){
+    try {
+      return globalMap.get(name);
+    }
+    catch (NoSuchElementException e){
+      int i = globalTab.size();
+      globalTab = 
+	globalTab.append(new ZAM.Global(name.getRepr(), 
+					!name.getRepr().startsWith("%")));
+                                                                  // FIXME
+      globalMap = globalMap.define(name, i);
+      return i;
+    }
+  }
+
+  /** Get table index of constructor. */
+  int getConstructorIndex(Name name, int arity){
+    try {
+      return constructorMap.get(name);
+    }
+    catch (NoSuchElementException e){
+      int i = constructorTab.size();
+      constructorTab = 
+	constructorTab.append(new ZAM.Constructor(name.getRepr(), arity));
+      constructorMap = constructorMap.define(name, i);
+      return i;
+    }
+  }
+
+  /** Get argument specification of native. */
+  Seq<boolean> getArgSpec(Name name){
+    try {
+      return natives.get(name);
+    }
+    catch (NoSuchElementException e){
+      throw FatalError.assertionFailed("not native: " + name);
+    }
+  }
+
+  /** Add a schema. */
+  int addSchema(ZAM.Schema inten){
+    int i = schemaTab.size();
+    schemaTab = schemaTab.append(inten);
+    return i;
+  }
+
+  /** Add code. */
+  int addCode(ConstrCoder coder){
+    int s = coder.getCodeSize();
+    if (fill+s >= code.length){
+      int newl = code.length*2;
+      while (fill*s >= newl){
+	newl = newl*2;
+      }
+      byte[] newcode = new byte[newl];
+      System.arraycopy(code,0,newcode,0,fill);
+      code = newcode;
+    }
+    System.arraycopy(coder.getCode(),0,code, fill, s);
+    int offs = fill;
+    fill += s;
+    return offs;
+  }
+
+  /** Add a constructor. */
+  void addConstructor(Name name, int argc){
+    int i = getConstructorIndex(name, argc);
+  }
+
+  /** Return ZAM Unit. */
+  ZAM.Unit finish(int initSchemaIndex){
+    byte[] fcode = new byte[fill];
+    System.arraycopy(code, 0, fcode, 0, fill);
+    return new ZAM.Unit(
+		 name.getRepr(),
+		 parents.map(fun (Name n)->String { return n.getRepr(); })
+			.toArray(String.class),
+		 globalTab.toArray(ZAM.Global.class),
+		 constructorTab.toArray(ZAM.Constructor.class),
+		 nativeFuncTab.toArray(ZAM.NativeFunc.class),
+		 nativePredTab.toArray(ZAM.NativePred.class),
+		 nativeHomTab.toArray(ZAM.NativeHom.class),
+		 denoTab.toArray(String.class),
+		 initSchemaIndex,
+		 schemaTab.toArray(ZAM.Schema.class),
+		 fcode
+	       );
+  }
+}
+  

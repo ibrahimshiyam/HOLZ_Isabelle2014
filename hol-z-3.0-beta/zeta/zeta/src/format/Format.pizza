@@ -1,0 +1,778 @@
+package zeta.format;
+
+
+/**
+ * A format represents a structured text which can be pretty-printed
+ * for different column-widths. Formats are constructed in a term-like
+ * fashion, by composing formats from basic text and given
+ * formats. Based on reflection, formats can be automatically
+ * generated for arbitrary objects, to visualize object structures
+ * for debugging purposes. <p>
+ *
+ * The Format class is an abstract class that is inherited by several
+ * concrete Format classes which are found in the package
+ * <code>zeta.format.impl</code>. Yet, all access to format
+ * functionality can be made via the <code>Format</code> class, which
+ * provides static methods for constructing formats. <p>
+ * 
+ * <em>Concepts</em><p>
+ *
+ * If a Format is printed, it uses up a text-rectangle.	 A
+ * text-rectangle is an area of characters in the output stream.  It
+ * has an indentation, a width of the longest line, a with of the last
+ * line, and a height. The text-rectangle visualises as follows:
+ *
+  <pre>
+  [-indent--|----------width----------]
+   .........._________________________ 
+  :	   h|			      |
+  :	   e.			      .
+  :	   i.			      .
+  :	   g.			      .
+  :	   h|		 _____________|
+  :........t|___________|
+	    [-lastWidth-]
+  </pre>
+ *
+ * For every Format, the maximal width and maximal width of the last
+ * line, the minimal width (depending on the width of the widest
+ * sub-format) and minimal width of the last line and also the minimal
+ * height (depending on the number of line-breaks in the Format) are
+ * computed by the pretty printer algorithm to determinate
+ * how (composed) formats should be grouped.  Maximal widths are 
+ * used to determine wether a Format might still fit fully on the
+ * current line, while minimal widths are used in cases where several
+ * successive Formats shall be printed 'beside' each other.  If a
+ * a format doesn't fits on the current line, it is printed on
+ * the next line with the given indentation, otherwise the indentation
+ * is ignored. </p>
+ *
+ * There are several composition operators for formats, which all
+ * take an arbitrary number of subformats:
+ *
+ * <UL>
+ *
+ * <LI> <code>beneath(subformats)</code> This operator always puts
+ * it subformats beneath each other:
+ * 
+ <pre>
+  ...._______________________.....
+  :  |			     |	 :
+  :  |			     |	 :
+  :  |		   __________|	 :
+  :..|____________|______________:
+  :    |			 |
+  :    |   ______________________|
+  :....|__|______................:
+  :...|__________|
+ </pre>
+ *
+ * <LI> <code>block(subformats)</code> This compound Format is for
+ * subformats that should be appended to one another. If the text of one
+ * component Format does not fit on the rest of the line (into the
+ * given width), a new line is opened before printing that text.  </p>
+ *
+ * This is for instance very useful for the printing of the contents of an
+ * array. As long as the next item still fits into the current line, it gets
+ * printed, if the next item would not fit, then a new line is opened first,
+ * where the item then will be printed instead.
+ * 
+ <pre>
+  ....______________.....
+  :..|_____|________|	:
+  : |	       |	:
+  : |	 ______|________:
+  :.|___|_____|_____|___|
+  :   |		  |	:
+  :   |	    ______|.....:
+  :...|____|
+ </pre>
+ *
+ * <LI> <code>line(subformats)</code> This is a compound Format for
+ * subformats that should either be printed into one line (if they all
+ * would fit into that line) or beneath each other, otherwise.	
+ * This behaviour is especially useful for lists of items that are
+ * quite complex, so it would not be wise to print several of them
+ * into one line for more than one line, since that could lead to
+ * confusion for the reader.
+ *
+ * <LI> <code>beside(subformats)</code> This is a compound Format for
+ * subformats that should be printed 'beside' each other. This means,
+ * that each text is printed beside the end of the last line of the
+ * text before it, if it still fits on the line.  Otherwise a new line
+ * is opened an the format is printed on the next line.
+ *
+ <pre>
+  ...________________........
+  : |		     |	    :
+  : |  ....__________|______:
+  :.|__:__|		    |
+  :    :  |    ...._________|
+  :    :..|____:__|	  | :
+  :	       :  |    ___|.:
+  :............:..|___|
+ </pre>
+ *
+ * <LI> <code>append(subformats)</code> This behaves like the
+ * beside-operator. However, unlike the beside-operator, which prints
+ * the formats beneath each other, if the text would otherwise become
+ * too wide, the append-operator prints its components 'beside' each
+ * other in every case, so it should be used very carefully.  </p> The
+ * append-behaviour is especially useful for interpunctions that
+ * should normally not be printed on the beginning of a new
+ * line. Instead the break should be made before the block preceding
+ * the item to be appended.
+ *
+ * </UL>
+ *
+ * @see Formattable
+ * @author Jacob Wieland (ughosage@cs.tu-berlin.de)
+ * @version $Id: Format.pizza,v 1.6 2000/05/08 07:07:43 wg Exp $
+ */
+
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Serializable;
+import java.util.StringTokenizer;
+
+import net.sf.pizzacompiler.lang.Pair;
+import zeta.format.impl.*;
+import zeta.agl.*;
+
+public abstract class Format implements Serializable {
+
+  // BASIC FORMAT CONSTRUCTORS
+
+  /**
+   * A constant holding the empty format.
+   */
+  public static final Format empty = new FormatEmpty();
+
+  /**
+   * A constant holding a format which causes a line break.
+   */
+  public static final Format brk = new FormatBreak();
+
+
+  /**
+   * Construct a space of given width. On the beginning of a line, the
+   * space will be ignored.
+   */
+  public static Format space(int width){
+    return new FormatSpace(width);
+  }
+
+  /**
+   * A constant holding a space of width 1.
+   */
+  public static final Format space = space(1);
+
+  /**
+   * Construct an atomic format from a string. The string should not contain
+   * any newlines, moreover all spaces within the string will never be
+   * ignored.  
+   */
+  public static Format literal(String s){
+    return new FormatText(s);
+  }
+
+
+  /**
+   * Construct a format from a string which may contain newlines. The
+   * string is broken into lines which are composed by the
+   * beneath-operator, each line is furthermore broken into words
+   * separated by the given delimiters, which are composed by the
+   * block-operator.  Each delimiter occurence is replaced by a
+   * single space-format.  
+   */
+  public static Format text(String s, String delimiters){
+    Seq<Format> lines = new BufferSeq();
+    StringTokenizer ltkn = new StringTokenizer(s, "\n\r");
+    while (ltkn.hasMoreTokens()){
+      String line = ltkn.nextToken();
+      Seq<Format> words = new BufferSeq();
+      StringTokenizer wtkn = new StringTokenizer(line, delimiters);
+      int i = 0;
+      while (wtkn.hasMoreTokens()){
+	if (i > 0) words = words.append(space);
+	words = words.append(literal(wtkn.nextToken()));
+	i++;
+      }
+      lines = lines.append(block(words));
+    }
+    return beneath(lines);
+  }
+
+  /**
+   * Build a format for an arbitrary object. If the object implements
+   * the <code>Formattable</code> interface, its customized
+   * <code>toFormat()</code> method will be used. Otherwise, a generic
+   * method based on reflection will take over. <p>
+   *
+   * Note that the output of the generic method is not intended for
+   * user representation of objects, but rather for debugging
+   * purposes. Note further that currently the generic method can only
+   * consider public fields of objects.
+   *
+   * @see Formattable#toFormat 
+   */
+  public static Format buildFormat(Object object){
+    return FormatPrinter.buildFormat(object);
+  }
+
+  /**
+   * A generic version of buildFormat(Object), which can be used
+   * for Pizza mapping (e.g. <code>aggregate.map(Format.build)</code>).
+   * (Pizza only).
+   */
+  public static <A> Format build(A object){
+    return FormatPrinter.buildFormat((Object)object);
+  }
+
+  /**
+   * Build a format for an arbitrary object, based on the given
+   * context information.
+   *
+   * @see buildFormat
+   * @see FormatInfo
+   */
+  public static Format buildFormat(FormatInfo info, Object object){
+    return FormatPrinter.buildFormat(info, object);
+  }
+
+  // BENEATH OPERATOR
+
+  /**
+   * Variant of the beneath operator.  */
+  public static Format beneath(Format[] subformats){
+    return new FormatBeneath(subformats);
+  }
+
+  /**
+   * Variant of the beneath operator. (Pizza only)
+   */
+  public static Format beneath(Aggregate<Format> subformats){
+    return new FormatBeneath(subformats.toArray(Format.class));
+  }
+
+  /**
+   * Variant of the beneath operator.
+   */
+  public static Format beneath(Format f1, Format f2){
+    return new FormatBeneath(new Format[]{f1,f2});
+  }
+
+  /**
+   * Variant of the beneath operator.
+   */
+  public static Format beneath(Format f1, Format f2, Format f3){
+    return new FormatBeneath(new Format[]{f1,f2,f3});
+  }
+
+  /**
+   * Variant of the beneath operator.
+   */
+  public static Format beneath(Format f1, Format f2, Format f3, Format f4){
+    return new FormatBeneath(new Format[]{f1,f2,f3,f4});
+  }
+
+  // BLOCK OPERATOR
+
+  /**
+   * Variant of the block operator.
+   */
+  public static Format block(Format[] subformats){
+    return new FormatBlock(subformats);
+  }
+
+  /**
+   * Variant of the block operator. (Pizza only)
+   */
+  public static Format block(Aggregate<Format> subformats){
+    return new FormatBlock(subformats.toArray(Format.class));
+  }
+
+  /**
+   * Variant of the block operator.
+   */
+  public static Format block(Format f1, Format f2){
+    return new FormatBlock(new Format[]{f1,f2});
+  }
+
+  /**
+   * Variant of the block operator.
+   */
+  public static Format block(Format f1, Format f2, Format f3){
+    return new FormatBlock(new Format[]{f1,f2,f3});
+  }
+
+  /**
+   * Variant of the block operator.
+   */
+  public static Format block(Format f1, Format f2, Format f3, Format f4){
+    return new FormatBlock(new Format[]{f1,f2,f3,f4});
+  }
+
+  // LINE OPERATOR
+
+  /**
+   * Variant of the line operator.
+   */
+  public static Format line(Format[] subformats){
+    return new FormatLine(subformats);
+  }
+
+  /**
+   * Variant of the line operator. (Pizza only)
+   */
+  public static Format line(Aggregate<Format> subformats){
+    return new FormatLine(subformats.toArray(Format.class));
+  }
+
+  /**
+   * Variant of the line operator.
+   */
+  public static Format line(Format f1, Format f2){
+    return new FormatLine(new Format[]{f1,f2});
+  }
+
+  /**
+   * Variant of the line operator.
+   */
+  public static Format line(Format f1, Format f2, Format f3){
+    return new FormatLine(new Format[]{f1,f2,f3});
+  }
+
+  /**
+   * Variant of the line operator.
+   */
+  public static Format line(Format f1, Format f2, Format f3, Format f4){
+    return new FormatLine(new Format[]{f1,f2,f3,f4});
+  }
+
+  // BESIDE OPERATOR
+
+  /**
+   * Variant of the beside operator.
+   */
+  public static Format beside(Format[] subformats){
+    return new FormatBeside(subformats);
+  }
+
+  /**
+   * Variant of the beside operator. (Pizza only)
+   */
+  public static Format beside(Aggregate<Format> subformats){
+    return new FormatBeside(subformats.toArray(Format.class));
+  }
+
+  /**
+   * Variant of the beside operator.
+   */
+  public static Format beside(Format f1, Format f2){
+    return new FormatBeside(new Format[]{f1,f2});
+  }
+
+  /**
+   * Variant of the beside operator.
+   */
+  public static Format beside(Format f1, Format f2, Format f3){
+    return new FormatBeside(new Format[]{f1,f2,f3});
+  }
+
+  /**
+   * Variant of the beside operator.
+   */
+  public static Format beside(Format f1, Format f2, Format f3, Format f4){
+    return new FormatBeside(new Format[]{f1,f2,f3,f4});
+  }
+
+  public static Format group(Format[] formats) {
+    return new FormatGroup(formats);
+  }
+
+  // APPEND OPERATOR
+
+  /**
+   * Variant of the append operator.
+   */
+  public static Format append(Format[] subformats){
+    return new FormatAppend(subformats);
+  }
+
+  /**
+   * Variant of the append operator. (Pizza only)
+   */
+  public static Format append(Aggregate<Format> subformats){
+    return new FormatAppend(subformats.toArray(Format.class));
+  }
+
+  /**
+   * Variant of the append operator.
+   */
+  public static Format append(Format f1, Format f2){
+    return new FormatAppend(new Format[]{f1,f2});
+  }
+
+  /**
+   * Variant of the append operator.
+   */
+  public static Format append(Format f1, Format f2, Format f3){
+    return new FormatAppend(new Format[]{f1,f2,f3});
+  }
+
+  /**
+   * Variant of the append operator.
+   */
+  public static Format append(Format f1, Format f2, Format f3, Format f4){
+    return new FormatAppend(new Format[]{f1,f2,f3,f4});
+  }
+
+  // INDENTATION
+
+  /**
+   * Set the indentation of this format. By default, the indentation
+   * of all created formats is set to 0. Returns this format, which
+   * is modified by side-effect. You should only use this method
+   * for formats you have created yourself.
+   *
+   * @see indent
+   */
+  public Format setIndent(int indent){
+    if (this instanceof NestedFormat)
+      ((NestedFormat)this).nesting = indent;
+    return this;
+  }
+
+  /**
+   * Indents this format. Returns a new format which will be indented
+   * as specified.
+   *
+   * @see setIndent
+   */
+  public Format indent(int indent){
+    return new FormatBlock(indent, new Format[]{this});
+  }
+
+  /**
+   * Indents the given format statically by 2.
+   */
+  public static Format indent(Format fmt){
+    return fmt.indent(2);
+  }
+   
+  
+  // LOGICAL STRUCTURES
+
+  /**
+   * Make a list of the elements of some aggregate type, with the
+   * formatter function for the elements given. (Pizza only.)
+   */
+  public static <A> Format list(Format open, Format next, Format close,
+				(A)->Format fmt,
+				Aggregate<A> agg){
+    int n = agg.size();
+    if (n == 0){
+      return append(open, close);
+    } else {
+      Format[] formats = new Format[n];
+      int i = 0;
+      for (zeta.agl.Enum<A> e = agg.enumerate(); e.more(); e.advance()) {
+        formats[i] = fmt(e.current());
+        if (i < n-1)
+          formats[i] = append(formats[i],next);
+        i++;
+      }
+      return append(open, block(formats), close);
+/*
+      Format[] formats = new Format[n];
+      int i = 0;
+      for (Enum<A> e = agg.enumerate(); e.more(); e.advance()){
+	formats[i] = append(fmt(e.current()), i == n-1 ? close : next);
+	i++;
+      }
+      return append(open, new FormatBlock(formats));
+*/
+    }
+  }
+
+  /**
+   * Make a list of the elements of a aggreagte of objects. The objects
+   * are formatted using the buildFormat method. (Pizza only).
+   */
+  public static Format list(Format open, Format next, Format close,
+			    Aggregate<Object> objects){
+    return list(open, next, close,
+		fun (Object o)->Format {
+		  return buildFormat(o);
+		},
+	        objects);
+  }
+
+  /**
+   * Make a list of the elements of an array of objects. The objects
+   * are formatted using the buildFormat method.
+   */
+  public static Format list(Format open, Format next, Format close,
+			    Object[] objects){
+    return list(open, next, close, new ArraySeq(objects));
+  }
+
+  
+  /**
+   * Put parenthes around the given format if boolean flag is true,
+   * otherwise return format.
+   */
+  public static Format parenth(boolean yes, Format fmt){
+    if (!yes)
+      return fmt;
+    else 
+      return append(literal("("), fmt, literal(")"));
+  }
+
+  /**
+   * Put parenthes around a priorized format iff the demanded priority
+   * is larger then the given priority. Returns a priorized format
+   * with at least the demanded priority. If parenthes need to be generated,
+   * the return priority is <code>Integer.MAX_VALUE</code>.
+   * (Pizza only.)
+   */
+  public static Pair<Format,int> parenth(Pair<Format,int> p, int demandedPrio){
+    if (p.snd >= demandedPrio) 
+      return p;
+    else 
+      return new Pair(append(literal("("), p.fst, literal(")")),
+		      Integer.MAX_VALUE);
+  }
+
+  /**
+   * Build a format for `describing' something. The format has the
+   * general layout:
+   <pre>
+     This is the message.
+       InfoKey1      : Info1
+       ...
+       InfoKeyN      : InfoN
+    </pre>
+  */
+  public static Format describe(String message,
+				String[] infoKeys,
+				Format[] infos){
+    int kwidth = 0;
+    for (int i = 0; i < infoKeys.length; i++){
+      int l = infoKeys[i].length();
+      if (l > kwidth) kwidth = l;
+    }
+    Format[] formats = new Format[infoKeys.length];
+    for (int i = 0; i < infoKeys.length; i++){
+      StringBuffer buf = new StringBuffer(infoKeys[i]);
+      for (int j = kwidth - buf.length(); j > 0; j--){
+	buf.append(" ");
+      }
+      buf.append(":");
+      formats[i] = block(append(literal(buf.toString()), space),
+			 indent(infos[i]));
+    }
+    return block(append(literal(message + "."), space), 
+		 indent(new FormatBeneath(formats)));
+  }
+
+  /**
+   * Variant for description.
+   */
+  public static Format describe(String message, String key, Format info){
+    return describe(message, new String[]{key}, new Format[]{info});
+  }
+
+  /**
+   * Variant for description.
+   */
+  public static Format describe(String message, 
+				String key1, Format info1,
+				String key2, Format info2){
+    return describe(message, 
+		    new String[]{key1, key2}, new Format[]{info1, info2});
+  }
+
+  /**
+   * Variant for description.
+   */
+  public static Format describe(String message, 
+				String key1, Format info1,
+				String key2, Format info2,
+				String key3, Format info3){
+    return describe(message, 
+		    new String[]{key1, key2, key3}, 
+		    new Format[]{info1, info2, info3});
+  } 
+
+  /**
+   * Variant for description.
+   */
+  public static Format describe(String message, 
+				String key1, Format info1,
+				String key2, Format info2,
+				String key3, Format info3,
+				String key4, Format info4){
+    return describe(message, 
+		    new String[]{key1, key2, key3, key4}, 
+		    new Format[]{info1, info2, info3, info4});
+  } 
+
+
+
+  // EVALUATING FORMATS
+
+  /**
+    * Prints the given format on the given printer, with the
+    * given column with.
+    *
+    * @param stream the PrintWriter where the Format shall be printed
+    * @param width the width the text of the Format shall maximally take on
+    * the PrintWriter (if at all possible).
+    * 
+    * @see PrintWriter
+    * @see Format#printText */
+  public void printFormat(PrintWriter stream, int width) {
+    FormatStream output = new FormatStream(stream,width);
+
+    printText(0,output,width,width);
+
+    output.printEndOfFormat();
+  }
+
+  /** 
+   * Converts a format to a string. A maximal column with of 79 is
+   * assumed.
+   */
+  public String toString() {
+    return toString(79);
+  }
+
+  /** 
+   * Converts a format to a string, with the specified maximal column
+   * width.
+   */
+  public String toString(int width) {
+    StringWriter sw = new StringWriter();
+    printFormat(new PrintWriter(sw), width);
+    String res = sw.toString();
+    if (res.endsWith(lineSep)){
+      return res.substring(0, res.length()-lineSepLen);
+    } else {
+      return res;
+    }
+  }
+  private static String lineSep = System.getProperty("line.separator");
+  private static int lineSepLen = lineSep.length();
+
+  /** 
+   * Dumps a format without any layout calculation to a print writer.
+   * Only ``hard'' newlines (induced by the beneath-operator or
+   * by explicite breaks) will be considered. This is useful for
+   * e.g. code generators which generally construct formats as output,
+   * but depending on options need not always to produce user-readable
+   * output.
+   */
+  public abstract void dumpText(PrintWriter writer);
+
+
+
+  // THE FORMAT TYPE INTERFACE
+
+  /** For implementation purpose of formats only. <p>
+   * @return the nesting of this Format (default nesting is 0)
+   * The nesting of a Format is the number of spaces that are added to
+   * the current indentation when printing the Format.	*/
+  public int nesting() {
+    return 0;
+  }
+
+  /** For implementation purpose of formats only. <p>
+   * @return the maximal width the Text of the Format would take
+   * if there were no limited width to be considered.
+   * The indentation of the Format is ignored.
+   */
+  public abstract int maxWidth();
+
+  /** For implementation purpose of formats only. <p>
+   * @return the minimal width needed to print out the Format
+   * Obviously this is the width of the longest basic Format in compound
+   * Formats.
+   */
+  public abstract int minWidth();
+
+  /** For implementation purpose of formats only. <p>
+   * @return the minimal height needed to print out the Format
+   * Basically, this is one more than the number of newlines the Format
+   * contains.
+   */
+  public abstract int minHeight();
+
+  /** For implementation purpose of formats only. <p>
+   * @return the maximal width the last line of the Text of the Format could
+   * take.
+   */
+  public abstract int maxLastWidth();
+
+  /** For implementation purpose of formats only. <p>
+   * @return the minimal width needed by the last line of the Text of the
+   * Format.
+   */
+  public abstract int minLastWidth();
+
+  // This function has to be implemented by all non-abstract Format subclasses
+  /** For implementation purpose of formats only. <p>
+   * Every one of the concrete Format classes implements its own
+   * version of this method so that different output behaviours are
+   * achieved.
+   *
+   * @param indentation the indentation that is to be used for lines of
+   * the Format (which is only used at the beginning of new lines)
+   * @param stream the FormatStream on which the Format shall be printed
+   * @param width the maximal width the printed Text of the Format may take
+   * @param lastWidth the maximal width the last line of the Text of the
+   * Format may take.
+   *
+   * @return a TextRectangle containing actual width, height and lastWidth
+   * the printed Text did take.	 */
+  public abstract TextRectangle printTextBeside(int indentation,
+						   FormatStream stream,
+						   int width,
+						   int lastWidth);
+
+
+  /** For implementation purpose of formats only. <p>
+   * Append the Format onto the given stream to the current line after the
+   * given indentation.
+   * This method is used for Formats that fit into the rest of the line, only.
+   * Thus, this has to be assured before calling the method.
+   *
+   * @return the width used for printing the format
+   */
+  public abstract int appendText(int indentation, FormatStream stream);
+
+  // a shortcut if we already know that width == lastWidth
+  public TextRectangle printTextBeside(int indentation, FormatStream stream,
+					  int width) {
+    return printTextBeside(indentation,stream,width,width);
+  }
+
+  /** For implementation purpose of formats only. <p>
+   * This method assumes that the Format shall be printed in a new line.
+   *
+   * @return the TextRectangle returned reflects only the rectangle
+   * taken up by the text to the right of the given indentation.
+   *
+   * @see Format#printTextBeside
+   */
+  public TextRectangle printText(int indentation, FormatStream stream,
+				 int width, int lastWidth) {
+    int nesting = nesting();
+
+    return
+      printTextBeside(indentation+nesting,stream,
+		      width-nesting,lastWidth-nesting).nested(nesting);
+  }
+
+}

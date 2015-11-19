@@ -1,0 +1,309 @@
+package zeta.tools.sh;
+
+/**
+ * The batch commander.
+ *
+ * @version $Id: BatchCommander.pizza,v 1.8 2000/05/11 09:24:57 wg Exp $
+ */
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.util.*;
+import zeta.form.*;
+import zeta.session.*;
+
+import java.io.*;
+
+
+public class BatchCommander implements Shell {
+
+  // FIELDS
+
+  /**
+   * The shell state.
+   */
+  private ShellState state;
+
+  /**
+   * The current (joined) form.
+   */
+  private Form joinedForm;
+
+  /**
+   * The prompt
+   */
+  private static String prompt = System.getProperty("zeta.sh.prompt", "? ");
+
+  
+  /**
+   * The command line prompt writer.
+   */
+  private PrintWriter promptWriter;
+
+  /**
+   * The debug  writer.
+   */
+  private PrintWriter debugWriter;
+
+  /**
+   * The command line reader.
+   */
+  private BufferedReader commandReader;
+
+
+  // INITIALIAZATION
+
+  public static void main(String[] files){
+
+    if (System.getProperty("zeta.home") == null) {
+      System.err.println("ZETA initialization error: property `zeta.home' not defined.");
+      return;
+    }
+
+    String project = "ZETA";
+
+    PrintWriter promptWriter = 
+      new PrintWriter(new OutputStreamWriter(System.out));
+    PrintWriter debugWriter = 
+      new PrintWriter(new OutputStreamWriter(System.err));
+
+    // Open or create session
+    Session session;
+    boolean created;
+    try {
+      session = SessionManager.open(project);
+      created = false;
+    }
+    catch (Failures.NoSuchEntity e){
+      session = SessionManager.create(project);
+      created = true;
+    }
+
+    try {
+
+      // Setup basic print message receiver
+      DebugWriter.setReceiver(session);
+      VerboseWriter.setReceiver(session);
+      session.registerListener(
+	null,
+	new MessagePrinter(
+	      System.getProperty("zeta.debug") != null ?
+	      debugWriter : null,
+	      promptWriter
+	      // new PrintWriter(new OutputStreamWriter(System.err)) : null,
+	      // new PrintWriter(new OutputStreamWriter(System.out))
+	    )
+      );
+
+      // Setup shell state
+      ShellState state = new ShellState(session);
+      state.interpreter = new CommandInterpreter(state);
+
+      // Create batch commander
+      BatchCommander commander = 
+	new BatchCommander(files, state, created, promptWriter, debugWriter);
+
+      // Enter command loop
+      commander.commandLoop();
+    }
+    catch (Exception e){
+      session.abort(e);
+    }
+  }
+
+  /**
+   * Construct a batch commander
+   */
+  private BatchCommander(String[] files,
+			 final ShellState state, boolean created,
+			 PrintWriter promptWriter,
+			 PrintWriter debugWriter){
+    this.state = state;
+    this.joinedForm = new ChoiceForm(state.session.getForms());
+    this.promptWriter = promptWriter;
+    this.debugWriter = debugWriter;
+    this.commandReader = 
+      new BufferedReader(new InputStreamReader(System.in));
+
+    // intialize session
+    state.session.registerShell(this);
+    ShellForms.registerPre(state);
+    ShellForms.registerPost(state);
+    state.session.registerForm(dummyGuiConfigForm);
+    state.session.registerForm(defaultForm);
+
+    state.session.initialize();
+
+    if (true || created){
+      // Source configuration scripts
+      try {
+	state.interpreter.readAndEvalConfigScripts();
+      }
+      catch (Failures.FormFailed e){}
+      this.joinedForm = new ChoiceForm(state.session.getForms());
+      
+      // load files
+      for (int i = 0; i < files.length; i++){
+	try {
+	  state.interpreter.readAndEval(this.joinedForm,
+					"<parameter line>",
+					"load " + files[i]);
+	} catch (Failures.FormFailed e){}
+      }
+
+    }
+
+
+  }
+
+  /**
+   * Implementation of shell method.
+   */
+  public void notifyFormRegister(TopLevelForm form){
+    joinedForm = new ChoiceForm(state.session.getForms());
+  }
+
+  /**
+   * Implementation of shell method.
+   */
+  public void notifyFormUnregister(TopLevelForm form){
+    joinedForm = new ChoiceForm(state.session.getForms());
+  }
+
+  /**
+   * Command loop
+   */
+  private void commandLoop(){
+    Thread prompter = 
+      new Thread(){
+	public void run(){
+	  do {
+	    synchronized (state){
+	      promptWriter.print(prompt);
+	      promptWriter.flush();
+	      try {
+		state.wait();
+	      } catch (InterruptedException e){}
+	    }
+	  } while (true);
+	}
+      };
+    prompter.start();
+    do {
+      try {
+	exec1(prompt, joinedForm);
+      }
+      catch (Failures.FormFailed e){
+	// error reported elsewhere
+      }
+    }
+    while (true);
+  }
+
+  /**
+   * Implementation of shell method.
+   */
+  public void exec(String prompt, TopLevelForm form) 
+  throws Failures.FormFailed {
+    exec1(prompt, form);
+  }
+
+  public void exec1(String prompt, final Form form) 
+  throws Failures.FormFailed {
+    Pair<String[],Locator> p = state.interpreter.read(
+				 "<command input>", commandReader
+			       );
+    if (p != null)
+      state.doEval(form, p.snd, p.fst);
+    else
+      state.session.abort();
+  }
+
+  
+  // we need a second RC which is read only in GUI mode ... until then
+  // cut&paste from GuiCommander
+  private OptionForm.State logProgressState = new OptionForm.State(true);
+  private OptionForm.State collapsePreviousState = new OptionForm.State(true);
+  private StringForm.State registerProgState = new StringForm.State("");
+  private StringForm.State visitProgState = new StringForm.State("");
+  private StringForm.State clearProgState = new StringForm.State("");
+  private TopLevelForm dummyGuiConfigForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Config().setModal(true),
+      new SeqForm(
+	    new LiteralForm("gui-config").describe("Configure Commander"), 
+	    new SeqForm(
+		  new OptionForm(logProgressState, 
+				 new LiteralForm("-progress")
+					.describe("Log progress messages")),
+		  new OptionForm(collapsePreviousState,
+				 new LiteralForm("-collapse")
+			      .describe("Collapse previous transactions"))
+		).style(Form.Style.HORIZONTAL),
+	    new SeqForm(
+		  new StringForm(registerProgState)
+				.describe("Register"),
+		  new StringForm(visitProgState)
+				.describe("Visit"),
+		  new StringForm(clearProgState)
+				.describe("Clear")
+		).style(Form.Style.VERTICAL)
+		       .style(new Form.Style.Border(
+				    "File locator visiting programs"))
+	  ).style(Form.Style.VERTICAL),
+      "Configure GUI (disabled)",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+      }
+    );
+
+
+  // a form to get and set ZETA's means of a default unit
+  ChoiceForm.State getOrSet = new ChoiceForm.State(0);
+  private TopLevelForm defaultForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Function().setModal(false),
+      new SeqForm(
+	    new LiteralForm("default").describe("Get/Set default unit"),
+	    new ChoiceForm(getOrSet,
+			   new LiteralForm("-get"),
+			   UnitForm.defaultForm)
+	  ),
+      "Get/Set default unit",
+      fun (Session session, Locator locator) 
+      throws Failures.FormFailed ->void {
+	if (getOrSet.selection == 0){
+	  if (UnitForm.defaultState.unit == null){
+	    session.send(
+	      locator.getTool(),
+	      new Diag(locator,
+		       Diag.Category.Error,
+		       "no default unit defined")
+	    );
+	    throw new Failures.FormFailed("default");
+	  } else
+	    session.send(
+	      locator.getTool(),
+	      new ResultMessage(
+		    UnitForm.defaultState.unit.getName().toFormat(
+		      new FormatInfo())
+		  )
+	    );
+	} else {
+	  if (UnitForm.defaultState.unit == null){
+	    session.send(
+	      locator.getTool(),
+	      new Diag(locator,
+		       Diag.Category.Error,
+		       "unit required for new default")
+	    );
+	    throw new Failures.FormFailed("default");
+	  } else {
+	    // the default IS the UnitForm.defaultState
+	  }
+	}
+      }
+    );
+	    
+}

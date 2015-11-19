@@ -1,0 +1,303 @@
+/*****************************************************************************
+ * HOL-Z --- a shallow embedding of Z into Isabelle/HOL
+ *             http://projects.brucker.ch/hol-z/
+ *                                                                            
+ * HOLZAdaptor.pizza ---
+ * This file is part of HOL-Z.
+ *
+ * Copyright (c) 2000-2003, University Freiburg, Germany
+ *
+ * HOL-Z is free software; you can redistribute it and/or modify it under   
+ * the terms of the GNU General Public License as published by the Free       
+ * Software Foundation; either version 2 of the License, or (at your option)  
+ * any later version.                                                         
+ *                                                                            
+ * HOL-Z is distributed in the hope that it will be useful, but WITHOUT ANY 
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+ * FOR A PARTICULAR PURPOSE. See the GNU General Public License for more 
+ * details.                                                              
+ *                                                                            
+ * You should have received a copy of the GNU General Public License along    
+ * with this program; if not, write to the Free Software Foundation, Inc.,    
+ * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.                  
+ ******************************************************************************/
+/* $Id: HOLZAdaptor.pizza 6729 2007-08-03 05:25:17Z brucker $ */
+
+/** 
+ * The HOL-Z adaptor.
+ *
+ * @author Frank Rittinger <frittinger@acm.org>
+ */
+
+import java.util.Date;
+import java.util.Vector;
+import java.util.Enumeration;
+import java.util.StringTokenizer;
+import java.io.*;
+
+import pizza.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.zirp.*;
+import zeta.content.text.*;
+
+import zeta.tools.util.*;
+
+public class HOLZAdaptor extends DefaultAdaptor {
+
+    private int mode = HOLZSection.MULTIMODE;
+    
+    // CONSTANTS
+    private static final String VERSION = "v1.0";
+    /*
+     * The startup message of this adaptor.
+     */
+    private static final String startupMessage = 
+	"installed HOL-Z adaptor "+VERSION;
+    
+    /**
+     * Whether we should issue timing messages.
+     */
+    private static final boolean timing = 
+	System.getProperty("zeta.debug.timing") != null;
+    
+    /**
+     * The name of this adaptor.
+     */
+    private static final Name toolName = new Name("HOL-Z");
+    
+    /**
+     * A locator associated with this adaptor.
+     */
+    private Locator toolLocator = new ToolLocator("<holz-z-converter>");
+
+    public static class ToolLocator extends Locator {
+	public case ToolLocator(String msg);
+	public Format toFormat(FormatInfo info){
+	    return Format.literal(msg);
+	}
+	public Name getTool(){
+	    return toolName;
+	}
+    }
+
+    // ADAPTOR INITIALIZATION
+    
+    /**
+     * Return the name of this adaptor.
+     */
+    public Name getName(){
+	return toolName;
+    }
+    
+    /** 
+     * Initialize a newly created instance of this adaptor.
+     */
+    public void initialize(Session session, StorageHandle handle) {
+	super.initialize(session, handle);
+	this.session = session;
+	sendProgress(startupMessage);
+	session.registerContentType(HOLZContentTypes.holzSection);
+	session.registerForm(prettyForm);
+    }
+    
+    // ADAPTOR METHODS
+    
+    /** 
+     * Return the content types which this adaptor can generally
+     * compute.
+     */
+    public ContentType[] computedTypes() {
+	return new ContentType[]{ HOLZContentTypes.holzSection };
+    }
+    
+    /** Always throws. */
+    public Unit lookupUnit(Name name)
+	throws Failures.UnresolvableName {
+	throw new Failures.UnresolvableName(name);
+    }
+    
+    /**
+     * Run the adaptor to compute the specified content.  
+     */
+    public void tryCompute(Target target)
+	throws Failures.ComputationFailed, Failures.CannotCompute {
+	
+	Set<Target> deps = new HashSet();
+	
+	// query def and env of this unit
+	UnitAbsy absy = 
+	    (UnitAbsy)target.unit.query(ZirpContentTypes.checkedAbsy);
+	UnitEnv env = 
+	    (UnitEnv)target.unit.query(ZirpContentTypes.checkedEnv);
+	deps = 
+	    deps.include(new Target(target.unit, ZirpContentTypes.checkedAbsy))
+	    .include(new Target(target.unit, ZirpContentTypes.checkedEnv));
+	
+	// get the name of the unit without annotations
+	String unitName = stripName(target.unit.getName().getRepr());
+
+	// We do not export a unit with name "Prelude"!
+	if (unitName.equals("Prelude")) {
+	    System.err.println("\n### Section \"Prelude\" cannot be exported! \n");
+	    throw new Failures.CannotCompute(target);
+	}
+
+	try {
+	    Date definedAt = new Date();
+
+	    System.err.println("Exporting unit: "+unitName);
+
+	    unitName = exportHOLZ(session, absy);
+		//	    Vector holz = new HOLZExporter(session,mode).exportHOLZ(absy);
+	    target.unit.define(target.type,
+			       unitName,
+			       false,
+			       definedAt,
+			       deps.toArray(Target.class),
+			       this);
+	} catch (NotSupported e) {
+	    System.err.println("\nConstruct " + e + " not supported.\n");
+	    throw new Failures.ComputationFailed(target);
+	} catch (IOException e) {
+	    System.err.println("\nCannot write file"+unitName+".holz\n");
+	    throw new Failures.ComputationFailed(target);
+	}
+    }
+    
+    /** */
+    public boolean isUptodate(Target spec, Date definedAt){
+	return true;
+    }
+    
+    /** */
+    public boolean notifyOutdate(Target spec, Date definedAt,
+				 StorageHandle handle){
+	return false;
+    }
+    
+    /** */
+    public void checkExternalData(){
+    }
+    
+    /** */
+    public void flush(){
+    }
+    
+    // COMMANDS
+    private OptionForm.State modeState = new OptionForm.State(false);
+    private ChoiceForm.State secMode = 
+	new ChoiceForm.State(HOLZSection.MULTIMODE);
+    
+    private final OptionForm.State fileOption = new OptionForm.State(false);
+    private final TopLevelForm prettyForm = TopLevelForm.make(
+        TopLevelForm.Style.Function().setModal(true),
+	new SeqForm(new LiteralForm("holz").describe("Export HOL-Z syntax"),
+		    new UnitForm().style(Form.Style.INVISIBLE),
+		    new OptionForm(modeState, 
+				   new LiteralForm("-s").
+				   describe("Single Section",
+					    "export this section only"))
+		    ),
+	"Export HOL-Z syntax",
+	fun (Session session, Locator locator) 	
+	throws Failures.FormFailed -> void {
+	    
+	    if (!modeState.selected) {
+		mode = HOLZSection.MULTIMODE;
+	    } else {
+		mode = HOLZSection.SINGLEMODE;
+	    }
+
+	    System.err.println("###  Exporting " 
+			       + HOLZSection.toString(mode) + ".\n");
+	    Object res;
+
+	    try {
+		res = 
+		    SessionUtil.query(session,
+				      locator,
+				      new Target(UnitForm.defaultState.unit,
+						 HOLZContentTypes.holzSection));
+		if (res == null){
+		    // errors occured (which have already been reported)
+		    throw new Failures.FormFailed("ExportHOLZ");
+		}
+	    } catch (IOException e){
+		session.send(toolName,
+			     new Diag(locator,
+				      Diag.Category.Error, 
+				      Format.literal("Could not write holz file.")));
+		throw new Failures.FormFailed("ExportHOLZ");
+	    }
+	});
+
+
+
+    private String exportHOLZ(Session session, UnitAbsy unit) 
+	throws IOException, NotSupported {
+	String unitName = "";
+	Vector v = new Vector();
+	
+	switch (unit) {
+	case ClassDef(Name name, Name[] parents, Name[] formals, Item[] items):
+	    throw new NotSupported("ClassDef");
+	case Section(Name name, Name[] parents, Item[] items):
+	    unitName = stripName(name.getRepr());
+				 
+	    if (mode == HOLZSection.MULTIMODE) {
+		/* Recursively export parent sections.
+		 * Additionally ignore the Toolkit and a special section called
+		 * "Prelude".
+		 */
+		for (int i = parents.length - 1; i > -1 ; i--) {
+		    if (!parents[i].toString().equals("LTX:Toolkit#Toolkit") &&
+			!parents[i].toString().startsWith("LTX:Prelude#")) {
+			try {
+			    String parentName = (String)
+				session.lookupUnit(parents[i])
+				.query(HOLZContentTypes.holzSection);
+			} catch (Exception e) {
+			    System.err.println("###A: "+e);
+			}
+		    }
+		}
+	    }
+	    
+	    // export the current unit
+	    writeHOLZ((unitName), 
+		      new HOLZExporter(session).export(unit));
+	}
+	return unitName;
+    }
+
+    private void writeHOLZ(String file, Vector vec) throws IOException {
+	
+	PrintWriter writer = new PrintWriter(new FileWriter(file+".holz"));
+
+	writer.print("(* Created by ZETA HOL-Z adaptor "+VERSION+" *)\n\n");
+	Enumeration e = vec.elements();
+	
+	if (e.hasMoreElements()) {
+	    writer.print(e.nextElement());
+	    while (e.hasMoreElements()) {
+		writer.print(",\n" + e.nextElement());
+	    }
+	}
+	writer.close();
+    }
+
+    private String stripName(String name) {
+	StringTokenizer st = new StringTokenizer(name, ":#");
+	
+	// get the second token; the format must be LTX:<name>#file.
+	st.nextToken();
+	return st.nextToken();
+    }
+
+}

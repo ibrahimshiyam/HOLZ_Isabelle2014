@@ -1,0 +1,284 @@
+package zeta.tools.zparser;
+
+/** The token pre-processor. Handles expansion of macros and
+  * offside rules.
+  *
+  * @version $Id: Preprocessor.pizza,v 1.3 1999/01/06 11:43:44 wg Exp $
+  */
+
+import java.util.Vector;
+
+import zeta.agl.*;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.Name;
+import zeta.session.*;
+import zeta.content.text.*;
+import zeta.content.zirp.UnitEnv;
+
+class Preprocessor {
+
+  /** The concrete language configuration. */
+  private Config config;
+
+  /** The unit environment. */
+  private UnitEnv unitEnv;
+
+  /** Diagnostics produced during pre-processing. */
+  private Diag diag = new Diag();
+
+  /** The output buffer. */
+  private Vector output = new Vector(1024);
+
+  /** The token waiting to be put into the output buffer. */
+  private Text.ZedToken last;
+
+  /** The lexical info about the last token, if any. */
+  private UnitEnv.LexemInfo lastInfo;
+
+
+  /** If the last token is a line-separator token. */
+  private boolean lastIsLinesep;
+
+  /** Create a new preprocessor, working on the given concrete language
+    * configuration. */
+  Preprocessor(Config config, UnitEnv unitEnv){
+    this.config = config;
+    this.unitEnv = unitEnv;
+  }
+
+  /** Run the preprocessor on the given sequence of texts,
+    * producing a sequence of Z token texts. */
+  Text.ZedToken[] run(Text[] texts){
+    last = null;
+    lastIsLinesep = false;
+    lastInfo = null;
+    process(new HashSet(), new HashMap(), texts);
+    if (last != null){
+      output.addElement(last);
+    }
+    Text.ZedToken[] result = new Text.ZedToken[output.size()];
+    output.copyInto(result);
+    output.removeAllElements(); 
+    last = null;
+    return result;
+  }
+
+  /** Return and clear diagnostics produced by preprocessor. The diagnostics
+    * are accumlated over several runs. */
+  Diag getAndClearDiag(){
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+  /** Output a Z token, thereby processing offside
+    * rules. */
+  private void put(Text.ZedToken token, UnitEnv.LexemInfo info){
+    switch (token.lexem){
+    case Linesep:
+      if (lastIsLinesep){
+	// last token already line separator, ignore this one
+      } else 
+	if (last != null && 
+	    (lastInfo == null && config.isRightOffside(last.lexem) ||
+	     lastInfo != null && lastInfo.rightOffside)){
+	  // last token puts this line separator offside, ignore this one
+	}
+	else {
+	  // shift
+	  if (last != null) output.addElement(last);
+	  last = token;
+	  lastIsLinesep = true;
+	  lastInfo = null;
+	}
+      break;
+    default:
+      if (lastIsLinesep && 
+	  (info == null && config.isLeftOffside(token.lexem) ||
+	   info != null && info.leftOffside)){
+	// this token puts the last line separator offside, overwrite it
+	last = token;
+	lastIsLinesep = false;
+	lastInfo = info;
+      } else {
+	// shift
+	if (last != null) output.addElement(last);
+	last = token;
+	lastIsLinesep = false;
+	lastInfo = info;
+      }
+      break;
+    }
+  }
+
+  private int recCount = 0;
+  private static int MAXREC = 2048;
+
+  /** Process texts, doing macro expansion and lexem substitution */
+  private void process(Set<Name> expanded, 
+		       Map<int,Text[]> subs,
+		       Text[] texts){
+    int i = 0;
+    while (i < texts.length){
+      switch(texts[i]){
+      case Text.DocMarkup(_, _, Text[] subtexts):
+	// recursively process
+	process(expanded, subs, subtexts);
+	i++;
+	break;
+      case Text.ZedToken(Lexem lexem):
+	Text.ZedToken token;
+	UnitEnv.LexemInfo info = unitEnv.getLexemInfo(lexem);
+	if (info != null){
+	  lexem = info.rewritten;
+	  token = new Text.ZedToken(lexem);
+	  token.locator = texts[i].locator;
+	} else 
+	  token = (Text.ZedToken)texts[i];
+	switch (lexem){
+	case SimpleName(Name name):
+	  UnitEnv.MacroInfo mac = unitEnv.getMacro(name);
+	  if (mac != null){
+	    if (recCount < MAXREC){
+	      // expand macro
+	      recCount++;
+	      i = expand(expanded.include(name), 
+			 (Text.ZedToken)texts[i], mac, i+1, texts);
+	      recCount--;
+	    } else {
+	      diag = diag.add(texts[i].locator,
+			      Diag.Category.Warning,
+			      "expansion of macro `" +
+			      name +
+			      "' exceeds recursion limit");
+	      i++;
+	    }
+	  } else {
+	    put(token, info);
+	    i++;
+	  }
+	  break;
+	case MacroArg(String image):
+	  int argn;
+	  try {
+	    argn = Integer.parseInt(image.substring(1));
+	  }
+	  catch (NumberFormatException e){
+	    throw new Error(e.getMessage());
+	  }
+	  if (subs.defines(argn)){
+	    // process argument substitution
+	    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	    // FIXME: need outer substitution here !!!!!!!!!!!!!!!!
+	    // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	    process(expanded, new HashMap(), subs.get(argn));
+	    i++;
+	  } else {
+	    // ignore (error reported elsewhere)
+	    i++;
+	  }
+	  break;
+	default:
+	  put(token, info);
+	  i++;
+	}
+	break;
+      default:
+	// ignore other variants
+	i++;
+      }
+    }
+  }
+
+    
+
+  /** Expand macro. */
+  private int expand(Set<Name> expanded,
+		     Text.ZedToken token,
+		     UnitEnv.MacroInfo mac, 
+		     int i,
+		     Text[] texts){
+    Map<int,Text[]> subs = new HashMap();
+    for (int argc = 0; argc < mac.argc; argc++){
+      Pair<Seq<Text>, int> argAndRest = scanArg(token, texts, i);
+      subs = subs.define(argc+1, argAndRest.fst.toArray(Text.class));
+      i = argAndRest.snd;
+    }
+    Text[] def = new Text[mac.subs.length];
+    for (int k = 0; k < def.length; k++){
+      def[k] = new Text.ZedToken(mac.subs[k]);
+      def[k].locator = token.locator;
+    }
+    process(expanded, subs, def);
+    return i;
+  }
+
+  /** Scan macro argument. */
+  private Pair<Seq<Text>, int> scanArg(Text start,
+				       Text[] texts, int i){
+    if (i < texts.length){
+      switch (texts[i]){
+      case Text.ZedToken(Lexem lexem):
+	switch (lexem){
+	case Lgroup:
+	  Pair<Seq<Text>, int> res = scanArgGroup(texts[i], texts, i+1);
+	  if (res.snd < texts.length){
+	    res.snd = res.snd + 1;
+	  }
+	  return res;
+	default:
+	  return new Pair((Seq)new ArraySeq(texts[i]), i+1);
+	}
+      default:
+	return new Pair((Seq)new ArraySeq(texts[i]), i+1);
+      }
+    } else {
+      diag = diag.add(start.locator,
+		      Diag.Category.Error,
+		      "missing arguments for macro");
+      return new Pair((Seq)new ArraySeq(), i);
+    }
+  }
+
+  /** Scan macro argument group. */
+  private Pair<Seq<Text>, int> scanArgGroup(Text start,
+					    Text[] texts, int i){
+    Seq<Text> arg = new BufferSeq();
+    while (i < texts.length){
+      switch (texts[i]){
+      case Text.ZedToken(Lexem lexem):
+	switch (lexem){
+	case Lgroup:
+	  arg = arg.append(texts[i]);
+	  Pair<Seq<Text>, int> res = scanArgGroup(texts[i], texts, i+1);
+	  i = res.snd;
+	  arg = arg.appendAll(res.fst);
+	  if (i < texts.length){
+	    arg = arg.append(texts[i]);
+	    i++;
+	  };
+	  break;
+	case Rgroup:
+	  return new Pair(arg, i);
+	default:
+	  arg = arg.append(texts[i]);
+	  i++;
+	  break;
+	}
+	break;
+      default:
+	arg = arg.append(texts[i]);
+	i++;
+	break;
+      }
+    }
+    diag = diag.add(start.locator,
+		    Diag.Category.Error,
+		    "unclosed macro argument group");
+    return new Pair(arg, i);
+  }
+
+}
+

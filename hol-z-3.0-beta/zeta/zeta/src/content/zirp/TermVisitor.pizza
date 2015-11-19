@@ -1,0 +1,1317 @@
+package zeta.content.zirp;
+
+/** 
+ * A class for visiting expression and predicate terms of the ZIRP
+ * abstract syntax. <p>
+ *
+ * For each term class (including Pizza cases) a visitor method is
+ * provided by this class. A visitor returns either null, indicating
+ * that no term rewriting has taken place, or a new term, giving the
+ * rewritten term. The default implementation of the visitor methods
+ * visits subterms of a given term, and reconstruct the term if
+ * subterms have been changed. <p>
+ *
+ * Here is, for example, a visitor which substitutes variables in
+ * expressions:
+ *
+ * <pre>
+ * class Substitutor extends TermVisitor {
+ *   Map&lt;Name,Expr&gt; theSubs;
+ *   Expr visit(Expr.Variable var){
+ *     if (theSubs.defines(var.name.name))
+ *       return subs.get(var.name.name);
+ *     else 
+ *       return super.visit(var); // DEFAULT TREATMENT (substitute actuals)
+ *   }
+ * }
+ * </pre>
+ *
+ * As another example, here is a visitor which just samples
+ * information, and doesn't changes the term:
+ *
+ * <pre>
+ * class FreeVarSampler extends TermVisitor {
+ *   Set&lt;Name&gt; free;      // the free variables
+ *   Set&lt;Name&gt; bounded;   // currently locally bounded variables
+ *   Expr visit(Expr.Variable var){
+ *     if (!bounded.contains(var.name.name))
+ *       free = free.include(var.name.name);
+ *     return null; 
+ *   }
+ *   Expr visit(Expr.Quantor quant){
+ *     visit(quant.matrix);
+ *     Set&lt;Name&gt; savedBounded = bounded;
+ *     bounded = bounded.includeAll(declaredVariables(quant.matrix));
+ *     visit(quant.range);
+ *     bounded = savedBounded;
+ *     return null;
+ *   }
+ *   Expr visit(Predicate.Quantor quant){
+ *     ...
+ *   }
+ * }
+ * </pre>
+ *
+ *
+ * @version $Id: TermVisitor.pizza,v 1.7 2000/07/06 09:18:24 wg Exp $ 
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import zeta.util.*;
+
+
+public abstract class TermVisitor {
+
+  // CONFIGURATION
+
+  /**
+   * A boolean flag which indicates that this visitor doesn't rewrites
+   * terms, that is always returns null. If set, speeds up some of the
+   * default visitor implementations.  
+   */
+  protected boolean dontRewrites = false;
+
+  
+
+  // ANNOTATIONS
+
+  /**
+   * Visit annotation, doing some side-effect on annotation.
+   * Does nothing by default.
+   */
+  public void visit(Annotation an){
+    return;
+  }
+
+  // NAMES
+
+  public Name visit(Name name) {
+    return null;
+  }
+
+  // NAME APPLICATIONS
+
+  /**
+   * Visit name application. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public NameAppl visit(NameAppl nappl){
+    Name newName = visit(nappl.name);
+    Expr[] newActs = visit(nappl.actuals);
+    visit(nappl.an);
+    if (newName != null || newActs != null){
+      NameAppl newnappl = new NameAppl(
+        newName != null ? newName : nappl.name,
+	newActs != null ? newActs : nappl.actuals);
+      nappl.an.copyInto(newnappl.an);
+      return newnappl;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit an array of name applications.
+   */
+  public NameAppl[] visit(NameAppl[] nappls) {
+    NameAppl[] n_nappls = new NameAppl[nappls.length];
+    boolean changed = false;
+    for(int i = 0; i < nappls.length; i++) {
+      n_nappls[i] = nappls[i];
+      if(n_nappls[i] == null)
+	n_nappls[i] = nappls[i];
+      else
+	changed = true;
+    }
+    if(changed) return n_nappls; else return null;
+  }
+    
+
+
+  // NAME DECLARATIONS
+
+  /**
+   * Visit name declarations.
+   */
+  public NameDecl visit(NameDecl ndecl) {
+    Name newName = visit(ndecl.name);
+    visit(ndecl.an);
+    if(newName != null) {
+      NameDecl newdecl = new NameDecl(newName);
+      ndecl.an.copyInto(newdecl.an);
+      return  newdecl;
+    }
+    return null;
+  }
+
+  /**
+   * Visit an array of name declarations.
+   */
+  public NameDecl[] visit(NameDecl[] ndecls) {
+    NameDecl[] n_ndecls = new NameDecl[ndecls.length];
+    boolean changed = false;
+    for(int i = 0; i < ndecls.length; i++) {
+      n_ndecls[i] = visit(ndecls[i]);
+      if(n_ndecls[i] == null)
+	n_ndecls[i] = ndecls[i];
+      else
+	changed = true;
+    }
+    if(changed) return n_ndecls; else return null;
+  }
+    
+
+
+  // EXPRESSIONS
+
+  /**
+   * Visit number literal. 
+   * By default, visits annotation.
+   */
+  public Expr visit(Expr.Number expr){
+    visit(expr.an);
+    return null;
+  }
+
+  /**
+   * Visit denotation literal. 
+   * By default, visits annotation.
+   */
+  public Expr visit(Expr.Denotation expr){
+    visit(expr.an);
+    return null;
+  }
+  
+  /**
+   * Visit variable. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Variable expr){
+    NameAppl nappl = visit(expr.name);
+    visit(expr.an);
+    if (nappl != null){
+      Expr newExpr = Expr.Variable(nappl);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit tuple. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Tuple expr){
+    Expr[] newExprs = visit(expr.elements);
+    visit(expr.an);
+    if (newExprs != null){
+      Expr newExpr = Expr.Tuple(newExprs);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit product. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Product expr){
+    Expr[] newExprs = visit(expr.elements);
+    visit(expr.an);
+    if (newExprs != null){
+      Expr newExpr = Expr.Product(newExprs);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit binding. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Binding expr){
+    // treatment not regular, since Expr.Decl.Eqn[] appears in the absy ...
+    if (dontRewrites){
+      for (int i = 0; i < expr.bindings.length; i++){
+	visit(expr.bindings[i].def);
+      }
+      visit(expr.an);
+      return null;
+    } else {
+      Expr.Decl.Eqn[] newBindings = new Expr.Decl.Eqn[expr.bindings.length];
+      boolean change = false;
+      for (int i = 0; i < expr.bindings.length; i++){
+	newBindings[i] = new Expr.Decl.Eqn(expr.bindings[i].name,
+					   visit(expr.bindings[i].def));
+	expr.bindings[i].an.copyInto(newBindings[i].an);
+	if (newBindings[i].def == null)
+	  newBindings[i].def = expr.bindings[i].def;
+	else
+	  change = true;
+      }
+      visit(expr.an);
+      if (change){
+	Expr newExpr = Expr.Binding(newBindings);
+	expr.an.copyInto(newExpr.an);
+	return newExpr;
+      } else
+	return null;
+    }
+  }
+  
+  /**
+   * Visit signature. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Signature expr){
+    Expr[] newExprs = visit(expr.types);
+    visit(expr.an);
+    if (newExprs != null){
+      Expr newExpr = Expr.Signature(expr.names, newExprs);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit unification variable. 
+   * By default, visits annotation and operand (if bound), and reconstructs
+   * the term if the operand has changed.
+   */
+  public Expr visit(Expr.UniVar expr){
+    if (expr.oper != null){
+      Expr newOper = visit(expr.oper);
+      visit(expr.an);
+      if (newOper != null){
+	Expr newExpr = Expr.UniVar(expr.name, newOper);
+	expr.an.copyInto(newExpr.an);
+	return newExpr;
+      } else
+	return null;
+    } else {
+      visit(expr.an);
+      return null;
+    }
+  }
+  
+  /**
+   * Visit display. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Display expr){
+    Expr[] newExprs = visit(expr.elements);
+    visit(expr.an);
+    if (newExprs != null){
+      Expr newExpr = Expr.Display(newExprs);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit conditional. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Cond expr){
+    Predicate cond = visit(expr.cond);
+    Expr thenPath = visit(expr.thenPath);
+    Expr elsePath = visit(expr.elsePath);
+    visit(expr.an);
+    if (cond != null || thenPath != null || elsePath != null){
+      Expr newExpr = Expr.Cond(cond != null ? cond : expr.cond,
+			       thenPath != null ? thenPath : expr.thenPath,
+			       elsePath != null ? elsePath : expr.elsePath);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit quantor expression. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Quantor expr){
+    Expr matrix = visit(expr.matrix);
+    Expr range = visit(expr.range);
+    visit(expr.an);
+    if (matrix != null || range != null){
+      Expr newExpr = Expr.Quantor(expr.kind,
+				  matrix != null ? matrix : expr.matrix,
+				  range != null ? range : expr.range);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit binding selection.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Select expr){
+    Expr oper = visit(expr.oper);
+    NameAppl name = visit(expr.name);
+    visit(expr.an);
+    if (oper != null || name != null){
+      Expr newExpr = Expr.Select(oper != null ? oper : expr.oper,
+				 name != null ? name : expr.name);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit expression unary.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Unary expr){
+    Expr oper = visit(expr.oper);
+    visit(expr.an);
+    if (oper != null){
+      Expr newExpr = Expr.Unary(expr.kind, oper);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit expression binary.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Binary expr){
+    Expr left = visit(expr.left);
+    Expr right = visit(expr.right);
+    visit(expr.an);
+    if (left != null || right != null){
+      Expr newExpr = Expr.Binary(expr.kind, 
+				 left != null ? left : expr.left,
+				 right != null ? right : expr.right);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit schema text.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.Text expr){
+    Expr.Decl[] decls = visit(expr.decls);
+    Predicate[] prop = visit(expr.props);
+    visit(expr.an);
+    if (decls != null || prop != null){
+      Expr newExpr = Expr.Text(decls != null ? decls : expr.decls,
+			       prop != null ? prop : expr.props);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit given type.
+   * By default, visits annotation.
+   */
+  public Expr visit(Expr.GivenType expr){
+    NameDecl name = visit(expr.name);
+    visit(expr.an);
+    if(name != null) {
+      Expr newExpr = new Expr.GivenType(name);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+  
+  /**
+   * Visit free type.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr visit(Expr.FreeType expr){
+    NameDecl name = visit(expr.name);
+    Expr.Branch[] branches = visit(expr.branches);
+    visit(expr.an);
+    if (name != null || branches != null){
+      Expr newExpr = Expr.FreeType(name != null ? name : expr.name,
+				   branches != null
+				     ? branches : expr.branches);
+      expr.an.copyInto(newExpr.an);
+      return newExpr;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit some expression.
+   * Calls the visitor for the according expression subclass.
+   */
+  public Expr visit(Expr expr){
+    switch (expr) {
+    case Number(_):
+      return visit((Expr.Number)expr);
+    case Denotation(_):
+      return visit((Expr.Denotation)expr);
+    case Variable(_):
+      return visit((Expr.Variable)expr);
+    case Tuple(_):
+      return visit((Expr.Tuple)expr);
+    case Product(_):
+      return visit((Expr.Product)expr);
+    case Binding(_):
+      return visit((Expr.Binding)expr);
+    case Signature(_,_):
+      return visit((Expr.Signature)expr);
+    case UniVar(_,_):
+      return visit((Expr.UniVar)expr);
+    case Display(_):
+      return visit((Expr.Display)expr);
+    case Cond(_,_,_):
+      return visit((Expr.Cond)expr);
+    case Quantor(_,_,_):
+      return visit((Expr.Quantor)expr);
+    case Select(_,_):
+      return visit((Expr.Select)expr);
+    case Unary(_,_):
+      return visit((Expr.Unary)expr);
+    case Binary(_,_,_):
+      return visit((Expr.Binary)expr);
+    case Text(_,_):
+      return visit((Expr.Text)expr);
+    case GivenType(_):
+      return visit((Expr.GivenType)expr);
+    case FreeType(_,_):
+      return visit((Expr.FreeType)expr);
+    }
+  }
+  
+  /**
+   * Visit array of expressions.
+   * By default, visits elements, and reconstructs
+   * the array if some element is changed.
+   */
+  public Expr[] visit(Expr[] exprs){
+    if (dontRewrites){
+      for (int i = 0; i < exprs.length; i++){
+	visit(exprs[i]);
+      }
+      return null;
+    } else {
+      Expr[] newExprs = new Expr[exprs.length];
+      boolean change = false;
+      for (int i = 0; i < exprs.length; i++){
+	newExprs[i] = visit(exprs[i]);
+	if (newExprs[i] == null)
+	  newExprs[i] = exprs[i];
+	else
+	  change = true;
+      }
+      return change ? newExprs : null;
+    }
+  }
+	
+  
+  // DECLARATIONS
+
+  /**
+   * Visit direct declaration.
+   * By default, visits annotation and type expression, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr.Decl visit(Expr.Decl.Direct decl){
+    NameDecl[] names = visit(decl.names);
+    Expr type = visit(decl.type);
+    visit(decl.an);
+    if (names != null || type != null){
+      Expr.Decl newDecl = Expr.Decl.Direct(names != null ? names : decl.names,
+					   type != null ? type : decl.type);
+      decl.an.copyInto(newDecl.an);
+      return newDecl;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit equational declaration.
+   * By default, visits annotation and defining expression, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr.Decl visit(Expr.Decl.Eqn decl){
+    NameDecl name = visit(decl.name);
+    Expr def = visit(decl.def);
+    visit(decl.an);
+    if (name != null || def != null){
+      Expr.Decl newDecl = Expr.Decl.Eqn(name != null ? name : decl.name,
+					def != null ? def : decl.def);
+      decl.an.copyInto(newDecl.an);
+      return newDecl;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit inclusion declaration.
+   * By default, visits annotation and inclusion expression, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr.Decl visit(Expr.Decl.Inclusion decl){
+    Expr schema = visit(decl.schema);
+    visit(decl.an);
+    if (schema != null){
+      Expr.Decl newDecl = Expr.Decl.Inclusion(schema);
+      decl.an.copyInto(newDecl.an);
+      return newDecl;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit some declaration.
+   * Calls the visitor for the according declaration case.
+   */
+  public Expr.Decl visit(Expr.Decl decl){
+    switch (decl) {
+    case Direct(_,_):
+      return visit((Expr.Decl.Direct)decl);
+    case Eqn(_,_):
+      return visit((Expr.Decl.Eqn)decl);
+    case Inclusion(_):
+      return visit((Expr.Decl.Inclusion)decl);
+    }
+  }
+
+  /**
+   * Visit array of declarations.
+   * By default, visits elements, and reconstructs
+   * the array if some element is changed.
+   */
+  public Expr.Decl[] visit(Expr.Decl[] decls){
+    if (dontRewrites){
+      for (int i = 0; i < decls.length; i++){
+	visit(decls[i]);
+      }
+      return null;
+    } else {
+      Expr.Decl[] newDecls = new Expr.Decl[decls.length];
+      boolean change = false;
+      for (int i = 0; i < decls.length; i++){
+	newDecls[i] = visit(decls[i]);
+	if (newDecls[i] == null)
+	  newDecls[i] = decls[i];
+	else
+	  change = true;
+      }
+      return change ? newDecls : null;
+    }
+  }
+
+
+  // FREE TYPE BRANCHES
+
+  /**
+   * Visit constant branch.
+   * By default, visits annotation.
+   */
+  public Expr.Branch visit(Expr.Branch.Constant branch){ 
+    NameDecl name = visit(branch.name);
+    visit(branch.an);
+    if(name != null) {
+      Expr.Branch newBranch = new Expr.Branch.Constant(name);
+      branch.an.copyInto(newBranch.an);
+      return newBranch;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit function branch.
+   * By default, visits annotation and type expression, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Expr.Branch visit(Expr.Branch.Function branch){
+    NameDecl name = visit(branch.name);
+    Expr type = visit(branch.type);
+    visit(branch.an);
+    if (name != null || type != null){
+      Expr.Branch newBranch = Expr.Branch.Function(
+      	name != null ? name : branch.name,
+	type != null ? type : branch.type);
+      branch.an.copyInto(newBranch.an);
+      return newBranch;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit some branch.
+   * Calls the visitor for the according branch case.
+   */
+  public Expr.Branch visit(Expr.Branch branch){
+    switch (branch) {
+    case Constant(_):
+      return visit((Expr.Branch.Constant)branch);
+    case Function(_,_):
+      return visit((Expr.Branch.Function)branch);
+    }
+  }
+
+  /**
+   * Visit array of branches.
+   * By default, visits elements, and reconstructs
+   * the array if some element is changed.
+   */
+  public Expr.Branch[] visit(Expr.Branch[] branchs){
+    if (dontRewrites){
+      for (int i = 0; i < branchs.length; i++){
+	visit(branchs[i]);
+      }
+      return null;
+    } else {
+      Expr.Branch[] newBranchs = new Expr.Branch[branchs.length];
+      boolean change = false;
+      for (int i = 0; i < branchs.length; i++){
+	newBranchs[i] = visit(branchs[i]);
+	if (newBranchs[i] == null)
+	  newBranchs[i] = branchs[i];
+	else
+	  change = true;
+      }
+      return change ? newBranchs : null;
+    }
+  }
+
+	
+
+  // PREDICATES
+
+  /**
+   * Visit schema reference.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Predicate visit(Predicate.Schema pred){
+    Expr schema = visit(pred.schema);
+    visit(pred.an);
+    if (schema != null) {
+      Predicate newPred = Predicate.Schema(schema);
+      pred.an.copyInto(newPred.an);
+      return newPred;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit element test.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Predicate visit(Predicate.Test pred){
+    Expr elem = visit(pred.elem);
+    Expr set = visit(pred.set);
+    visit(pred.an);
+    if (elem != null || pred != null){
+      Predicate newPred = Predicate.Test(elem != null ? elem : pred.elem,
+					 set != null ? set : pred.set);
+      pred.an.copyInto(newPred.an);
+      return newPred;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit fact.
+   * By default, visits annotation.
+   */
+  public Predicate visit(Predicate.Fact pred){
+    visit(pred.an);
+    return null;
+  }
+
+  /**
+   * Visit predicate unary.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Predicate visit(Predicate.Unary pred){
+    Predicate oper = visit(pred.oper);
+    visit(pred.an);
+    if (oper != null){
+      Predicate newPred = Predicate.Unary(pred.kind, oper);
+      pred.an.copyInto(newPred.an);
+      return newPred;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit predicate binary.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Predicate visit(Predicate.Binary pred){
+    Predicate left = visit(pred.left);
+    Predicate right = visit(pred.right);
+    visit(pred.an);
+    if (left != null || right != null){
+      Predicate newPred = 
+	Predicate.Binary(pred.kind,
+			 left != null ? left : pred.left,
+			 right != null ? right : pred.right);
+      pred.an.copyInto(newPred.an);
+      return newPred;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit predicate quantor.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Predicate visit(Predicate.Quantor pred){
+    Expr matrix = visit(pred.matrix);
+    Predicate range = visit(pred.range);
+    visit(pred.an);
+    if (matrix != null || range != null){
+      Predicate newPred = 
+	Predicate.Quantor(pred.kind,
+			  matrix != null ? matrix : pred.matrix,
+			  range != null ? range : pred.range);
+      pred.an.copyInto(newPred.an);
+      return newPred;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit some predicate.
+   * Calls the visitor for the according predicate case.
+   */
+  public Predicate visit(Predicate pred){
+    switch (pred) {
+    case Schema(_):
+      return visit((Predicate.Schema)pred);
+    case Test(_,_):
+      return visit((Predicate.Test)pred);
+    case Fact(_):
+      return visit((Predicate.Fact)pred);
+    case Unary(_,_):
+      return visit((Predicate.Unary)pred);
+    case Binary(_,_,_):
+      return visit((Predicate.Binary)pred);
+    case Quantor(_,_,_):
+      return visit((Predicate.Quantor)pred);
+    }
+  }
+
+  /**
+   * Visit array of predicate.
+   * By default, visits elements, and reconstructs
+   * the array if some element is changed.
+   */
+  public Predicate[] visit(Predicate[] preds){
+    if (dontRewrites){
+      for (int i = 0; i < preds.length; i++){
+	visit(preds[i]);
+      }
+      return null;
+    } else {
+      Predicate[] newPreds = new Predicate[preds.length];
+      boolean change = false;
+      for (int i = 0; i < preds.length; i++){
+	newPreds[i] = visit(preds[i]);
+	if (newPreds[i] == null)
+	  newPreds[i] = preds[i];
+	else
+	  change = true;
+      }
+      return change ? newPreds : null;
+    }
+  }
+
+  // STATES
+
+  /**
+   * Visit some state.
+   * Calls the visitor for the according state case.
+   */
+  public State visit(State state){
+    switch (state) {
+    case BasicState(_):
+      return visit((State.BasicState)state);
+    case RefState(_):
+      return visit((State.RefState)state);
+    case SuperState(_, _, _, _, _):
+      return visit((State.SuperState)state);
+    }
+  }
+
+  /**
+   * Visit basic state. Visits annotation and returns null.
+   */
+  public State visit(State.BasicState state){
+    NameDecl name = visit(state.name);
+    visit(state.an);
+    if(name != null) {
+      State newState = new State.BasicState(name);
+      state.an.copyInto(newState.an);
+      return newState;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit state reference. Visits annotation and returns null.
+   */
+  public State visit(State.RefState state){
+    NameDecl name = visit(state.name);
+    visit(state.an);
+    if(name != null) {
+      State newState = new State.RefState(name);
+      state.an.copyInto(newState.an);
+      return newState;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit a super-state.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public State visit(State.SuperState state){
+    NameDecl name = visit(state.name);
+    State[] substates = visit(state.substates);
+    NameDecl[] connectors = visit(state.connectors);
+    Transition[] transitions = visit(state.transitions);
+    visit(state.an);
+    if (name != null || substates != null || connectors != null
+	|| transitions != null){
+      State newState =
+	State.SuperState(name != null ? name : state.name,
+			 state.kind,
+			 substates != null ? substates : state.substates,
+			 connectors != null ? connectors : state.connectors,
+			 transitions != null ? transitions :
+			                           state.transitions);
+      state.an.copyInto(newState.an);
+      return newState;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit array of states.
+   * By default, visits elements, and reconstructs
+   * the array if some element has changed.
+   */
+  public State[] visit(State[] states){
+    if (dontRewrites){
+      for (int i = 0; i < states.length; i++){
+	visit(states[i]);
+      }
+      return null;
+    } else {
+      State[] newStates = new State[states.length];
+      boolean change = false;
+      for (int i = 0; i < states.length; i++){
+	newStates[i] = visit(states[i]);
+	if (newStates[i] == null)
+	  newStates[i] = states[i];
+	else
+	  change = true;
+      }
+      return change ? newStates : null;
+    }
+  }
+
+  // TRANSITIONS
+
+  /**
+   * Visit a transition.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Transition visit(Transition trans){
+    NameAppl source = visit(trans.source);
+    NameAppl target = visit(trans.target);
+    LabelExpr label = visit(trans.label);
+    visit(trans.an);
+    if (source != null || target != null || label != null){
+      Transition newTrans = 
+	new Transition(source != null ? source : trans.source, 
+		       target != null ? target : trans.target, 
+		       label != null ? label : trans.label);
+      trans.an.copyInto(newTrans.an);
+      return newTrans;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit array of transitions.
+   * By default, visits elements, and reconstructs
+   * the array if some element has changed.
+   */
+  public Transition[] visit(Transition[] transitions){
+    if (dontRewrites){
+      for (int i = 0; i < transitions.length; i++){
+	visit(transitions[i]);
+      }
+      return null;
+    } else {
+      Transition[] newTransitions = new Transition[transitions.length];
+      boolean change = false;
+      for (int i = 0; i < transitions.length; i++){
+	newTransitions[i] = visit(transitions[i]);
+	if (newTransitions[i] == null)
+	  newTransitions[i] = transitions[i];
+	else
+	  change = true;
+      }
+      return change ? newTransitions : null;
+    }
+  }
+  
+
+  // LABEL EXPRESSIONS
+
+  /**
+   * Visit some label expression.
+   * Calls the visitor for the according case.
+   */
+  public LabelExpr visit(LabelExpr label){
+    switch (label) {
+    case Guarded(_,_):
+      return visit((LabelExpr.Guarded)label);
+    case Temporal(_):
+      return visit((LabelExpr.Temporal)label);
+    case Reference(_):
+      return visit((LabelExpr.Reference)label);
+    }
+  }
+
+  /**
+   * Visit a guarded label expression.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public LabelExpr visit(LabelExpr.Guarded g){
+    Predicate guard = visit(g.guard);
+    Predicate action = visit(g.action);
+    visit(g.an);
+    if (guard != null || action != null){
+      LabelExpr ng = LabelExpr.Guarded(
+		       guard != null ? guard : g.guard,
+		       action != null ? action : g.action
+		     );
+      g.an.copyInto(ng.an);
+      return ng;
+    } else
+      return null;
+  }
+      
+  /**
+   * Visit a temporal label expression.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public LabelExpr visit(LabelExpr.Temporal l){
+    Predicate p = visit(l.predicate);
+    visit(l.an);
+    if (p != null){
+      LabelExpr nl = LabelExpr.Temporal(p);
+      l.an.copyInto(nl.an);
+      return nl;
+    } else
+      return null;
+  }
+      
+  /**
+   * Visit a transition reference label expression.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public LabelExpr visit(LabelExpr.Reference l){
+    NameAppl nap = visit(l.name);
+    visit(l.an);
+    if (nap != null){
+      LabelExpr nl = LabelExpr.Reference(nap);
+      l.an.copyInto(nap.an);
+      return nl;
+    } else
+      return null;
+  }
+      
+      
+  /**
+   * Visit array of label expressions.
+   * By default, visits elements, and reconstructs
+   * the array if some element has changed.
+   */
+  public LabelExpr[] visit(LabelExpr[] labelExprs){
+    if (dontRewrites){
+      for (int i = 0; i < labelExprs.length; i++){
+	visit(labelExprs[i]);
+      }
+      return null;
+    } else {
+      LabelExpr[] newLabelExprs = new LabelExpr[labelExprs.length];
+      boolean change = false;
+      for (int i = 0; i < labelExprs.length; i++){
+	newLabelExprs[i] = visit(labelExprs[i]);
+	if (newLabelExprs[i] == null)
+	  newLabelExprs[i] = labelExprs[i];
+	else
+	  change = true;
+      }
+      return change ? newLabelExprs : null;
+    }
+  }
+  
+
+
+
+
+  // ITEMS
+
+  /**
+   * Visit some item.
+   * Calls the visitor for the according item case.
+   */
+  public Item visit(Item item){
+    switch (item) {
+    case AxiomaticDef(_, _):
+      return visit((Item.AxiomaticDef)item);
+    case FixityDef(_):
+      return visit((Item.FixityDef)item);
+    case EmbeddedText(_):
+      return visit((Item.EmbeddedText)item);
+    case ConfigDef(_):
+      return visit((Item.ConfigDef)item);
+    case StatechartDef(_):
+      return visit((Item.StatechartDef)item);
+    case TransitionDef(_, _):
+      return visit((Item.TransitionDef)item);
+    case StaticReactionDef(_, _):
+      return visit((Item.StaticReactionDef)item);
+    case AttributeDef(_,_):
+      return visit((Item.AttributeDef)item);
+    case EnrichDef(_):
+      return visit((Item.EnrichDef)item);
+    }
+  }
+
+  /**
+   * Visit axiomatic definition.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.AxiomaticDef item){
+    NameDecl[] formals = visit(item.formals);
+    Expr def = visit(item.def);
+    visit(item.an);
+    if (formals != null || def != null){
+      Item newItem = 
+	Item.AxiomaticDef(formals != null ? formals : item.formals,
+			  def != null ? def : item.def);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit fixity definition.
+   * By default, visits annotation and returns null.
+   */
+  public Item visit(Item.FixityDef item){
+    visit(item.an);
+    return null;
+  }
+
+  /**
+   * Visit text item.
+   * By default, visits annotation and returns null.
+   */
+  public Item visit(Item.EmbeddedText item){
+    visit(item.an);
+    return null;
+  }
+
+  /**
+   * Visit configuration item.
+   * By default, visits annotation and returns null.
+   */
+  public Item visit(Item.ConfigDef item){
+    visit(item.an);
+    return null;
+  }
+
+  /**
+   * Visit statechart item. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.StatechartDef item){
+    State root = visit(item.root);
+    visit(item.an);
+    if (root != null){
+      Item newItem = 
+	Item.StatechartDef(root);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit transition item.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.TransitionDef item){
+    NameDecl name = visit(item.name);
+    LabelExpr[] reactions = visit(item.reactions);
+    visit(item.an);
+    if (name != null || reactions != null){
+      Item newItem = 
+	Item.TransitionDef(name != null ? name :item.name,
+			   reactions != null ? reactions : item.reactions);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit static reaction item.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.StaticReactionDef item){
+    NameDecl name = visit(item.name);
+    LabelExpr[] reactions = visit(item.reactions);
+    visit(item.an);
+    if (name != null || reactions != null){
+      Item newItem = 
+	Item.StaticReactionDef(name != null ? name : item.name,
+			       reactions != null ? reactions : item.reactions);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+  /**
+   * Visit attribute item.
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.AttributeDef item){
+    NameAppl[] name = visit(item.name);
+    visit(item.an);
+    if(name != null) {
+      Item newItem = Item.AttributeDef(item.attrib, name);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+
+  /**
+   * Visit enrichment item. 
+   * By default, visits annotation and subterms, and reconstructs
+   * the term if subterms are changed.
+   */
+  public Item visit(Item.EnrichDef item){
+    NameAppl nap = visit(item.name);
+    visit(item.an);
+    if (nap != null){
+      Item newItem = 
+	Item.EnrichDef(nap);
+      item.an.copyInto(newItem.an);
+      return newItem;
+    } else
+      return null;
+  }
+
+
+  public Item[] visit(Item[] items) {
+    boolean changed = false;
+    Item[] n_items = new Item[items.length];
+    for(int i = 0; i < items.length; i++) {
+      n_items[i] = visit(items[i]);
+      if(n_items[i] == null) 
+	n_items[i] = items[i];
+      else
+	changed = true;
+    }
+    if(changed) return n_items; else return null;
+  }
+    
+
+    // UNITABSY
+
+  public UnitAbsy visit(UnitAbsy unitabsy) {
+    visit(unitabsy.an);
+    UnitAbsy newUnitAbsy;
+    switch(unitabsy) {
+      case UnitAbsy.ClassDef(_,_,_,_) :
+	newUnitAbsy = visit((UnitAbsy.ClassDef) unitabsy);
+	break;
+      case UnitAbsy.Section(_,_,_) :
+      	newUnitAbsy = visit((UnitAbsy.Section) unitabsy);
+	break;
+    }
+    if(newUnitAbsy == null)
+      return null;
+    else {
+      unitabsy.an.copyInto(newUnitAbsy.an);
+      return newUnitAbsy;
+    }
+  }
+
+  public UnitAbsy visit(UnitAbsy.ClassDef cdef) {
+    Item[] items = visit(cdef.items);
+    if(items == null)
+      return null;
+    else
+      return new UnitAbsy.ClassDef(cdef.name,
+				   cdef.parents,
+				   cdef.formals,
+				   items);
+  }
+    
+  public UnitAbsy visit(UnitAbsy.Section sec) {
+    Item[] items = visit(sec.items);
+    visit(sec.an);
+    if(items == null)
+      return null;
+    else
+      return new UnitAbsy.Section(sec.name,
+				  sec.parents,
+				  items);
+  }
+}

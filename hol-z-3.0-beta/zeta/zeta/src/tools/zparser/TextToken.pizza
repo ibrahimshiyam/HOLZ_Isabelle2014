@@ -1,0 +1,19 @@
+package zeta.tools.zparser;
+
+/**
+ * An extension of tokens adding a field holding the lexical value
+ * and the locator.
+ *
+ * All tokens used in the esz parser are of this class.
+ *
+ * @version $Id: TextToken.pizza,v 1.2 1998/09/06 15:28:10 wg Exp $
+ */
+
+import zeta.content.text.Lexem;
+import zeta.session.Locator;
+
+public class TextToken extends Token {
+  Lexem lexem;
+  Locator locator;
+}
+

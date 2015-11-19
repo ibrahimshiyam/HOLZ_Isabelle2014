@@ -1,0 +1,50 @@
+%% those definitions to complex for latex2html
+
+\def\uncatcodespecials{\def\do##1{\catcode`##1=12 }\dospecials}
+\def\obeytab{\catcode`\^^I=\active}
+\def\setupverbatim{\tt%
+    \def\par{\leavevmode\endgraf}%
+    \obeylines \uncatcodespecials \obeyspaces\obeytab%
+    %\everypar{\advance by1 \llap{\sevenrm\the\lineno\ \ }}
+}
+{\obeyspaces\global\let =\ }
+\def\eightspaces{\ \ \ \ \ \ \ \ }
+{\obeytab\global\let^^I=\eightspaces}
+
+\catcode`¦=\active
+\def¦{\bgroup\color{red}\def¦{\egroup\egroup}\mbox\bgroup\setupverbatim}
+%\def¦{\bgroup\def¦{\egroup\egroup}\mbox\bgroup\setupverbatim}
+
+\newenvironment{mszsyntax}
+    {\begin{center}\zedindent=0pt\begin{tabular}{p{3.4cm}>{$}c<{$}lm{9.0cm}}}
+    {\end{tabular}\end{center}}
+\newenvironment{latexsyntax}
+    {\begin{center}\zedindent=0pt
+     \def~{\hskip3pt}
+     \def\{{\big\lbrace}
+     \def\}{\big\rbrace}
+     \begin{tabular}{p{3.0cm}>{$}c<{$}>{$}m{9.5cm}<{$}}}
+    {\end{tabular}\end{center}}
+
+\newcommand{\ns}[1]{\mbox{\sffamily #1}}
+\newcommand{\os}[1]{\mbox{\sffamily #1}}
+\newcommand{\ms}[1]{\mbox{\sffamily #1}}
+
+
+ \def\[{\mbox{\kern2pt\slshape\large[\kern2pt}}
+    \def\]{\mbox{\kern2pt\slshape\large]\kern1pt}}
+    \def\rlist{\[ \ns{Renaming-List} \]}
+
+    %\def\docsym#1{$#1$&{\color{red}\tt\string#1}}
+    \def\emit{\uparrow}
+    \def\MCOL#1{\\\hline\multicolumn6c{\bf #1} \\\hline}
+
+    \def\sfCom#1{\expandafter\def\csname #1\endcsname{\mbox{\sf #1}}}
+    \def\DataSpace{DataState}               \def\Control{Control}
+    \sfCom{State}
+    \sfCom{Default}                         \sfCom{History}
+    \sfCom{DeepHistory}                     \sfCom{ev}
+
+
+\def\dummy{}
+

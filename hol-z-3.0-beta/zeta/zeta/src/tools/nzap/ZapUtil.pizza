@@ -1,0 +1,118 @@
+package zeta.tools.nzap;
+
+/** Configuration and utilities.
+  *
+  * @version $Id: ZapUtil.pizza,v 1.7 2000/06/28 08:04:22 wg Exp $
+  */
+
+import java.io.File;
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.util.*;
+import zeta.agl.*;
+import zeta.format.*;
+import zeta.session.*;
+
+class ZapUtil {
+
+  /** The name of ZAP as a tool adaptor. */
+  static final Name toolName = new Name("ZAP");
+
+  /** The locator associated with ZAP as a tool adaptor. */
+  static final Locator toolLocator = 
+    new ToolLocator();
+
+  /** The locator associated with the ZAM. */
+  static final Locator zamLocator = 
+    new ZamLocator();
+
+  private static class ToolLocator extends Locator {
+    public Format toFormat(FormatInfo info){
+      return Format.literal("<ZAP>");
+    }
+    public Name getTool(){
+      return toolName;
+    }
+    public boolean equals(Object other){
+      return other instanceof ToolLocator;
+    }
+  }
+
+  private static class ZamLocator extends Locator {
+    public Format toFormat(FormatInfo info){
+      return Format.literal("<ZAM>");
+    }
+    public Name getTool(){
+      return toolName;
+    }
+    public boolean equals(Object other){
+      return other instanceof ZamLocator;
+    }
+  }
+
+  /** The version of ZAP. */
+  static final String version = "2.1";
+
+  /** A debug writer for ZAP. */
+  static DebugWriter debug;
+
+  /** A detailed debug writer for ZAP. */
+  // static DebugWriter ddebug;
+
+  /**
+   * The content type of a ZAP compiled unit.
+   */
+  static final ContentType zapUnit = 
+    new ContentType(new Name("zap"), ZapFile.class);
+
+  static public class ZapFile extends Term {
+    public case ZapFile(Name unitName, File unitFile);
+  }
+
+  /** A transformation of unit names to builtin class names. */
+  private static Map<Name,String> unitNameMap = 
+    new HashMap().define(new Name("zrm"), 
+			 "zap.rts.IntNumKit")
+                 .define(new Name("zrm+units"), 
+			 "zap.rts.UnitRatNumKit")
+                 .define(new Name("zrm+checkedunits"), 
+			 "zap.rts.UnitRatNumKit")
+		 .define(new Name("zrm+realunits"), 
+			 "zap.rts.UnitRealNumKit")
+		 .define(new Name("msz"), 
+			 "zap.rts.MszKit");
+
+  /** Try to transform a unit name to its according builtin class name, or
+      return null, if no translation is defined. */
+  public static String tryBuiltinName(Name name){
+    // FIXME: its not clear how to do this 
+    String repr = name.getRepr();
+    int i = repr.indexOf(":");
+    if (i >= 0) repr = repr.substring(i+1);
+    i = repr.indexOf("#");
+    if (i >= 0) repr = repr.substring(0, i);
+    name = new Name(repr);
+    if (unitNameMap.defines(name))
+      return unitNameMap.get(name);
+    else
+      return null;
+  }
+    
+
+
+  /** Whether debug information in the generated code should be included. */
+  public static boolean genDebugInfo = true;
+
+
+  /** Setup options read from system properties. */
+  static void readProperties(){
+    debug = DebugWriter.make(toolName, "zeta.debug.zap.print");
+    // debug = DebugWriter.make(toolName, true);
+  }
+
+  static {
+    readProperties();
+  }
+    
+
+}

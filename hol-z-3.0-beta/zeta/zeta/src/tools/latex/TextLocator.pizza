@@ -1,0 +1,156 @@
+package zeta.tools.latex;
+
+/** The class of LaTeX source file locators.
+  *
+  * @version $Id: TextLocator.pizza,v 1.5 2000/06/20 07:00:25 wg Exp $ 
+  *
+  */
+
+import java.io.File;
+
+import zeta.format.*;
+import zeta.agl.*;
+import zeta.util.*;
+import zeta.session.*;
+
+public class TextLocator extends Locator {
+
+  /**
+   * The file name.
+   */
+  private final Name fileName;
+
+  /**
+   * The encoded start position.
+   */
+  private final int start;
+
+  /**
+   * The encoded end position.
+   */
+  private final int end;
+  
+
+
+  /**
+   * Construct a latex locator.
+   */
+  public TextLocator(Name fileName,
+		     int firstLine, int firstColumn,
+		     int lastLine, int lastColumn){
+    this.fileName = fileName;
+    this.start = (firstLine << 16) | firstColumn;
+    this.end = (lastLine << 16) | lastColumn;
+  }
+
+  private TextLocator(Name fileName, int start, int end){
+    this.fileName = fileName;
+    this.start = start;
+    this.end = end;
+  }
+
+
+  /** */
+  public Name getTool(){
+    return LatexAdaptor.thisName;
+  }
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    return Format.literal("LTX:" + fileName + "(" + 
+			  (start >> 16) + "." + 
+			  (start & 0xffff) + "-" +
+			  (end >> 16) + "." + 
+			  (end & 0xffff) +
+			  ")");
+  }
+
+  /** */
+  public int compareTo(Locator loc){
+    loc = loc.getPrimary();
+    if (loc instanceof TextLocator){
+      TextLocator other = (TextLocator)loc;
+      int c = (end >> 16) - (other.end >> 16);
+      if (c == 0){
+	c = (end & 0xffff) - (other.end & 0xffff);
+      }
+      return c;
+    } else
+      return super.compareTo(loc);
+  }
+
+			  
+  /** */
+  public Locator combine(Locator other) {
+    if (other instanceof TextLocator){
+      TextLocator text1 = this;
+      TextLocator text2 = (TextLocator)other;
+      if (text1.fileName.equals(text2.fileName)){
+	if (text1.start > text2.start){
+	  TextLocator tmp = text1;
+	  text1 = text2; text2 = tmp;
+	}
+	if (text1.end >= text2.start)
+	  if (text1.end >= text2.end)
+	    return text1;
+	  else
+	    return new TextLocator(fileName, text1.start, text2.end);
+      }
+    }
+    return super.combine(other);
+  }
+	  
+
+  /** */
+  public Locator extend(Locator other){
+    if (other instanceof TextLocator){
+      TextLocator text1 = this;
+      TextLocator text2 = (TextLocator)other;
+      if (text1.fileName.equals(text2.fileName)){
+	return 
+	  new TextLocator(
+		text1.fileName,
+		text1.start < text2.start ? text1.start : text2.start,
+		text1.end > text2.end ? text1.end : text2.end
+	      );
+      }
+    }
+    return super.extend(other);
+  }
+
+
+  /** */
+  public boolean equals(Object other){
+    if (other instanceof TextLocator){
+      TextLocator text = (TextLocator)other;
+      return fileName.equals(text.fileName) &&
+	start == text.start &&
+	end == text.end;
+    } else
+      return false;
+  }
+
+  /** */
+  public int hashCode(){
+    return fileName.hashCode() * start * end;
+  }
+
+  /** */
+  public String getMnemonic(){
+    String baseName = new File(fileName.getRepr()).getName();
+    return baseName + "~" + (start >> 16);
+  }
+
+  /** */
+  public VisitCapability[] getVisitCapabilities(){
+    return new VisitCapability[]{ 
+	     new VisitCapability.TextVisit(new File(fileName.getRepr()),
+					   (start >> 16),
+					   (start & 0xffff),
+					   (end >> 16),
+					   (end & 0xffff))
+				};
+  }
+	     
+    
+}

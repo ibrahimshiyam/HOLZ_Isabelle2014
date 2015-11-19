@@ -1,0 +1,37 @@
+package zeta.agl;
+
+import java.lang.Class;
+import java.lang.reflect.Array;
+import pizza.support.array;
+import pizza.support.ObjectArray;
+
+/** Utilities for working with Pizza arrays. */
+
+class Util {
+
+  /** Allocate a Pizza object array of given size. */
+  static <B> B[] arrayalloc(int size){
+    return (B[])ArrayHacks.allocArray(size, Object.class);
+  }
+
+  /** Copy from one Pizza array to another. Similar as System.arraycopy. */
+  static <B> void arraycopy(B[] src, int src_off, B[] dst, int dst_off,
+			    int length){
+    Object osrc = (Object)src; // osrc now is the underlying Java array
+    Object odst = (Object)dst; // odst now is the underlying Java array
+    if (ArrayHacks.isObjectArray(osrc) && ArrayHacks.isObjectArray(odst)){
+      // can use System.arraycopy
+      System.arraycopy(osrc,src_off,odst,dst_off,length);
+    } else {
+      // copy by hand, such that the correct wrappers are inserted
+      if(src_off < dst_off) {
+	for(int i = length-1; i >= 0; i--)
+	  dst[i+dst_off] = src[i+src_off];
+      } else {
+	for(int i = 0; i < length; i++)
+	  dst[i+dst_off] = src[i+src_off];
+      }
+    }
+  }
+
+}

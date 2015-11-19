@@ -1,0 +1,179 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>5. Type-Checker Directives</TITLE>
+<META NAME="description" CONTENT="5. Type-Checker Directives">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node7.html">
+<LINK REL="previous" HREF="Z-node5.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node7.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html138"
+ HREF="Z-node7.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html134"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html128"
+ HREF="Z-node5.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html136"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html139"
+ HREF="Z-node7.html">A. L<SUP>A</SUP>TEX Syntax for</A>
+<B> Up:</B> <A NAME="tex2html135"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html129"
+ HREF="Z-node5.html">4. The Language: Details</A>
+ &nbsp <B>  <A NAME="tex2html137"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION00060000000000000000">
+5. Type-Checker Directives</A>
+</H1>
+
+<P>
+A type-checker directive starts with <TT>%%</TT> at the beginning of a 
+line and 
+lasts until the end of the line.
+Beside of the <TT>%%toolkit</TT> directive mentioned in 
+Section&nbsp;<A HREF="Z-node5.html#sec:toolkits">4.2</A>, and the operator template directives
+described in Section&nbsp;<A HREF="Z-node5.html#sec:templates">4.3</A>, the following directives, as known
+from FUZZ and ESZ2, are supported:
+
+<P>
+
+<UL><LI>Text after a double T<SMALL>E</SMALL>X  comment followed by a space
+  (<code>%% ...</code>) is processed by the type-checker, wheres
+it is ignored in the type-setted document.
+
+<P>
+
+<LI>A simple concept for macro expansion is provided. The directive
+
+<P>
+ 
+<BLOCKQUOTE>
+    <code>%%macro</code> <I>token</I> <I>n</I> <I>replacement</I>
+</BLOCKQUOTE>
+
+<P>
+defines the macro <I>token</I> with <I>n</I> parameters.  The macro is replaced
+  by the <I>replacement</I> before the syntax is checked (similar the the C
+  preprocessor).  Parameters are referenced with <code>#1</code>, <code>#2</code>,
+  etc. in the replacement.  
+
+<P>
+The macro directive can e.g.&nbsp;be used for defining layout tokens or
+  comment commands, such as in
+
+<P>
+ 
+<BLOCKQUOTE>
+    <code>%%macro \< 0</code> 
+<BR>
+<code>%%macro \zcomment 1</code>
+
+</BLOCKQUOTE>
+
+<P>
+where the replacement is just empty.
+  The <code>%%ignore</code> directive as known from FUZZ is 
+a special case of this usage of macro-directives, and is still supported.
+
+<P>
+Macros can also be used for introducing new operators, such as the definition
+  of an exclusive or (i.e. <code>\lxor{x&gt;0}{x\leq 0}</code>):
+
+<P>
+ 
+<BLOCKQUOTE>
+     <code>%%macro \lxor 2 (\lnot (#1 \iff #2))</code>
+
+</BLOCKQUOTE>
+
+<P>
+
+<LI>It is possible to assign to environments the syntactic ``role''
+  of an existing Z-environment. This is done by the directive:
+
+<P>
+ 
+<BLOCKQUOTE>
+    <code>%%environment new-env-name old-env-name</code>
+
+</BLOCKQUOTE>
+
+<P>
+This feature makes it possible to define new Z environments
+  which implement some extra layout functionality (e.g.&nbsp;by
+  generating a margin).
+
+<P>
+
+<LI>The <code>%%line</code> directive as known from fUZZ is
+supported. It has the form:
+
+<P>
+ 
+<BLOCKQUOTE>
+     <code>%%line "source" $ n</code>
+
+</BLOCKQUOTE>
+
+<P>
+The effect is that the next line and all subsequent lines will get
+  locators as if they belong to <I>source</I> starting at line <I>n</I>. This is
+  useful if Z is generated from some other input language.
+
+<P>
+
+</UL>
+
+<P>
+
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html138"
+ HREF="Z-node7.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html134"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html128"
+ HREF="Z-node5.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html136"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html139"
+ HREF="Z-node7.html">A. L<SUP>A</SUP>TEX Syntax for</A>
+<B> Up:</B> <A NAME="tex2html135"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html129"
+ HREF="Z-node5.html">4. The Language: Details</A>
+ &nbsp <B>  <A NAME="tex2html137"
+ HREF="Z-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

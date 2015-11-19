@@ -1,0 +1,208 @@
+package zeta.session;
+
+/** 
+ * The abstract class and annotation slot of locators. <p>
+ * 
+ * An locator describes the location of a source in a tool connected
+ * to the session system. <p>
+ *
+ * Every locator has associated the name of the tool adaptor where it
+ * originates from, and can be formatted for visualisation.  
+ * The creation of locators is done inside of tool adaptors. <p>
+ *
+ * Locators can be combined building new locators. Such a combined
+ * locator consists of a primary locator (which determines the tool
+ * adaptor the combined locator belongs to) and a secondary
+ * locator. Combined locators are used to address situations where
+ * objects have been derived from several sources. <p>
+ *
+ * This class also provides an annotation slot for locators to be
+ * annotated at terms.
+ *
+ * @version $Id: Locator.pizza,v 1.5 2000/06/20 07:00:25 wg Exp $ 
+ * 
+ */
+
+import java.io.File;
+import java.net.URL;
+
+import zeta.util.*;
+import zeta.format.*;
+import zeta.form.Form;
+
+public abstract class Locator extends Term {
+
+
+ // LOCATOR METHODS 
+
+  /**
+   * Return the name of the tool adaptor this locator belongs to.
+   */
+  public abstract Name getTool();
+
+  /**
+   * Convert this locator to a format.
+   */
+  public abstract Format toFormat(FormatInfo info);
+
+  /**
+   * Return a short string describing this locator. The string should
+   * narrow the complete information as obtained by <code>toFormat()</code>.
+   * By default, this returns the content of <code>toFormat()</code>.
+   */
+  public String getMnemonic(){
+    return toFormat(new FormatInfo()).toString(1000);
+  }
+
+  /**
+   * Lexicographical ordering of locators. By default,
+   * uses the string representation obtained by <code>toFormat</code>.
+   */
+  public int compareTo(Locator loc){
+    return toFormat(new FormatInfo()).toString(1000)
+		   .compareTo(loc.toFormat(new FormatInfo()).toString(1000));
+  }
+
+
+  /**
+   * Combine this locator with other locator. By default, this locator
+   * becomes the primary locator of the combined locator, the other
+   * locator becomes secondary. Subclasses may overwrite this method
+   * with a refined meaning -- for example, text locators which
+   * overlapp in the same file can be merged into a single locator.  
+   */
+  public Locator combine(final Locator other) {
+    final Locator thisLocator = this;
+    return 
+      new Locator(){
+	public Name getTool(){
+	  return Locator.this.getTool();
+	}
+	public Format toFormat(FormatInfo info){
+	  return Format.block(
+		   Format.append(thisLocator.toFormat(info),
+				 Format.literal(";")),
+		   other.toFormat(info)
+		 );
+	}
+	public int compareTo(Locator loc){
+	  return thisLocator.compareTo(loc);
+	}
+	public Locator getPrimary(){
+	  return thisLocator.getPrimary();
+	}
+	public Locator getSecondary(){
+	  return other;
+	}
+	public VisitCapability[] getVisitCapabilities(){
+	  return getPrimary().getVisitCapabilities();
+	}
+      };
+  }
+
+  /**
+   * Build a locator "containing" this and the other locator. For
+   * example, for metric locators which address text regions in the
+   * same file, this method constructs a locator which covers both
+   * text regions. By default, this method behaves like combining
+   * locators. <p>
+   *
+   * @see combine 
+   */
+  public Locator extend(Locator other){
+    return combine(other);
+  }
+
+  /**
+   * Get the primary locator of this locator. If this is not
+   * a combined locator, then the primary locator is this locator
+   * itself.  
+   */
+  public Locator getPrimary(){
+    return this;
+  }
+
+  /**
+   * Get the secondary locator of this locator. If this is not
+   * a combined locator, then the secondary locator is <code>null</code>.
+   */
+  public Locator getSecondary(){
+    return null;
+  }
+
+  /**
+   * Get the visiting capabilites of this locator. This is
+   * an array since a locator may have different of them.
+   * By default, this returns an empty array.
+   */
+  public VisitCapability[] getVisitCapabilities(){
+    return new VisitCapability[0];
+  }
+
+  /**
+   * The class of visit capabilities.
+   */
+  public static class VisitCapability {
+
+    /** Provides native visiting. 
+     * @see nativeVisit(void)
+     */
+    public case NativeVisit;
+
+    /** Provides visiting in an HTML viewer via the given URL. */
+    public case HTMLVisit(URL url);
+
+    /** Provides visiting in the given text file, with specified region in
+     * the file. */
+    public case TextVisit(File file, 
+			  int firstRow, int firstCol, 
+			  int lastRow, int lastCol);
+
+    /** Provides visiting via the given form. */
+    public case FormVisit(Form form);
+
+  }
+    
+  /**
+   * Native visit of the source this locator points to. By default,
+   * throws an error.
+   */
+  public void nativeVisit(){
+    throw Errors.AssertionFailed("native visit not provided: " + this);
+  }
+
+
+
+
+ // ANNOTATION SLOT 
+
+  /** The slot object. */
+  public static final Slot slot = Slot.register(Locator.class.getName(),
+						Locator.class);
+
+  /** Set value of locator annotation slot.
+    * @param an    the annotation
+    * @param locator  the locator
+    */
+  public static void put(Annotation an, Locator locator){
+    slot.put(an, locator);
+  }
+
+  /** Get value of locator annotation slot.
+    * @param an    the annotation
+    * @return the locator, or null, if no one is provided.
+    */
+  public static Locator get(Annotation an){
+    return (Locator)slot.get(an);
+  }
+
+  /** Test whether locator annotation slot is provided. 
+    * @param an   the annotation
+    * @return true if the locator annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+}
+

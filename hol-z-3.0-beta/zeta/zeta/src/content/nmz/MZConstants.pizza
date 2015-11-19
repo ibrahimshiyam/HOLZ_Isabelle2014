@@ -1,0 +1,70 @@
+package zeta.content.nmz;
+
+/** Predefined constants for mZ. 
+  *
+  * @version $Id: MZConstants.pizza,v 1.9 2000/07/21 06:45:15 wg Exp $
+  */
+
+import zeta.util.Name;
+import zeta.session.ContentType;
+
+public class MZConstants {
+
+  /** Content type of MZ unit. */
+  public static final ContentType mzContentType =
+    new ContentType(new Name("nmz"), MZ.UnitDef.class);
+
+  /** Constructor name for unit of booleans. */
+  public static final Name unitCons = new Name("<>");
+
+  /** Constructor name for pairs. */
+  public static final Name pairCons = new Name("(_,_)");
+
+  /** The boolean truth constant. */
+  public static final Name boolTruth = new Name("\\ztrue");
+
+  /** Primitive function for making a number. */
+  public static final Name makeNumberPrim = new Name("NATIVEmakeNumber");
+
+  /** MU homomorphism. */
+  public static final Name muHom = new Name("NATIVEmu");
+
+  /** exists1 homomorphism in schema calculus. */
+  public static final Name exists1SchemaHom = new Name("NATIVEexists1Schema");
+
+  /** exists1 homomorphism. */
+  public static final Name exists1Hom = new Name("NATIVEexists1");
+
+  /** EXT homomorphism. */
+  public static final Name extHom = new Name("NATIVEext");
+
+  /** ISEMPTY homomorphism. */
+  public static final Name isEmptyHom = new Name("NATIVEempty");
+
+  /** ISNOTEMPTY homomorphism. */
+  public static final Name isNotEmptyHom = new Name("NATIVEnotempty");
+
+  /** HOM Wrapper. */
+  public static final Name homWrapper = new Name("NATIVEhom");
+
+  /** Sequence block begin. */
+  public static final Name beginSeq = new Name("\\BEGINSEQ");
+
+  /** Sequence block end. */
+  public static final Name endSeq = new Name("\\ENDSEQ");
+
+  /** Make internal name for given type info. */
+  public static Name makeGivenTypeInfoName(Name name){
+    return new Name(name.toString() + "%giventypeinfo");
+  }
+
+  /** Given type info function. */
+  public static Name givenTypeInfoFunc = new Name("NATIVEgiventypeinfo");
+
+  /** Make internal name for given type generator. */
+  public static Name makeGivenTypeGenName(Name name){
+    return new Name(name.toString() + "%typegen");
+  }
+
+
+}

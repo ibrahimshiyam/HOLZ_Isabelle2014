@@ -1,0 +1,156 @@
+package zeta.form;
+
+/**
+ * The class of unit forms. <p>
+ *
+ * A unit form inputs an existing unit of the session system.
+ *
+ * @version $Id: UnitForm.pizza,v 1.5 2000/02/16 09:10:38 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.util.Name;
+import zeta.format.*;
+import zeta.agl.*;
+import zeta.session.*;
+
+public class UnitForm extends ListForm {
+
+  /** The class of unit form states. */
+  public static class State extends ListForm.State {
+    public case State(Unit unit);
+
+    /** 
+     * Get the range list -- all existing units in the session.
+     */
+    public String[] getRange(Session session){
+      return new ArraySeq(session.getUnits())
+			 .map(fun (Unit u)->String {
+				return u.getName().toString();
+			      })
+			 .toArray(String.class);
+    }
+  
+    /** Get the index of the selected object in the range, or -1 if no
+	selection. */
+    public int getSelected(Session session){
+      if (unit != null){
+	Unit[] units = session.getUnits();
+	for (int i = 0; i < units.length; i++){
+	  if (units[i] == unit) return i;
+	}
+      }
+      return -1;
+    }
+
+    /** Set the index of the selected object in the range. */
+    public void setSelected(Session session, int i, Object source){
+      Unit[] units = session.getUnits();
+      if (i >= 0 && i < units.length)
+	unit = units[i];
+      notifyChange(source);
+    }
+  }
+
+  /** A static default state. */
+  public static State defaultState = new State(null);
+
+  /** A static default unit form using the the default state. This
+      may be displayed tailored in a GUI,
+      and shall be used wherever a form works on the "current" unit. 
+      @see defaultState
+  */
+  public static UnitForm defaultForm = new UnitForm(defaultState);
+
+
+  /** 
+   * Construct a unit form from a state.
+   */
+  public UnitForm(State state){
+    super(state);
+  }
+
+  /** 
+   * Construct a unit form for the default state.
+   */
+  public UnitForm(){
+    this(defaultState);
+  }
+
+
+  /**
+   * Parse the given sequence of words starting at index. If
+   * the first word in the sequence is "-u", try to resolve the next
+   * name as a unit. Throws if resolution fails. If the first
+   * word does not starts with "-u", we use the default state,
+   * if it is defined.
+   */
+  public int parse(Session session, Locator locator,
+		   String[] words, int start)
+  throws Failures.FormFailed {
+    State ustate = (State)state;
+    if (start >= words.length || !words[start].startsWith("-u")){
+      if (defaultState.unit == null){
+	session.send(locator.getTool(),
+		     new Diag(locator,
+			      Diag.Category.Error,
+			      "a unit to default to was never specified"));
+	throw new Failures.FormFailed("UnitForm");
+      }
+      ustate.unit = defaultState.unit;
+      return start;
+    } else if (start+1 < words.length){
+      Name name = new Name(words[start+1]);
+      try {
+	Unit oldUnit = ustate.unit;
+	ustate.unit = session.lookupUnit(name);
+	if (ustate.unit != oldUnit) ustate.notifyChange(this);
+	return start+2;
+      }
+      catch (Failures.UnresolvableName e){
+	session.send(locator.getTool(),
+		     new Diag(locator,
+			      Diag.Category.Error,
+			      "`" + name + "' cannot be resolved as a unit"));
+	throw new Failures.FormFailed("UnitForm");
+      }
+      catch (Failures.AmbigiousName e){
+	session.send(
+	  locator.getTool(),
+	  new Diag(locator,
+		   Diag.Category.Error,
+		   Format.describe(
+		     "`" + name + "' is ambigious",
+		     "possible completions",
+		     Format.list(Format.empty,
+				 Format.literal(", "),
+				 Format.empty,
+				 e.fullNames)))
+	);
+	throw new Failures.FormFailed("UnitForm");
+      }
+    } else {
+      return -1;
+    }
+  }
+      
+  /**
+   * Unparse the internal state of the form. Returns the name of the
+   * unit.
+   */
+  public String[] unparse(Session session){
+    State ustate = (State)state;
+    if (ustate.unit != null)
+      return new String[]{"-u", ustate.unit.getName().toString()};
+    else 
+      return new String[]{""};
+  }
+
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    return "[-u <UNITNAME>]";
+  }
+
+}

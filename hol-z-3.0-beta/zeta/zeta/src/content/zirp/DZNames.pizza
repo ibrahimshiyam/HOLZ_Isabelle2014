@@ -1,0 +1,20 @@
+package zeta.content.zirp;
+
+/** Class which declares diverse constants for predefined DZ names.
+  *
+  * NOTE: empty currently
+  *
+  * @see zirp.absy.ZNames
+  * @see zirp.absy.DZNames
+  *
+  * @version $Id: DZNames.pizza,v 1.1.1.1 1998/09/01 10:51:16 wg Exp $
+  *
+  */
+
+public class DZNames {
+
+  /** The array of fixity items which are associated with the predefined
+    * DZ names. */
+  public static Item[] dzfixities = new Item[0];
+  
+}

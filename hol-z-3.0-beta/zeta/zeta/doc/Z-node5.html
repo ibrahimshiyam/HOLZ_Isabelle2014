@@ -1,0 +1,735 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>4. The Language: Details</TITLE>
+<META NAME="description" CONTENT="4. The Language: Details">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node6.html">
+<LINK REL="previous" HREF="Z-node4.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node6.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html120"
+ HREF="Z-node6.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html116"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html110"
+ HREF="Z-node4.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html118"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html121"
+ HREF="Z-node6.html">5. Type-Checker Directives</A>
+<B> Up:</B> <A NAME="tex2html117"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html111"
+ HREF="Z-node4.html">3. The Style: Details</A>
+ &nbsp <B>  <A NAME="tex2html119"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html122"
+ HREF="Z-node5.html#SECTION00051000000000000000">4.1 Sections</A>
+<LI><A NAME="tex2html123"
+ HREF="Z-node5.html#SECTION00052000000000000000">4.2 Toolkits</A>
+<LI><A NAME="tex2html124"
+ HREF="Z-node5.html#SECTION00053000000000000000">4.3 Operator Templates</A>
+<LI><A NAME="tex2html125"
+ HREF="Z-node5.html#SECTION00054000000000000000">4.4 Further Standard Z Features and Notes on Upgrading</A>
+<LI><A NAME="tex2html126"
+ HREF="Z-node5.html#SECTION00055000000000000000">4.5 Extended Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z Features and Incompatibilities with the Standard</A>
+<LI><A NAME="tex2html127"
+ HREF="Z-node5.html#SECTION00056000000000000000">4.6 The Denotation Type</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00050000000000000000"></A>
+<A NAME="sec:standardandmore"></A>
+<BR>
+4. The Language: Details
+</H1>
+
+<P>
+
+<H2><A NAME="SECTION00051000000000000000"></A>
+<A NAME="sec:sections"></A>
+<BR>
+4.1 Sections
+</H2>
+
+<P>
+Z sections are specified with the <code>\zsection</code> command.  Here, the
+section <I>BirthdayBook</I> is defined.  The parent of the section is the
+<I>library</I> section; if it is omitted, the standard toolkit is used
+as the parent (the standard toolkit to be used
+can be overwritten with the directive <code>%%toolkit</code>, see below):
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\zsection[library]{BirthdayBook}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="480" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img16.gif"
+ ALT="\dummy {
+\begin{example}
+\zsection[library]{BirthdayBook}
+\end{example}}">
+
+<P>
+All paragraphs following the <code>\zsection</code> command
+belong to this section, up to next <code>\zsection</code> command. This
+also holds across L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  inclusion commands (<code>\input</code> and
+<code>\include</code>). You can arbitrarily switch between sections,
+as in the example below, where we first add some declarations to
+the section <I>BirthdayBook</I>, then the 
+<!-- MATH
+ $BirthdayBookExec$
+ -->
+<I>BirthdayBookExec</I>, and
+then again to <I>BirthdayBook</I>:
+
+<P>
+ 
+<PRE>
+\zsection[library]{BirthdayBook}
+\input{basic}
+\zsection[BirthdayBook]{BirthdayBookExec}
+\input{exec}
+\zsection[library]{BirthdayBook}
+\input{addtobasic}
+</PRE>
+
+<P>
+If a document does not contain a <code>\zsection</code>, then one is
+implicitly created named after the file name of the document.
+
+<P>
+
+<H2><A NAME="SECTION00052000000000000000"></A>
+<A NAME="sec:toolkits"></A>
+<BR>
+4.2 Toolkits
+</H2>
+
+<P>
+Each Z section has the section <I>Toolkit</I> as an implicit parent.
+In order to change the name of this implicite parent, the type-checker
+directive <code>\zsection</code> is used.  This directive needs to
+placed in the preamble of the document, before the first Z section or
+any other Z markup, such as in:
+
+<P>
+ 
+<PRE>
+  \documentclass{article}
+  %%toolkit "ExtendedToolkit"
+...
+</PRE>
+
+<P>
+If the string given to <code>%%toolkit</code> is empty, not implicite
+parent will be created. This is useful to define toolkits by your own.
+
+<P>
+
+<H2><A NAME="SECTION00053000000000000000"></A>
+<A NAME="sec:templates"></A>
+<BR>
+4.3 Operator Templates
+</H2>
+
+<P>
+Z prefix (e.g.&nbsp;-4), postfix (e.g.&nbsp;<IMG
+ WIDTH="19" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img17.gif"
+ ALT="$R\inv$">), infix (e.g.&nbsp;47+11) and
+nofix (e.g.&nbsp;
+<!-- MATH
+ $\langle 4, 5, a\rangle$
+ -->
+<IMG
+ WIDTH="46" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img18.gif"
+ ALT="$\langle 4, 5, a\rangle$">)
+operators can be declared by
+Standard-Z operator templates.  These are given in L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  by the
+commands <code>\zfunction</code>, <code>\zrelation</code>,
+resp.&nbsp;<code>\zgeneric</code>.  The templates are declared with three
+arguments, (1) the precedence, (2) the associativity, and (3) the
+template itself.  The precedence is omitted for relations and nofix
+operators.  The associativity is only given for infix functions and
+generics.  The template is build up by ordinary identifiers and place
+holders for single parameters (i.e.&nbsp;<code>\_</code>) and comma separated
+lists of parameters (i.e.&nbsp;<code>,,</code>):
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\zfunction{40 \leftassoc (\_*\_)} \\
+\zfunction{30 \leftassoc (\_+\_)} \\
+\zfunction{90 (\_\inv)} \\
+\zfunction{(\langle ,, \rangle)} \\
+\zrelation{(\_\subseteq\_)} \\
+\zgeneric{5 \rightassoc (\_\fun\_)} 
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="505" HEIGHT="103" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img19.gif"
+ ALT="\dummy {
+\begin{example}
+\zfunction{40 \leftassoc (\_*\_)} \\
+\zfunction{30 \le...
+...elation{(\_\subseteq\_)} \\
+\zgeneric{5 \rightassoc (\_\fun\_)}
+\end{example}}">
+
+<P>
+Note that operator template commands can appear anywhere 
+in a document, but they must not appear inside of Z environments
+such as <code>zed</code>. The Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-style provides the
+environment <code>zdirectives</code> in order to group operator
+templates; it behaves like <code>zed</code> regarding type-setting,
+but has no special meaning for the type checker.
+
+<P>
+The directives for introducing operator templates known from Spivey-Z
+and ESZ2 are still supported, by internally translating them to the
+according Standard-Z templates.  The mapping is as follows:
+
+<P>
+
+<UL><LI><code>%%inrel word</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+(_ word _)
+
+<LI><code>%%prerel word</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+(_ word)
+
+<LI><code>%%ingen word</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+2 (_ word _)
+
+<LI><code>%%pregen word</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+90 (_ word)
+
+<LI><code>%%inop word N</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+10+(10*N) (_ word _)
+
+<LI><code>%%texrel N \tok</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+<code>\zrelation{9999 (\tok {\_} ... {\_})}</code>
+
+<LI><code>%%texgen N \tok</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+<code>\zgeneric{9999 (\tok {\_} ... {\_})}</code>
+
+<LI><code>%%texop N \tok</code>
+<!-- MATH
+ $~~\Longrightarrow~~$
+ -->
+<IMG
+ WIDTH="20" HEIGHT="9" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img20.gif"
+ ALT="$~~\Longrightarrow~~$">
+<code>\zfunction{9999 (\tok {\_} ... {\_})}</code>
+
+</UL>
+
+<P>
+The Z<SMALL>E</SMALL>T<SMALL>A</SMALL>style offers some auxiliar macros to define styles of
+new operators:
+
+<P>
+
+<UL><LI><code>\Zkeyword</code>:  define a keyword.
+
+<LI><code>\Zinop</code>: define an infix operation, such as <IMG
+ WIDTH="18" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img21.gif"
+ ALT="$\div$">.
+
+<LI><code>\Zpreop</code>:  define a function or prefix operations,
+        such as <IMG
+ WIDTH="25" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img22.gif"
+ ALT="$\dom$">
+or <IMG
+ WIDTH="17" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img23.gif"
+ ALT="$\pre$">.
+
+<LI><code>\Zinrel</code>: define an infix relation, such as
+        <IMG
+ WIDTH="49" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img24.gif"
+ ALT="$\partition$">.
+
+<LI><code>\Zprerel</code>: define a prefix relation, such as
+        <IMG
+ WIDTH="43" HEIGHT="15" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img25.gif"
+ ALT="$\disjoint$">.
+
+</UL>
+
+<P>
+Use these macros as in: 
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+  \providecommand{\myinop}{\Zinop{op}}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="250" HEIGHT="13" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img26.gif"
+ ALT="\dummy {
+\begin{example}
+\providecommand{\myinop}{\Zinop{op}}
+\end{example}}">
+
+The effect is a selection of an appropriate font and spacing properties
+of the introduced L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X token in math.
+
+<P>
+
+<H2><A NAME="SECTION00054000000000000000"></A>
+<A NAME="sec:further"></A>
+<BR>
+4.4 Further Standard Z Features and Notes on Upgrading
+</H2>
+
+<P>
+Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z supports the Standard-Z language (beside of a few
+incompatibilities described in the next Section). Among Z-sections and
+operator templates, the most important features are the followings:
+
+<P>
+
+<UL><LI>unification of value expressions with schema expressions.
+  A schema expression is just an expression which denotes a set of bindings.
+
+<LI>usage of expressions where in traditional Z only schema references
+  are allowed: any expression denoting a set of bindings can be used
+  as a schema reference 
+
+<LI>schema decoration (<I>S</I>&nbsp;') as an operator
+
+<LI><IMG
+ WIDTH="7" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img27.gif"
+ ALT="$\lambda$">
+and <IMG
+ WIDTH="7" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img28.gif"
+ ALT="$\mu$">
+expressions bind tighter then binary relations.
+  In particular, it is possible to write 
+<!-- MATH
+ $f = \lambda x:\nat @ E$
+ -->
+<IMG
+ WIDTH="97" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img29.gif"
+ ALT="$f = \lambda x:\nat @ E$">
+instead
+  of the formerly required 
+<!-- MATH
+ $f = (\lambda x:\nat @ E)$
+ -->
+<IMG
+ WIDTH="109" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img30.gif"
+ ALT="$f = (\lambda x:\nat @ E)$">
+
+<LI>It is possible to provide an empty declaration list in schema
+  text or axiomatic definitions. In particular, one can write:
+  <BR>
+<IMG
+ WIDTH="508" HEIGHT="49" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img31.gif"
+ ALT="\begin{axdef}[X]
+\where
+f = \lambda x:X @ E
+\end{axdef}">
+<BR>
+</UL>
+
+<P>
+Users upgrading from Spivey-Z or ESZ-Z to Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z (resp.&nbsp;to
+Standard-Z in general) have to tackle with the following typical
+incompatibilities (for a comprehensive discussion, see
+[<A
+ HREF="Z-node9.html#z:toyn98">2</A>]):
+
+<P>
+
+<UL><LI>decoration is now part of a name. Thus <I>S</I>' denotes the name <I>S</I>',
+  not the schema <I>S</I> where all variables are decorated with '. In
+  order to denote the decoration operators on schemas, one either uses
+  space, <I>S</I>&nbsp;', or braces, (<I>S</I>)' (in the later example, <I>S</I> can be
+  in fact an arbitrary expression denoting a schema). 
+
+<LI>a <IMG
+ WIDTH="7" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img28.gif"
+ ALT="$\mu$">-expression without a <IMG
+ WIDTH="5" HEIGHT="5" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img32.gif"
+ ALT="$\spot$">
+must always be put
+  in parentheses (<IMG
+ WIDTH="33" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img33.gif"
+ ALT="$(\mu E)$">)
+
+</UL>
+
+<P>
+These incompatibilities are straight-forward detected by a type checker.
+Experiences show that around 90% of the problems when upgrading
+a Z specification are related to the usage of <I>S</I>', which is
+commonly applied in expressions such as 
+<!-- MATH
+ $(\theta S, \theta S')$
+ -->
+<IMG
+ WIDTH="54" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img34.gif"
+ ALT="$(\theta S, \theta S')$">
+(now
+to be written as 
+<!-- MATH
+ $(\theta S, \theta S~')$
+ -->
+<IMG
+ WIDTH="57" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img35.gif"
+ ALT="$(\theta S, \theta S~')$">).
+
+<P>
+
+<H2><A NAME="SECTION00055000000000000000"></A>
+<A NAME="sec:extended"></A>
+<BR>
+4.5 Extended Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z Features and Incompatibilities with the Standard
+</H2>
+
+<P>
+Standard-Z is still a moving target. Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z does not conform
+completely to it, and adds extensions which are currently not
+found in the Standard. 
+
+<P>
+The following <I>restrictions</I> compared to the Standard are
+currently present:
+
+<P>
+ 
+<DL COMPACT>
+<DT>1.
+<DD>the L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X -lexis of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z is oriented towards Spivey-Z,
+and does not support the recently proposed features such as
+  multi-token-words. The L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X -tokens <code>{</code> and
+    <code>}</code> are not treated as whitespace, but as normal
+  tokens<A NAME="tex2html3"
+ HREF="Z-footnode.html#foot370"><SUP>2</SUP></A>.
+  The lexis will by synchronized with the Standard in one of the
+  next revisions of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>.
+<DT>2.
+<DD>it is not possible to redefine the meaning of <IMG
+ WIDTH="19" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img36.gif"
+ ALT="$\Delta S$">
+and
+  <IMG
+ WIDTH="17" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img37.gif"
+ ALT="$\Xi S$">.
+In, fact <IMG
+ WIDTH="10" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img38.gif"
+ ALT="$\Delta$">
+and <IMG
+ WIDTH="8" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img39.gif"
+ ALT="$\Xi$">
+are provided as operators
+  on schemas (see below).
+<DT>3.
+<DD>there are some subtle restriction in operator templates (which
+  shouldn't become visible to users, however). These will be synchronized
+  with the Standard in future revisions.
+</DL>
+
+<P>
+The following extensions compared to the Standard are
+currently found in Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z:
+
+<P>
+ 
+<DL COMPACT>
+<DT>1.
+<DD>The order how paragraphs appear in a Z section is arbitrary, apart
+of that the
+  definition-use relation of paragraphs must be acyclic. (A paragraph
+  is in definition-use relation to another paragraph, if it introduces
+  a name which is referred to by the other paragraph.)
+<DT>2.
+<DD><IMG
+ WIDTH="10" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img38.gif"
+ ALT="$\Delta$">
+and <IMG
+ WIDTH="8" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img39.gif"
+ ALT="$\Xi$">
+are introduced as expression operators. An
+  explicite definition of a schema named <IMG
+ WIDTH="19" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img36.gif"
+ ALT="$\Delta S$">
+(<IMG
+ WIDTH="17" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img37.gif"
+ ALT="$\Xi S$">)
+is not
+  supported.
+<DT>3.
+<DD>Mutual recursive free types may appear in different paragraphs,
+  and not just one paragraph where they are separated by <code>&amp;</code>.  It
+  is in general possible to refer to Z names in a free type definition
+  which are themselves defined in dependency of this free type.
+<DT>4.
+<DD>Global constants can be declared multiple times in the
+  environment of a section. All declarations must be type-compatible.
+<DT>5.
+<DD>Given and free types may be generic. A generic given type
+  is written as [<I>T</I>[<I>X</I>]]. A generic free type is written as
+  
+<!-- MATH
+ $T[X] ::= \ldots$
+ -->
+<IMG
+ WIDTH="75" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img40.gif"
+ ALT="$T[X] ::= \ldots$">.
+</DL>
+
+<P>
+Some of these extensions have been proposed to the Z ISO Panel, and some of
+them might make their way into the final Standard.  Yet, be aware that
+when using these extensions, your specification might become
+incompatible with Standard Z<A NAME="tex2html4"
+ HREF="Z-footnode.html#foot371"><SUP>3</SUP></A>
+<P>
+
+<H2><A NAME="SECTION00056000000000000000">
+4.6 The Denotation Type</A>
+</H2>
+
+<P>
+A further extension of Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z is a builtin notation and
+type for <I>denotations</I> (strings). 
+
+<P>
+A denotation is written as follows:
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}
+  d: \denotation
+\where
+  d = \ZD{Hello World! How do You do?}
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="518" HEIGHT="75" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img41.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}
+d: \denotation
+\where
+d = \ZD{Hello World! How do You do?}
+\end{axdef}\end{example}}">
+
+<P>
+Inside of a denotation <code>\ZD{...}</code>, the following escape
+sequences can be used:
+
+<P>
+
+<UL><LI><code>\n</code> - newline 
+
+<LI><code>\r</code> - carriage return 
+
+<LI><code>\t</code> - tabulator 
+
+<LI><code>\b</code> - backspace 
+
+<LI><code>\f</code> - formfeed 
+
+<LI><code>\\</code> - backslash  
+
+<LI><code>\{</code> - braceopen  
+
+<LI><code>\}</code> - braceclose  
+
+</UL>
+
+<P>
+Only two functions are available on denotations: <IMG
+ WIDTH="32" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img42.gif"
+ ALT="$\ddec~d$">
+converts
+a denotation in a sequence of natural numbers, where each number
+represents the encoding of the given letter, whereas <IMG
+ WIDTH="30" HEIGHT="7" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img43.gif"
+ ALT="$\denc~s$">
+converts a sequence of numbers into a denotation. The encoding
+is unspecified.
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}
+  \denc: \denotation \fun \seq \nat \\
+  \ddec: \seq \nat \pfun \denotation
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="518" HEIGHT="59" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img44.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}
+\denc: \denotation \fun \seq \nat \\
+\ddec: \seq \nat \pfun \denotation
+\end{axdef}\end{example}}">
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html120"
+ HREF="Z-node6.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html116"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html110"
+ HREF="Z-node4.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html118"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html121"
+ HREF="Z-node6.html">5. Type-Checker Directives</A>
+<B> Up:</B> <A NAME="tex2html117"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html111"
+ HREF="Z-node4.html">3. The Style: Details</A>
+ &nbsp <B>  <A NAME="tex2html119"
+ HREF="Z-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

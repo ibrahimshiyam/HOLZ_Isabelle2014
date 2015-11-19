@@ -1,0 +1,25 @@
+package zeta.session;
+
+/** 
+ * Result messages of tool operation.
+ *
+ * @version $Id: ResultMessage.pizza,v 1.1 1998/09/06 15:26:37 wg Exp $ 
+ *
+ */
+
+import zeta.format.*;
+
+
+public class ResultMessage extends Message {
+
+  /**
+   * @param message  a format describing the message
+   */
+  public case ResultMessage(final Format message);
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    return message;
+  }
+
+}

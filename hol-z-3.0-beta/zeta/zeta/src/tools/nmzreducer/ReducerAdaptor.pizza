@@ -1,0 +1,256 @@
+package zeta.tools.nmzreducer;
+
+/** The Z to MicroZ reducer.
+  *
+  * @version $Id: ReducerAdaptor.pizza,v 1.15 2000/07/21 06:45:15 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import java.util.Date;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.session.*;
+import zeta.content.zirp.*;
+import zeta.content.nmz.*;
+
+
+public class ReducerAdaptor extends DefaultAdaptor {
+
+  
+  // CONSTANTS
+
+  /*
+   * The startup message of this adaptor.
+   */
+  private static final String startupMessage = 
+    "installed Z-to-MicroZ reducer v2.0";
+
+  /**
+   * Whether we should issue timing messages.
+   */
+  private static final boolean timing = 
+    System.getProperty("zeta.debug.timing") != null;
+
+
+
+
+
+  // ADAPTOR INITIALIZATION
+
+  /**
+   * Return the name of this adaptor.
+   */
+  public Name getName(){
+    return ReducerUtil.reducerName;
+  }
+
+  /** 
+   * Initialize a newly created instance of this adaptor.
+   */
+  public void initialize(Session session, StorageHandle handle){
+    super.initialize(session, handle);
+    this.session = session;
+    sendProgress(startupMessage);
+    session.registerContentType(MZConstants.mzContentType);
+  }
+
+
+  // ADAPTOR METHODS
+  
+  /** 
+   * Return the content types which this adaptor can generally
+   * compute.
+   */
+  public ContentType[] computedTypes() {
+    return new ContentType[]{ MZConstants.mzContentType };
+  }
+
+  /** Always throws. */
+  public Unit lookupUnit(Name name)
+  throws Failures.UnresolvableName {
+    throw new Failures.UnresolvableName(name);
+  }
+
+  
+  /**
+   * Run the adaptor to compute the specified content.  
+   */
+  public void tryCompute(Target spec)
+  throws Failures.ComputationFailed, Failures.CannotCompute {
+
+    ReducerUtil.readProperties();
+
+    Set<Target> deps = new HashSet();
+
+    // query checked absy and env of this unit
+    UnitAbsy absy = (UnitAbsy)spec.unit.query(ZirpContentTypes.checkedAbsy);
+    UnitEnv env = (UnitEnv)spec.unit.query(ZirpContentTypes.checkedEnv);
+    deps = deps.include(new Target(spec.unit,
+					    ZirpContentTypes.checkedAbsy))
+	       .include(new Target(spec.unit,
+					    ZirpContentTypes.checkedEnv));
+
+    // calculate the set of global names. Uses the "Used"
+    // annotation of items, and the type of an item
+    Set<Name> globals = new HashSet();
+    {
+      Item[] items;
+      switch (absy){
+      case Section(_,_,Item[] is):
+	items = is;
+	break;
+      case ClassDef(_,_,_,Item[] is):
+	items = is;
+      }
+      System.gc();
+      for (int i = 0; i < items.length; i++){
+	// add applied names
+	// STRANGE BUG IN JDK 1.2 / LINUX 
+	// solved calling gc above
+	// System.err.println(items[i].an);
+	Name[] names = Used.get(items[i].an);
+	// System.err.println(names.length);
+	Seq<Name> snames = new ArraySeq(names);
+	// System.err.println(snames.size());
+	globals = globals.includeAll(snames);
+	// add declared names
+	switch (items[i]){
+	case AxiomaticDef(_, Expr def):
+	  switch (ReducerUtil.getTypeAn(def)){
+	  case Unary(Power, Signature(Name[] decls, _)):
+	    globals = globals.includeAll(new ArraySeq(decls));
+	  }
+	  // add generated names for type information
+	  switch (def) {
+	  case GivenType(NameDecl name):
+	    globals = 
+	      globals.include(MZConstants.makeGivenTypeInfoName(name.name))
+		     .include(MZConstants.makeGivenTypeGenName(name.name));
+	    
+	    break;
+	  case FreeType(NameDecl name, _):
+	    globals = 
+	      globals.include(MZConstants.makeGivenTypeInfoName(name.name))
+		     .include(MZConstants.makeGivenTypeGenName(name.name));
+	  }
+	}
+      }
+    }
+    // enrich globals by names for "universal instance" of generics
+    globals.apply(
+      fun (Name n)->void {
+	UnitEnv.ConstantInfo info = env.getConstant(n);
+	if (info != null && info.generics.length > 0){
+	  globals = globals.include(new Name(n.getRepr() + "[]"));
+	}
+      }
+    );
+
+
+    // also add "builtin" names
+    // FIXME: these should be done by the type checker
+    globals = globals.include(ZNames.baseNum)
+		     .include(ZNames.num)
+		     .include(ZNames.nat)
+		     .include(ZNames._seq)
+		     .include(ZNames.pfun)
+		     .include(ZNames._fun)
+		     .include(ZNames.rel)
+		     .include(ZNames.subseteq)
+		     .include(ZNames.equal)
+		     .include(ZNames.notEqual)
+		     .include(ZNames.ran)
+		     .include(ZNames.in)
+		     .include(ReducerUtil.memoizeFunc)
+		     .include(ZNames.emptyset);
+    
+    
+    // reduce
+    Date definedAt = new Date();
+    sendProgress("reducing " + spec.unit.getName());
+    Reducer reducer = new Reducer(env);
+    reducer.enterContext();
+    Locator globalLoc = ReducerUtil.getLocatorAn(absy);
+    globals.apply(
+      fun (Name n)->void {
+	reducer.newVar(globalLoc, n.getRepr());
+      }
+    );
+    boolean errors = false;
+    Name name = null;
+    Name[] parents = null;
+    switch (absy){
+    case Section(Name theName, Name[] theParents, Item[] items):
+      name = theName; parents = theParents;
+      for (int i = 0; i < items.length; i++){
+	reducer.reduce(items[i]);
+	Diag diag = reducer.getAndClearDiag();
+	if (!diag.isEmpty()) sendDiag(diag);
+	errors = errors || diag.contains(Diag.Category.Error);
+      }
+      break;
+    case ClassDef(Name theName, Name[] theParents, Name[] formals,
+		  Item[] items):
+      name = theName; parents = theParents;
+      for (int i = 0; i < items.length; i++){
+	reducer.reduce(items[i]);
+	Diag diag = reducer.getAndClearDiag();
+	if (!diag.isEmpty()) sendDiag(diag);
+	errors = errors || diag.contains(Diag.Category.Error);
+      }
+      break;
+
+      /*
+    default:
+      sendDiag(new Diag(Locator.get(absy.an),
+			Diag.Category.Error,
+			"cannot reduce this kind of unit currently"));
+      errors = true;
+      */
+    }
+
+    if (errors){
+      // computation failed
+      throw new Failures.ComputationFailed(spec);
+    } else {
+      // define reduction result
+
+      MZ.UnitDef def = 
+	reducer.exitContextWithUnit(name, new ArraySeq(parents),
+				    ArraySeq.from(globals),
+				    ReducerUtil.reducerLocator);
+      
+      spec.unit.define(MZConstants.mzContentType, def,
+		       false,
+		       definedAt,
+		       deps.toArray(Target.class),
+		       this
+		      );
+    }
+  }
+
+  /** */
+  public boolean isUptodate(Target spec, Date definedAt){
+    return true;
+  }
+
+  /** */
+  public boolean notifyOutdate(Target spec, Date definedAt,
+			       StorageHandle handle){
+    return false;
+  }
+
+  /** */
+  public void checkExternalData(){
+  }
+
+  /** */
+  public void flush(){
+  }
+
+}

@@ -1,0 +1,19 @@
+
+AUTOSUBNODES	= vtex mode adaptor
+
+ELISPFILES	= zeta-site-init
+
+this:
+	@echo "Nothing to be done for emacs stuff"
+
+inst:
+	$(ET_INSTALL) lib/emacs $(ELISPFILES:%=%.el)
+	$(ET_INSTALL) lib/emacs $(ELISPFILES:%=%.elc)
+
+inst0:	
+	mkdirhier $(ET)/lib/emacs >/dev/null || true
+	for el in $(ELISPFILES); do \
+	  [ -f $(ET)/lib/emacs/$$el.el ] || \
+	     ln -s `pwd`/$$el.el $(ET)/lib/emacs; \
+          [ ! -f $$el.elc ] || cp $$el.elc $(ET)/lib/emacs; \
+        done

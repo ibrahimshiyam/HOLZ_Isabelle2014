@@ -1,0 +1,677 @@
+package zeta.tools.sman;
+
+/**
+ * The session class implementation.
+ *
+ * @version $Id: SessionImpl.pizza,v 1.17 2000/07/26 16:00:38 wg Exp $
+ */
+
+// FIXME: persistency disabled, re-enable it some day ...
+
+import java.io.File;
+import java.io.Serializable;
+import java.io.IOException;
+import java.util.NoSuchElementException;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+
+import zeta.util.*;
+import zeta.format.*;
+import zeta.session.*;
+import zeta.form.TopLevelForm;
+
+class SessionImpl implements Session {
+
+  // FIELDS
+
+  /*
+   * The persistent storage manager.
+   */
+  private final Storage storage;
+
+  /*
+   * The registered adaptors and their instances.
+   */
+  private Map<Name,Adaptor> adaptors = new HashMap();
+  private Adaptor[] sortedAdaptors = new Adaptor[0];
+
+  /*
+   * The registered units.
+   */
+  private Map<Name,UnitImpl> units = new HashMap();
+  private Unit[] sortedUnits = new Unit[0];
+
+  /*
+   * The registered listeners.
+   */
+  private Seq<Pair<Class[],Listener>> listeners = new ArraySeq();
+
+  /*
+   * The registered content types.
+   */
+  private Set<ContentType> contentTypes = new HashSet();
+  private ContentType[] sortedTypes = new ContentType[0];
+
+  /*
+   * The registered commands.
+   */
+  private Seq<TopLevelForm> forms = new BufferSeq();
+
+  /*
+   * The registered shell.
+   */
+  private Shell shell = null;
+
+
+  /*
+   * The registered editor.
+   */
+  private TextEditor editor = null;
+
+
+
+
+  /*
+   * The Zeta home directory
+   */
+  private File zetaHome;
+
+  /*
+   * The static handle used for the project dictionary
+   */
+  private static final StorageHandle projectDictHandle = 
+    Storage.makeStaticHandle("project");
+
+  /**
+   * The name of the session in messages.
+   */
+  private static final Name sessionMsgName =
+    new Name("SessionManager");
+
+    
+
+  // CONSTRUCTORS
+
+  /**
+   * Construct a session.
+   */
+  private SessionImpl(Storage storage){
+    this.storage = storage;
+    zetaHome = new File(System.getProperty("zeta.home"));
+    if(zetaHome == null)
+      throw new Errors.AssertionFailed("property `zeta.home' not defined");
+  }
+
+  /**
+   * Construct a session to be found in the given directory.
+   */
+  static SessionImpl open(File dir)
+  throws Failures.NoSuchEntity {
+    SessionImpl session = new SessionImpl(Storage.open(dir));
+    return session;
+  }
+
+  /**
+   * Create a session in the given directory.
+   */
+  static SessionImpl create(File dir){
+    SessionImpl session = new SessionImpl(Storage.create(dir));
+    return session;
+  }
+
+
+  // PERSISTENCY 
+
+  /** 
+   * A class to represent the persistent data of a project
+   */
+  private static class ProjectData implements Serializable {
+    case ProjectData(Name[] adaptorNames,
+		     String[] adaptorClasses,
+		     Name[] unitNames,
+		     Serializable[] unitContents);
+  }
+
+  /**
+   * Save the project data.
+   */
+  public void flush(){
+    // flush all adaptors
+    adaptors.apply(
+      fun (Pair<Name,Adaptor> p)->void {
+	p.snd.flush();
+      }
+    );
+
+    // flush project dictionary
+    // FIXME: dirty flag?
+    Name[] adaptorNames = new Name[adaptors.size()];
+    String[] adaptorClasses = new String[adaptors.size()];
+    int i = 0;
+    adaptors.apply(
+      fun (Pair<Name,Adaptor> p)->void {
+	adaptorNames[i] = p.fst;
+	adaptorClasses[i] = p.snd.getClass().getName();
+	i++;
+      }
+    );
+    Name[] unitNames = new Name[units.size()];
+    Serializable[] unitContents = new Serializable[units.size()];
+    i = 0;
+    units.apply(
+      fun (Pair<Name,UnitImpl> p)->void {
+	unitNames[i] = p.fst;
+	unitContents[i] = p.snd.saveContents();
+	i++;
+      }
+    );
+    ProjectData data = new ProjectData(adaptorNames, adaptorClasses,
+				       unitNames, unitContents);
+    storage.store(projectDictHandle, data);
+    storage.flush();
+  }
+
+  /**
+   * Initialize the session, loading the project dictionary.
+   */
+  public void initialize(){
+    ProjectData data = (ProjectData)storage.load(projectDictHandle);
+    if (data == null){
+      return;
+    }
+    for (int i = 0; i < data.adaptorNames.length; i++){
+      Class clazz;
+      try {
+	clazz = Class.forName(data.adaptorClasses[i]);
+      }
+      catch (ClassNotFoundException e){
+	throw new Errors.PhysicalError(e);
+      }
+      if (!Adaptor.class.isAssignableFrom(clazz)){
+	throw new Errors.AssertionFailed(clazz.getName() + 
+					 " is not a tool adaptor");
+      }
+      Adaptor adaptor;
+      try {
+	adaptor = (Adaptor)clazz.newInstance();
+      }
+      catch (IllegalAccessException e){
+	throw new Errors.PhysicalError(e);
+      }
+      catch (InstantiationException e){
+	throw new Errors.PhysicalError(e);
+      }
+      if (!adaptor.getName().equals(data.adaptorNames[i])){
+	throw new Errors.AssertionFailed("adaptor `" + clazz.getName() + 
+			 "' does not have same name as in last session, `" +
+					 data.adaptorNames[i] + "'");
+      }
+      adaptors = adaptors.define(data.adaptorNames[i], adaptor);
+      adaptor.initialize(this, makeAdaptorHandle(adaptor));
+    }
+    for (int i = 0; i < data.unitNames.length; i++){
+      units = units.define(data.unitNames[i], 
+			   new UnitImpl(this, data.unitNames[i]));
+    }
+    for (int i = 0; i < data.unitNames.length; i++){
+      units.get(data.unitNames[i]).restoreContents(data.unitContents[i]);
+    }
+  }
+
+  /**
+   * Make a unique storage handle for tool adaptor.
+   */
+  private StorageHandle makeAdaptorHandle(Adaptor adaptor){
+    String name = adaptor.getClass().getName().replace('.','_');
+    return Storage.makeStaticHandle(name);
+  }
+
+
+
+  // UNITS
+
+  /** */
+  public synchronized Unit lookupUnit(Name name) 
+  throws Failures.UnresolvableName, Failures.AmbigiousName {
+    if (units.defines(name)){
+      return units.get(name);
+    }
+    String repr = name.getRepr();
+    int i = repr.indexOf(":");
+    if (i >= 0){
+      Name tool = new Name(repr.substring(0, i));
+      if (adaptors.defines(tool))
+	return adaptors.get(tool).lookupUnit(name);
+      else
+	throw new Failures.UnresolvableName(name);
+    } else {
+      Unit unit;
+      Set<Name> cands = new HashSet();
+      adaptors.apply(
+	fun (Pair<Name, Adaptor> p)->void {
+	  try {
+	    unit = p.snd.lookupUnit(name);
+	    cands = cands.include(unit.getName());
+	  }
+	  catch (Failures.UnresolvableName e){
+	  }
+	  catch (Failures.AmbigiousName e){
+	    cands = cands.includeAll(new ArraySeq(e.fullNames));
+	  }
+	}
+      );
+      switch (cands.size()){
+      case 0:
+	throw new Failures.UnresolvableName(name);
+      case 1:
+	return unit;
+      default:
+	throw new Failures.AmbigiousName(cands.toArray(Name.class));
+      }
+    }
+  }
+
+
+  /** */
+  public synchronized Unit getUnit(Name name) 
+  throws Failures.NoSuchEntity {
+    if (!units.defines(name)) 
+      throw new Failures.NoSuchEntity(name.getRepr());
+    return units.get(name);
+  }
+
+  /** */
+  public synchronized Unit getOrCreateUnit(Name name){
+    if (units.defines(name)) 
+      return units.get(name);
+    UnitImpl unit = new UnitImpl(this, name);
+    units = units.define(name, unit);
+    sortedUnits = units.range()
+		       .sort(fun (UnitImpl u1, UnitImpl u2)->int {
+			       return
+				 u1.getName().getRepr()
+				   .compareTo(u2.getName().getRepr());
+			     })
+		       .toArray(Unit.class);
+    send(sessionMsgName, new SessionStateMessage.UnitAdded(unit));
+    return unit;
+  }
+
+  /** */
+  public synchronized Unit[] getUnits(){
+    return sortedUnits;
+  }
+
+  /** */
+  public synchronized Locator unitLocator(Unit unit){
+    Locator l = null;
+    adaptors.exists(
+      fun (Pair<Name,Adaptor> adaptor)->boolean {
+	l = adaptor.snd.unitLocator(unit);
+	return l != null;
+      }
+    );
+    return l;
+  }
+
+   
+  // TOOL ADAPTORS
+
+  /** */
+  public synchronized Adaptor lookupAdaptor(Name name)
+  throws Failures.NoSuchEntity {
+    if (!adaptors.defines(name)) 
+      throw new Failures.NoSuchEntity(name.getRepr());
+    return adaptors.get(name);
+  }
+
+ 
+  /** */
+  public synchronized void registerAdaptor(Class adaptorClass) 
+  throws Failures.EntityExists {
+    if (!Adaptor.class.isAssignableFrom(adaptorClass))
+      throw new Errors.AssertionFailed(
+		  adaptorClass + " does not represent a tool adaptor");
+    Adaptor adaptor;
+    try {
+      adaptor = (Adaptor)adaptorClass.newInstance();
+    }
+    catch (IllegalAccessException e){
+      throw new Errors.PhysicalError(e);
+    }
+    catch (InstantiationException e){
+      throw new Errors.PhysicalError(e);
+    }
+    Name name = adaptor.getName();
+    if (adaptors.defines(name)) 
+      throw new Failures.EntityExists(name.getRepr());
+    adaptors = adaptors.define(name, adaptor);
+    adaptor.initialize(this, makeAdaptorHandle(adaptor));
+    sortedAdaptors = adaptors.range()
+			     .sort(fun (Adaptor a1, Adaptor a2)->int {
+				     return
+				       a1.getName().getRepr()
+					 .compareTo(a2.getName().getRepr());
+				   }
+				  )
+			     .toArray(Adaptor.class);
+    send(sessionMsgName, new SessionStateMessage.AdaptorAdded(adaptor));
+  }
+    
+  /**
+   * Get all tool adaptors of this session.
+   */
+  public synchronized Adaptor[] getAdaptors() {
+    return sortedAdaptors;
+  }
+
+  /**
+   * Find tool adaptors which can compute the specified content type.
+   */
+  Adaptor[] findAdaptors(ContentType type){
+    // FIXME: precalculate this information
+    Seq<Adaptor> cands = new BufferSeq();
+    adaptors.apply(
+      fun (Pair<Name,Adaptor> p)->void {
+	Adaptor a = p.snd;
+	ContentType[] types = a.computedTypes();
+	for (int i = 0; i < types.length; i++){
+	  if (types[i].equals(type)){
+	    cands = cands.append(a);
+	    break;
+	  }
+	}
+      }
+    );
+    return cands.toArray(Adaptor.class);
+  }
+    
+  //
+  // /** */
+  // public File getToolDir(Name name){
+  //  File dir = new File(storage.getBaseDir(), name.getRepr());
+  //  if (!dir.isDirectory() && !dir.mkdir())
+  //    throw new Errors.AssertionFailed("cannot open or create " + dir);
+  //  return dir;
+  //}
+
+  /** */
+  public File newTempFile(String suffix){
+    try {
+      File f = File.createTempFile("zeta", suffix);
+      f.deleteOnExit();
+      return f;
+    } catch (IOException e){
+      throw new Errors.AssertionFailed("cannot create temporary files: " + e);
+    }
+  }
+
+
+    
+
+  /** */
+  public File getLibDir() {
+    return new File(zetaHome, "lib");
+  }
+
+  /** */
+  public File getClassDir() {
+    return new File(zetaHome, "classes");
+  }
+
+
+  // UPDATING SOURCES
+
+  /** */
+  public void checkExternalData(){
+    adaptors.apply(
+      fun (Pair<Name,Adaptor> p)->void {
+	p.snd.checkExternalData();
+      }
+    );
+  }
+
+  // MANAGING AUXILIARY PERSISTENT STORAGE
+
+  /** */
+  public StorageHandle allocate(){
+    return storage.newHandle();
+  }
+
+  /** */
+  public void free(StorageHandle handle){
+    storage.freeHandle(handle);
+  }
+
+
+  /** */
+  public void store(StorageHandle handle, Serializable object){
+    storage.store(handle, object);
+  }
+    
+
+  /** */
+  public Serializable load(StorageHandle handle){
+    return storage.load(handle);
+  }
+
+  // MESSAGE DISPATCHING
+
+  /** */
+  public void registerListener(Class[] classes, Listener listener){
+    unregisterListener(listener);
+    listeners = listeners.append(new Pair(classes, listener));
+  }
+
+  public void unregisterListener(Listener listener){
+    listeners = 
+      listeners.filter(
+	fun (Pair<Class[], Listener> p)->boolean {
+	  return p.snd != listener;
+        }
+      );
+  }
+
+  /** */
+  public void send(Name sender, Message message){
+    listeners.apply(
+      fun (Pair<Class[], Listener> p)->void {
+        boolean interest = false;
+        if (p.fst == null)
+	  interest = true;
+	else {
+	  Class mclass = message.getClass();
+	  for (int i = 0; i < p.fst.length; i++){
+	    if (p.fst[i].isAssignableFrom(mclass)){
+	      interest = true;
+	      break;
+	    }
+	  }
+	}
+	if (interest) p.snd.receive(sender, message);
+      }
+    );
+  }
+
+  // CONTENT TYPES 
+
+  /** */
+  public void registerContentType(ContentType type){
+    if (!contentTypes.contains(type)){
+      contentTypes = contentTypes.include(type);
+      sortedTypes = ArraySeq.from(contentTypes)
+				.sort(fun (ContentType t1, ContentType t2)
+					  ->int {
+					return
+					  t1.toString()
+					    .compareTo(t2.toString());
+				      }
+				     )
+				.toArray(ContentType.class);
+      send(sessionMsgName, new SessionStateMessage.ContentTypeAdded(type));
+    }
+  }
+
+
+  /** */
+  public ContentType[] getContentTypes(){
+    return sortedTypes;
+  }
+
+  /** */
+  public ContentType lookupContentType(Name name)
+  throws Failures.NoSuchEntity {
+    ContentType type = null;
+    if (contentTypes.exists(fun (ContentType t)->boolean {
+			      if (t.name.equals(name)){
+				type = t;
+				return true;
+			      } else 
+				return false;
+			    })){
+      return type;
+    } else
+      throw new Failures.NoSuchEntity(name.toString());
+  }
+    
+    
+
+  // COMMANDS 
+
+  /** */
+  public void registerForm(TopLevelForm form){
+    forms = forms.append(form);
+    if (shell != null){
+      shell.notifyFormRegister(form);
+    }
+  }
+
+  /** */
+  public void unregisterForm(TopLevelForm form){
+    forms = forms.filter(fun (TopLevelForm s)->boolean {
+			   return s != form;
+			 });
+    if (shell != null){
+      shell.notifyFormUnregister(form);
+    }
+  }
+
+  /** */
+  public TopLevelForm[] getForms(){
+    return forms.toArray(TopLevelForm.class);
+  }
+
+  /** */
+  public void registerShell(Shell shell){
+    this.shell = shell;
+  }
+
+  /** */
+  public void registerTextEditor(TextEditor editor){
+    this.editor = editor;
+  }
+
+  /** */
+  public TextEditor getTextEditor(){
+    return editor;
+  }
+
+  /** */
+  public void execForm(String prompt, TopLevelForm form)
+  throws Failures.FormFailed {
+    if (shell != null){
+      shell.exec(prompt, form);
+    } else 
+      throw new Errors.AssertionFailed("no session shell registered");
+  }
+
+  // EXITING
+
+  /**
+   * Exit a session and the running JVM. Makes actions to perform
+   * necessary saves of the sessions data.
+   */
+  public void exit() {
+    flush();
+    send(new Name("SMAN"),
+	 new ResultMessage(Format.literal("good bye.")));
+    System.exit(0);
+  }
+
+  /**
+   * Abort a session and the running JVM. Changes on the sessions data
+   * are not saved.  
+   */
+  public void abort(){
+    // FIXME: instead of just exisiting here, we need a cleaner
+    // way to shut down the storage manager preserving the
+    // previous session state (but this currently should work,
+    // since the session manager only flushes data if explicitely called)
+    send(new Name("SMAN"),
+	 new ResultMessage(Format.literal("good bye.")));
+    System.exit(0);
+  }
+
+  /**
+   * Report about a runtime exeception, and let the session die.
+   */
+  public void abort(Throwable e){
+    if (e instanceof Errors.PhysicalError){
+      Errors.PhysicalError pe = (Errors.PhysicalError)e;
+      if (pe.exception instanceof java.io.InvalidClassException){
+	// most probably a serialization version error
+	// FIXME: catch this on lower levels
+	versionError(pe.exception);
+      } else {
+	fatalError("session manager error", 
+		   ((Errors.PhysicalError)e).exception);
+      }
+    }
+    else if (e instanceof Errors.DataInconsistency){
+      fatalError("project data inconsistency: " + 
+		 ((Errors.DataInconsistency)e).message, 
+		 e);
+    }
+    else if (e instanceof Errors.AssertionFailed){
+      fatalError("programming assertion failed: " + 
+		 ((Errors.AssertionFailed)e).message, 
+		 e);
+    }
+    else if (e instanceof RuntimeException){
+      fatalError("programming error", e);
+    }
+    else {
+      fatalError("internal Java error", e);
+    }
+    send(new Name("SMAN"),
+	 new ResultMessage(Format.literal("anyway, good bye.")));
+    System.exit(255);
+  }
+
+  private static void fatalError(String message, Throwable t){
+    System.err.println();
+    System.err.println("An unexpected exception has occured:");
+    System.err.println(message);
+    System.err.println();
+    t.printStackTrace();
+    System.err.println();
+    System.err.print("Please send a bug report ");
+    System.err.println("to zeta@uebb.cs.tu-berlin.de.");
+  }
+
+  private static void versionError(Throwable t){
+    System.err.println();
+    System.err.println(
+    "The project data is incompatible with this version of ZETA.");
+    System.err.println();
+    t.printStackTrace();
+    System.err.println();
+    System.err.println("Please remove the project data and start again.");
+    System.err.println("Note that the project data is reconstructable from");
+    System.err.println("your sources.");
+  }
+
+}
+

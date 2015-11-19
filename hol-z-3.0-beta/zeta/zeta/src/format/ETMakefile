@@ -1,0 +1,12 @@
+NODEKIND	= javagroup
+#AUTOSUBNODES	= 
+PIZZA_FILES	= Format.pizza
+JAVA_FILES	= Formattable.java FormatInfo.java impl/CompoundFormat.java impl/FormatBlock.java impl/FormatText.java \
+     impl/FormatPrinter.java \
+     impl/FormatBreak.java impl/NestedFormat.java impl/FormatBeneath.java \
+     impl/FormatSpace.java impl/TextRectangle.java impl/FormatBeside.java \
+     impl/FormatAppend.java impl/FormatLine.java impl/FormatStream.java impl/FormatState.java \
+     impl/FormatEmpty.java impl/FormatGroup.java 
+JAVAFLAGS	= 
+
+

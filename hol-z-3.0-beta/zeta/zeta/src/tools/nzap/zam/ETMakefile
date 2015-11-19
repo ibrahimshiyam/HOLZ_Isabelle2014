@@ -1,0 +1,38 @@
+# $Id: ETMakefile,v 1.46 2000/07/26 16:00:38 wg Exp $
+
+NODEKIND	= cc java
+AUTOSUBNODES	= 
+
+
+# C++ part
+
+PUREHEADERS	= zam 
+CFILES		= zamutil session zammem print \
+                  loader natives data admin unify interp \
+		  javadriver 
+HFILES      	= $(PUREHEADERS) $(CFILES)
+MAIN		= 
+
+# CCFLAGS		= -fpic -O3 -Wall $(JNIINCLUDE) -L.
+CCFLAGS		= -g -Wall $(JNIINCLUDE) -L.
+CCLINKSHAREDLIBS = -v 
+
+# zammem.o	: zammem.ql.cc
+
+
+# Java/JNI part
+
+JAVA_FILES	= 
+PIZZA_FILES	= 
+
+zeta_tools_nzap_ZamJniIface.h: .etstate.java
+	$(JAVAH) -jni zeta.tools.nzap.ZamJniIface
+
+SHARED		= libZAM.so
+
+javadriver.o	: zeta_tools_nzap_ZamJniIface.h
+
+
+inst:
+	$(ET_INSTALL) lib/native/Linux-i386 libZAM.so
+	# $(ET_INSTALL) lib/native/Win ZAM.dll

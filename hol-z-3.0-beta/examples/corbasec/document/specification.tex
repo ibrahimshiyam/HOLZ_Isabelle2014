@@ -1,0 +1,3361 @@
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Specification} \label{sec:infra}
+
+The following specification of \corbasec{} and its supporting infrastructure is
+structured differently from the original OMG specification.  This is due to Z
+type checker constraints that requires declaration-before-use and due to some
+circular dependencies in our Z specification.  However, we note for each
+construction where it can be found in the original OMG specification.
+
+%%%%%%%%%%% ZETA TYPECHECKING %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% Text, which should be type checked but not printed, can be written as:
+% %% TEXT
+% and text which should be printed but not type checked can be written, 
+% using the following macro:  \zcomment{my text ..., or a schema ...}
+%%macro \zcomment 1
+%
+%%macro \emptyseq 0 \langle\rangle
+%
+%%%%%%%%%%% ZETA TYPECHECKING %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Basic Types} \label{sec:types}
+
+\zsection{ZSbasicTypes}\vspace{2ex}
+
+The Z type-checker \Zeta , which we used to check and format the specification
+supports a notion of strings, called denotations, directly.  Therefore, strings
+will be defined as denotations and not as a sequence of characters as usual.
+\zcomment{
+  \begin{zed}
+    UShort == \{n : \num | 0 \leq n \land n \leq 65535 \} \\ % 2^16
+    ULong == \{n : \num | 0 \leq n \land n \leq 4294967296 \} \\ % 2^32
+    Char ::= char \ldata \{ n : \num | 0 \leq n \land n \leq 255 \} \rdata \\
+    Octet ::= octet \ldata \{ n : \num | 0 \leq n \land n \leq 255 \} \rdata \\
+    String ::= string \ldata \seq ( Char \setminus \{ char (0) \} ) \rdata \\
+    Boolean ::= True | False \\
+    [ Any ] \\
+    String == \denotation \\
+    SecurityName == String \\
+    Opaque == \seq Octet
+  \end{zed}
+  } 
+
+The current version of our theorem prover does not handle type definitions like
+the ones for $Char$ and $Octet$ properly.  For type checking reasons we could
+therefore change the definition of $Opaque$ to $Opaque == String$ (which is the
+actual language binding for some languages, for example, for C).  Since these
+types are not of crucial concern this should not change our specification
+significantly.  \index{UShort} \index{ULong} \index{Boolean} \index{MyString}
+\index{SecurityName} \index{Opaque} \index{Any}
+\begin{zed}
+  UShort == \num \\
+  ULong == \num \\
+  Boolean ::= TRUE | FALSE \\
+  MyString == \denotation \\
+  SecurityName == \denotation \\
+  Opaque == \seq \num \\
+\end{zed}
+\begin{zed}
+  [ Any ] \\  
+\end{zed}
+\index{ServiceOption}
+\begin{syntax}
+   ServiceOption & ::= & SecurityLevel1\\
+  & | & SecurityLevel2\\
+  & | & NonRepudiation\\
+  & | & SecurityORBServiceReady\\
+  & | & SecurityServiceReady\\
+  & | & ReplaceORBServices\\
+  & | & ReplaceSecurityServices\\
+  & | & StandardSecureInteroperability\\
+  & | & DCESecureInteroperability\\
+  & | & CommonInteroperabilityLevel0\\
+  & | & CommonInteroperabilityLevel1\\
+  & | & CommonInteroperabilityLevel2\\
+\end{syntax}
+\index{ServiceDetailType}
+\begin{syntax}
+   ServiceDetailType & ::= & SecurityMechanismType\\
+  & | & SecurityAttribute\\
+\end{syntax}
+\index{ExtensibleFamily}
+\begin{zed}
+  ExtensibleFamily == UShort \cross UShort
+\end{zed}
+\begin{axdef}
+  ExtensibleFamily\_family\_definer: ExtensibleFamily \fun UShort\\
+  ExtensibleFamily\_family: ExtensibleFamily \fun UShort
+  \where
+  \forall x,y: UShort | (x,y) \in ExtensibleFamily @ \\
+  \t1 ExtensibleFamily\_family\_definer(x,y) = x  \\
+  \t1 \land ExtensibleFamily\_family(x,y) = y
+\end{axdef}
+The translation of an IDL structure like $ExtensibleFamily$ (see
+Figure~\ref{fig:extFam}) into an abbreviation type and corresponding functions
+that access the single components, is due to more efficient support in the
+intended theorem proving environment.  A nicer approach would have been to
+represent $ExtensibleFamily$ as a schema.
+\begin{figure}[ht]
+  \begin{center}
+    \begin{minipage}{9cm}
+\begin{verbatim}
+  struct ExtensibleFamily {
+    unsigned short        family_definer;
+    unsigned short        family;
+  };
+\end{verbatim}
+      \zcomment{
+        \begin{schema}{ExtensibleFamily}
+          family\_definer: UShort \\
+          family: UShort \\
+        \end{schema}
+        }
+    \end{minipage}
+    \caption{An example IDL structure}
+    \label{fig:extFam}
+  \end{center}
+\end{figure}
+\index{AssociationOptions}
+\begin{syntax}
+  AssociationOptions & ::= & NoProtection\\
+  & | & Integrity\\
+  & | & Confidentiality\\
+  & | & DetectReplay\\
+  & | & DetectMisordering\\
+  & | & EstablishTrustInTarget\\
+  & | & EstablishTrustInClient
+\end{syntax}
+\index{MechanismType} \index{MechanismTypeList} \index{SecurityMechanismData}
+\index{SecurityMechanismDataList}  
+\begin{zed}
+  MechanismType == MyString \\
+  MechanismTypeList == \seq MechanismType \\
+  SecurityMechanismData == MechanismType \cross SecurityName \cross \\
+  \t1 AssociationOptions \cross AssociationOptions \\
+  SecurityMechanismDataList == \seq SecurityMechanismData \\
+\end{zed}
+\begin{axdef}
+  SecurityMechanismData\_mechanism: \\
+  \t1 SecurityMechanismData \fun MechanismType \\
+  SecurityMechanismData\_security\_name: \\
+  \t1 SecurityMechanismData \fun SecurityName \\ 
+  SecurityMechanismData\_options\_supported: \\
+  \t1 SecurityMechanismData \fun AssociationOptions \\ 
+  SecurityMechanismData\_options\_required: \\
+  \t1 SecurityMechanismData \fun AssociationOptions \\ 
+  \where
+  \forall m: MechanismType; s: SecurityName; os,or: AssociationOptions | \\
+  \t1 (m,s,os,or) \in SecurityMechanismData @ \\
+  \t2 SecurityMechanismData\_mechanism(m,s,os,or) = m \\
+  \t2 \land SecurityMechanismData\_security\_name(m,s,os,or) = s \\
+  \t2 \land SecurityMechanismData\_options\_supported(m,s,os,or) = os \\
+  \t2 \land SecurityMechanismData\_options\_required(m,s,os,or) = or \\
+\end{axdef}
+\index{SecurityAttributeType}
+\begin{syntax}
+   SecurityAttributeType & ::= & AuditId\\
+  & | & AccountingId\\
+  & | & NonRepudiationId\\
+  & | & Public\\
+  & | & AccessId\\
+  & | & PrimaryGroupId\\
+  & | & GroupId\\
+  & | & Role \\
+  & | & AttributeSet\\
+  & | & Clearance\\
+  & | & Capability \\
+\end{syntax}
+\index{AttributeType} \index{AttributeTypeList} 
+\begin{zed}
+  AttributeType == ExtensibleFamily \cross SecurityAttributeType \\
+  AttributeTypeList == \seq AttributeType
+\end{zed}
+\begin{axdef}
+  AttributeType\_attribute\_family : AttributeType \fun ExtensibleFamily\\
+  AttributeType\_attribute\_type : AttributeType \fun SecurityAttributeType
+  \where 
+  \forall e: ExtensibleFamily; t: SecurityAttributeType | (e,t) \in
+  AttributeType @ \\
+  \t1 AttributeType\_attribute\_family(e,t) = e \\
+  \t1 \land AttributeType\_attribute\_type(e,t) = t
+\end{axdef}
+\index{SecAttribute} \index{AttributeList}
+\begin{zed}
+  SecAttribute == AttributeType \cross Opaque \cross Opaque \\
+  AttributeList == \seq SecAttribute
+\end{zed}
+\begin{axdef}
+  SecAttribute\_attribute\_type : SecAttribute \fun AttributeType\\
+  SecAttribute\_defining\_authority : SecAttribute \fun Opaque\\
+  SecAttribute\_value : SecAttribute \fun Opaque
+  \where
+  \forall t: AttributeType; a,v: Opaque | (t,a,v) \in SecAttribute @ \\
+  \t1 SecAttribute\_attribute\_type(t,a,v) = t \\
+  \t1 \land SecAttribute\_defining\_authority(t,a,v) = a \\
+  \t1 \land SecAttribute\_value(t,a,v) = v
+\end{axdef}
+\corbasec{} defines two families: $AuditID$, $AccountingId$, and
+$NonRepudiationId$ belong to family 0, and $Public$, $AccessId$,
+$PrimaryGroupId$, $GroupId$, $Role$, $AttributeSet$, $Clearance$, and
+$Capability$ belong to family 1.
+
+
+\index{AuthenticationStatus} 
+\begin{syntax}
+   AuthenticationStatus & ::= & SecAuthSuccess\\
+  & | & SecAuthFailure\\
+  & | & SecAuthContinue\\
+  & | & SecAuthExpired\\
+\end{syntax}
+\index{AssociationStatus} 
+\begin{syntax}
+   AssociationStatus & ::= & SecAssocSuccess\\
+  & | & SecAssocFailure\\
+  & | & SecAssocContinue\\
+\end{syntax}
+\index{AuthenticationMethod} \index{AuthenticationMethodList}
+\index{CredentialType} \index{InvocationCredentialsType} \index{CRight}
+\begin{zed}
+  AuthenticationMethod == ULong \\
+  AuthenticationMethodList == \seq AuthenticationMethod \\
+  CredentialType ::= SecInvocationCredentials | SecNRCredentials \\
+  InvocationCredentialsType ::= SecOwnCredentials | SecReceivedCredentials \\
+  CRight == ExtensibleFamily \cross MyString
+\end{zed}
+\begin{axdef}
+  Right\_rights\_family: CRight \fun ExtensibleFamily \\
+  Right\_right: CRight \fun MyString
+  \where
+  \forall f: ExtensibleFamily; r: MyString | (f,r) \in CRight @ \\
+  \t1 Right\_rights\_family(f,r) = f \land Right\_right(f,r) = r
+\end{axdef}
+\index{RightsList} \index{RightsCombinator} \index{DelegationState}
+\index{DelegationDirective} 
+\begin{zed}
+  RightsList == \seq CRight \\
+  RightsCombinator ::= SecAllRights | SecAnyRight \\
+  DelegationState ::= SecInitiator | SecDelegate \\
+  DelegationDirective ::= Delegate | NoDelegate \\
+\end{zed}
+The following given types are actually defined in more detail in the CORBA Time
+Service.  But since their exact structure is of no relevance for our
+specification, we use them as Z given types.
+
+To simplify the theorem proving of properties involving time, we could identify
+the time with $\nat$.  There, all the arithmetic functions are defined and
+proven theorems exist!
+\index{UtcT} \index{IntervalT} \index{TimeT} 
+\begin{zed}
+  [ UtcT ,  IntervalT ,  TimeT ]
+\end{zed}
+\index{SecurityFeature} 
+\begin{syntax}
+   SecurityFeature & ::= & SecNoDelegation\\
+  & | & SecSimpleDelegation\\
+  & | & SecCompositeDelegation\\
+  & | & SecNoProtection\\
+  & | & SecIntegrity\\
+  & | & SecConfidentiality\\
+  & | & SecIntegrityAndConfidentiality\\
+  & | & SecDetectReplay\\
+  & | & SecDetectMisordering\\
+  & | & SecEstablishTrustInTarget
+\end{syntax}
+\index{SecurityFeatureValue} \index{SecurityFeatureValueList}
+\begin{zed}
+  SecurityFeatureValue == SecurityFeature \cross Boolean \\
+  SecurityFeatureValueList == \seq SecurityFeatureValue
+\end{zed}
+\begin{axdef}
+  SecurityFeatureValue\_feature: SecurityFeatureValue \fun SecurityFeature\\
+  SecurityFeatureValue\_value: SecurityFeatureValue \fun Boolean
+  \where
+  \forall f: SecurityFeature; b: Boolean | (f,b) \in SecurityFeatureValue @ \\
+  \t1 SecurityFeatureValue\_feature(f,b) = f \\
+  \t1 \land SecurityFeatureValue\_value(f,b) = b
+\end{axdef}
+\index{QOP}
+\begin{syntax}
+  QOP & ::= & SecQOPNoProtection\\
+  & | & SecQOPIntegrity\\
+  & | & SecQOPConfidentiality\\
+  & | & SecQOPIntegrityAndConfidentiality
+\end{syntax}
+\index{SecurityContextType}
+\begin{syntax}
+   SecurityContextType ::= SecClientSecurityContext | SecServerSecurityContext
+\end{syntax}
+\index{SecurityContextState}
+\begin{syntax}
+  SecurityContextState & ::= & SecContextInitialized \\
+  & | & SecContextContinued \\
+  & | & SecContextClientEstablished \\
+  & | & SecContextEstablished \\
+  & | & SecContextEstablishedExpired \\
+  & | & SecContextExpired \\
+  & | & SecContextInvalid
+\end{syntax}
+\index{OpaqueBuffer}
+\begin{zed}
+  OpaqueBuffer == Opaque \cross ULong \cross ULong \\
+\end{zed}
+\index{RequiresSupports}
+\begin{zed}
+   RequiresSupports ::= SecRequires | SecSupports
+\end{zed}
+\index{CommunicationDirection}
+\begin{syntax}
+   CommunicationDirection & ::= & SecDirectionBoth\\
+  & | & SecDirectionRequest\\
+  & | & SecDirectionReply
+\end{syntax}
+\index{OptionsDirectionPair} \index{OptionsDirectionPairList}
+\begin{zed}
+  OptionsDirectionPair == AssociationOptions \cross CommunicationDirection \\
+  OptionsDirectionPairList == \seq OptionsDirectionPair
+\end{zed}
+\begin{axdef}
+  OptionsDirectionPair\_options: OptionsDirectionPair \fun AssociationOptions\\
+  OptionsDirectionPair\_direction: \\
+  \t1 OptionsDirectionPair \fun CommunicationDirection
+  \where
+  \forall o: AssociationOptions; d: CommunicationDirection | \\
+  \t1 (o,d) \in OptionsDirectionPair @ \\
+  \t2 OptionsDirectionPair\_options(o,d) = o \\
+  \t2 \land OptionsDirectionPair\_direction(o,d) = d
+\end{axdef}
+\index{DelegationMode}
+\begin{syntax}
+   DelegationMode & ::= & SecDelModeNoDelegation\\
+  & | & SecDelModeSimpleDelegation\\
+  & | & SecDelModeCompositeDelegation
+\end{syntax}
+\index{MechandOptions} \index{MechandOptionsList}
+\begin{zed}
+  MechandOptions == MechanismType \cross AssociationOptions \\
+  MechandOptionsList == \seq MechandOptions
+\end{zed}
+\begin{axdef}
+  MechandOptions\_mechanism\_type: MechandOptions \fun MechanismType\\
+  MechandOptions\_options\_supported: MechandOptions \fun AssociationOptions
+  \where
+  \forall t: MechanismType; o: AssociationOptions | (t,o) \in MechandOptions @
+  \\
+  \t1 MechandOptions\_mechanism\_type(t,o) = t \\
+  \t1 \land MechandOptions\_options\_supported(t,o) = o
+\end{axdef}
+\index{EstablishTrust}
+\begin{zed}
+  EstablishTrust == Boolean \cross Boolean
+\end{zed}
+\begin{axdef}
+  EstablishTrust\_trust\_in\_client: EstablishTrust \fun Boolean \\
+  EstablishTrust\_trust\_in\_target: EstablishTrust \fun Boolean \\
+  \where
+  \forall c,t: Boolean | (c,t) \in EstablishTrust @ \\
+  \t1 EstablishTrust\_trust\_in\_client(c,t) = c \land \\
+  \t1 EstablishTrust\_trust\_in\_target(c,t) = t  \\
+\end{axdef}
+\index{AuditChannelId}
+\begin{zed}
+   AuditChannelId == ULong
+\end{zed}
+\index{EventType}
+\begin{syntax}
+  EventType & ::= & AuditAll\\
+  & | & AuditPrincipalAuth\\
+  & | & AuditsessionAuth\\
+  & | & AuditAuthorization\\
+  & | & AuditInvocation\\
+  & | & AuditSecenvChange\\
+  & | & AuditPolicyChange\\
+  & | & AuditObjectCreation\\
+  & | & AuditObjectDestruction\\
+  & | & AuditNonRepudiation
+\end{syntax}
+\index{AuditEventType} \index{AuditEventTypeList} 
+\begin{zed}
+  AuditEventType == ExtensibleFamily \cross EventType \\
+  AuditEventTypeList == \seq AuditEventType
+\end{zed}
+\begin{axdef}
+  AuditEventType\_event\_family: AuditEventType \fun ExtensibleFamily\\
+  AuditEventType\_event\_type: AuditEventType \fun EventType
+  \where
+  \forall f: ExtensibleFamily; e: EventType | (f,e) \in AuditEventType @ \\
+  \t1 AuditEventType\_event\_family(f,e) = f \\
+  \t1 \land AuditEventType\_event\_type(f,e) = e
+\end{axdef}
+\index{SelectorType} 
+\begin{syntax}
+  SelectorType & ::= & InterfaceRef\\
+  & | & ObjectRef\\
+  & | & Operation\\
+  & | & Initiator\\
+  & | & SuccessFailure\\
+  & | & Time
+\end{syntax}
+\index{SelectorValue} \index{SelectorValueList} 
+\begin{zed}
+  SelectorValue == SelectorType \cross Any \\
+  SelectorValueList == \seq SelectorValue
+\end{zed}
+\begin{axdef}
+  SelectorValue\_selector: SelectorValue \fun SelectorType\\
+  SelectorValue\_value: SelectorValue \fun Any
+  \where
+  \forall s: SelectorType; v: Any | (s,v) \in SelectorValue @ \\
+  \t1 SelectorValue\_selector(s,v) = s \land SelectorValue\_value(s,v) = v
+\end{axdef}
+\index{PolicyType} 
+\begin{syntax}
+  PolicyType & ::= & SecClientInvocationAccess\\
+  & | & SecTargetInvocationAccess\\
+  & | & SecApplicationAccess\\
+  & | & SecClientInvocationAudit\\
+  & | & SecTargetInvocationAudit\\
+  & | & SecApplicationAudit\\
+  & | & SecDelegation\\
+  & | & SecClientSecureInvocation\\
+  & | & SecTargetSecureInvocation\\
+  & | & SecNonRepudiation\\
+  & | & SecMechanismsPolicy\\
+  & | & SecInvocationCredentialsPolicy\\
+  & | & SecFeaturePolicy\\
+  & | & SecQOPPolicy \\
+  & | & SecDelegationDirectivePolicy \\
+  & | & SecEstablishTrustPolicy \\
+\end{syntax}
+\index{PolicyTypeSeq} 
+\begin{zed}
+  PolicyTypeSeq == \seq PolicyType
+\end{zed}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Exceptions} \label{sec:exceptions}
+
+\zsection[ZSbasicTypes]{ZSexceptions}\vspace{2ex}
+
+All operation invocations can raise system exceptions or application exceptions.
+The case when no exception is raised is modeled by the schema $NoEx$.  For each
+exception, we define an exception type and a schema that represents the
+exception in the schema calculus.  The exception type $SYSTEM$ defines an
+arbitrary system exception, which every operation can always raise because of
+technical reasons, e.g. failure of connection.
+\index{ExceptionType}
+\begin{syntax}
+  ExceptionType & ::= & SYSTEM \\
+  & | & NO\_EXCEPTION \\
+  & | & BAD\_PARAM \\
+  & | & BAD\_OPERATION \\
+  & | & NO\_IMPLEMENT \\
+  & | & NO\_ACCESS \\
+  & | & NO\_PERMISSION \\
+  & | & INV\_POLICY \\
+  & | & POLICY\_ERROR \\
+\end{syntax}
+
+\index{Exceptions!SysEx}
+\index{Exceptions!NoEx}
+\index{Exceptions!BadParam}
+\index{Exceptions!BadOperation}
+\index{Exceptions!NoImplement}
+\index{Exceptions!NoAccess}
+\index{Exceptions!NoPermission}
+\index{Exceptions!InvPolicy}
+\index{Exceptions!PolicyError}
+\begin{zed}
+  SysEx == [ ex!: ExceptionType | ex! = SYSTEM ] \\
+  NoEx == [ ex!: ExceptionType | ex! = NO\_EXCEPTION ] \\
+  BadParam == [ ex!: ExceptionType | ex! = BAD\_PARAM ] \\
+  BadOperation == [ ex!: ExceptionType | ex! = BAD\_OPERATION ] \\
+  NoImplement == [ ex!: ExceptionType | ex! = NO\_IMPLEMENT ] \\
+  NoAccess == [ ex!: ExceptionType | ex! = NO\_ACCESS ] \\
+  NoPermission == [ ex!: ExceptionType | ex! = NO\_PERMISSION ] \\
+  InvPolicy == [ ex!: ExceptionType | ex! = INV\_POLICY ] \\
+  PolicyError == [ ex!: ExceptionType | ex! = POLICY\_ERROR ] \\
+\end{zed}
+
+The general scheme for defining operations with exceptions is exemplified for
+the operation schema $Foo$.  $Foo$ is a combination of the operation schema
+$FooP$ which describes the successful operation and the schema $WrongParam$
+which describes the property of wrong input parameters: 
+\zcomment{
+  \begin{zed}
+    Foo == (FooP \land No\_Ex) \lor (WrongParam \land Bad\_Param) \lor Sys\_Ex \\
+  \end{zed}
+  }
+Because every operation on CORBA objects can always raise system exceptions, we
+will leave them out in the specification.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Interface Repository} \label{sec:InterfaceRepository}
+
+\zsection[ZSexceptions]{ZSir}\vspace{2ex}
+
+The Interface Repository plays a part in the access control model of \corbasec ,
+because access decisions are based on interfaces and operations, not on objects.
+
+\begin{quote}
+  The Interface Repository is the component of the ORB that provides persistent
+  storage of interface definitions-it manages and provides access to a
+  collection of object definitions specified in OMG IDL.
+  
+  Interface definitions are maintained in the Interface Repository as a set of
+  objects that are accessible through a set of OMG IDL-specified interface
+  definitions. An interface definition contains a description of the operations
+  it supports, including the types of the parameters, exceptions it may raise,
+  and context information it may use.
+  
+  An ORB may have access to multiple Interface Repositories.
+  
+  Interface Repositories contain the information necessary to allow programs to
+  determine and manipulate the type information at run-time. Programs may
+  attempt to access the interface repository at any time by using the
+  \texttt{get\_interface} operation on the object reference. Once information
+  has been installed in the repository, programs, stubs, and objects may depend
+  on it.  Updates to the repository must be done with care to avoid disrupting
+  the environment. A variety of techniques are available to help do so.
+  
+  Simple names are not necessarily unique within an Interface Repository; they
+  are always relative to an explicit or implicit module. In this context,
+  interface, struct, union, exception and value type definitions are considered
+  implicit modules.
+  
+  Repository identifiers globally identify modules, interfaces, value types,
+  value members, value boxes, constants, typedefs, exceptions, attributes, and
+  operations. They can be used to synchronize definitions across multiple ORBs
+  and Repositories.
+  
+  \hspace*{\fill}\emph{(10. The Interface Repository, pp. 10-1 --
+    10-61~\cite{omg:CORBA:2.4:2000})}
+\end{quote}
+
+We will use the given types $Identifier$ to denote simple names and
+$RepositoryId$ to denote repository identifiers.  However, we restrict
+$RepositoryId$s to interfaces and denote the operations (or attributes) only by
+identifiers (they don't have to be unique).
+\index{Identifier} \index{RepositoryId}
+\begin{zed}
+  [ Identifier, RepositoryId ] \\
+\end{zed}
+
+$IRinterface$ defines the components of an interface, $IRname$ defines the name
+of an interface (which must be unique), and $IRparents$ defines the inheritance
+relation of interfaces.  The first element in this sequence is the interface
+itself.
+\begin{schema}{InterfaceRepository}
+  IRinterface: RepositoryId \pfun \power Identifier \\
+  IRname: RepositoryId \bij Identifier \\
+  IRparents: RepositoryId \pfun \seq RepositoryId \\
+  \where
+  \dom IRinterface \subseteq \dom IRname \\
+  \dom IRinterface = \dom IRparents \\
+  \bigcup \{s: \ran IRparents @ \ran s\} = \dom IRinterface \\
+  \forall id: \dom IRparents @ id = head(IRparents~id) \\
+\end{schema}
+
+\note{This is a very simple model of the Interface Repository, but sufficient
+  for now.  We especially don't mention modules because they are only used to
+  organize the namespace and are not supported directly by our Z specification.}
+
+\note{Although it would be sufficient to define the interface repository as
+  axiomatic definitions, we define it as a schema because then we can
+  instantiate the concrete interfaces later with an initialization schema, i.e.\ 
+  an initialization for the internal operations of CORBA and one for each
+  ``business application''.  This supports modularity and helps to separate
+  CORBA and the business applications. }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Implementation Repository} \label{sec:ImplementationRepository}
+
+The following quote from the OMG specification gives a brief overview of the
+Implementation Repository.
+
+\begin{quote}
+  The Implementation Repository contains information that allows an ORB to
+  locate and activate objects, i.e.\ implementations of interfaces. Although
+  most of the information in the Implementation Repository is specific to an ORB
+  or operating environment, the Implementation Repository is the conventional
+  place for recording such information.  Ordinarily, installation of
+  implementations and control of policies related to the activation and
+  execution of object implementations is done through operations on the
+  Implementation Repository.  In addition to its role in the functioning of the
+  ORB, the Implementation Repository is a common place to store additional
+  information associated with implementations of ORB objects. For example,
+  debugging information, administrative control, resource allocation, security,
+  etc., might be associated with the Implementation Repository.
+
+  \hspace*{\fill}\emph{(2. CORBA Overview, p. 2-11~\cite{omg:CORBA:2.4:2000})}
+\end{quote}
+
+\note{There is no definition of the Implementation Repository in the CORBA
+  specification because the repository is implementation dependent.  We don't
+  specify an implementation repository either, although we will have parts in
+  our formal specification that would belong to such a repository.}
+
+We define implementations of objects as a given type $IMPLEMENTATION$, to be
+able to see if two references refer to the same implementations.  Furthermore,
+we define identifiers of type $OBJECT$ for object references and a state schema
+of the system that manages all active references.  $CURRENT$ is the type of
+identifiers for the ORB's internal runtime environment of an object.
+\index{OBJECT} \index{IMPLEMENTATION} \index{CURRENT} 
+\begin{zed}
+  [ OBJECT, IMPLEMENTATION, CURRENT ]  
+\end{zed}
+The function $IRimplements$ serves as an ``oracle'' that selects the appropriate
+implementation for a new request for an object reference.  Every repository id
+can be implemented by more than one concrete object implementation.  This
+function can be constant because we require that the interfaces (i.e.\ 
+$RepositoryId$) are fixed and we assume that all possible implementations are
+known in advance.  This helps to separate the concrete object implementation, of
+which we never talk, from the CORBA object reference.
+\begin{schema}{ImplementationRepository}
+  IRinstance: CURRENT \pfun IMPLEMENTATION \\ 
+  IRimplements: CURRENT \pfun RepositoryId \\
+  \where
+  \dom IRimplements = \dom IRinstance \\
+\end{schema}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Policies} \label{sec:policies}
+
+The base interface of policies is defined in the CORBA
+specification~\cite{omg:CORBA:2.4:2000} in the CORBA module.
+
+\zsection[ZSir]{ZSpolicies}\vspace{2ex}
+
+\subsubsection{Basic Policy Definitions}
+Policies are defined in an interface hierarchy with $Policy$ at its root.  To
+model this hierarchy, we define an identifier $POLICY$ for policies that is used
+whenever references to policy objects are used.\fix{Include a figure with the
+  inheritance relation of all policies.}
+\index{POLICY} \index{PolicyList} 
+\begin{zedgroup}
+  \begin{zed}
+    [ POLICY ] \\
+  \end{zed}
+  \begin{zed}
+    PolicyList == \seq POLICY \\
+  \end{zed}  
+  \begin{schema}{Policy}
+    Ppolicy\_type: PolicyType \\
+  \end{schema}
+\end{zedgroup}
+
+In the following, we will concentrate on only one kind of policy, namely domain
+access policies.
+
+\subsubsection{AccessPolicy \label{sec:AccessPolicy}}
+The interface $AccessPolicy$ is the root interface for all access policies and
+defines two operations $get\_effective\_rights$ and
+$get\_all\_effective\_rights$.  This interface will never be directly
+instantiated but is only used to derive specialized interfaces, like
+$DomainAccessPolicy$.  In our specification, we will define these two operations
+only in the derived interfaces.  In the following section, one such interface
+($DomainAccessPolicy$) will be defined as the default access policy for objects
+that are managed through domains.
+
+
+\subsubsection{DomainAccessPolicy} \label{sec:DAP}
+In this specification, we focus on the access control aspects of the security
+service.  A domain access policy is used to decide which rights are granted to
+which Credentials for a policy domain.
+
+\note{In order to follow the ``declare before use'' rules that are needed by our
+  theorem prover, we first introduce access policies and later define the
+  operations for them.}
+
+We define a function $GrantedRights$ that defines a set of granted rights for a
+certain security attribute in combination with a delegation state.  We use the
+standard CORBA rights, as defined in the rights family ``corba'': get, set, use,
+and manage.  Note that, the precise values of the rights family $corba$ are not
+defined in the CORBA specification.
+
+\index{GrantedRights}
+\begin{zed}
+  GrantedRights == (SecAttribute \cross DelegationState) \pfun \power CRight  
+\end{zed}
+\index{corba} \index{get} \index{set} \index{use} \index{manage} 
+\begin{axdef}
+  corba: ExtensibleFamily \\
+  get, set, use, manage: CRight \\
+  \where
+  get = (corba, \ZD{g}) \\
+  set = (corba, \ZD{s}) \\
+  use = (corba, \ZD{u}) \\
+  manage = (corba, \ZD{m}) \\
+\end{axdef}
+A domain access policy then consists of the components inherited by $Policy$ and
+a granted rights function:
+\begin{schema}{DomainAccessPolicy}
+  Policy \\
+  PgrantedRights: GrantedRights \\
+  \where
+  Ppolicy\_type \in \{ SecTargetInvocationAccess, SecClientInvocationAccess \} \\
+\end{schema}
+
+
+\subsubsection{InvocationCredentialsPolicy}
+The following few definitions for Credentials must be defined here to be able to
+define the $InvocationCredentialsPolicy$.  They will be explained later, in
+section~\ref{sec:Credentials}.
+\index{CREDS}\index{CredentialsType}\index{CredentialsList}
+\begin{zedgroup}
+  \begin{zed}
+    [ CREDS ] \\
+  \end{zed}
+  \begin{zed}
+    CredentialsType ::= Own | Received \\
+    CredentialsList == \seq CREDS \\
+  \end{zed}
+\end{zedgroup}
+$InvocationCredentialsPolicy$ will be used to set the invocation Credentials for
+a specific object reference.  This is used to override a user's own Credentials
+for the next invocation of this object reference.
+\begin{schema}{InvocationCredentialsPolicy}
+  Policy \\
+  Pcreds: CredentialsList \\
+  \where
+  Ppolicy\_type = SecInvocationCredentialsPolicy \\
+\end{schema}
+
+
+\subsubsection{System State for Policies}
+The schema $PolicyS$ defines the state variables to handle all policies that are
+used in the system.  It defines a function for each policy type, that maps the
+identifiers to the actual policy objects and a function $Ppolicy$ that maps a
+policy type to each identifier.
+
+In the following we only define access policies.  This scheme could also be
+extended to encompass all other policy types.  As an example for another policy
+type, we also model $InvocationCredentialsPolicy$.
+
+% These policies are commented out, to reduce the complexity of the
+% specification...
+\begin{schema}{PolicyS}
+  Ppolicy: POLICY \pfun PolicyType \\
+  PdomainAccessPolicy: POLICY \pfun DomainAccessPolicy \\
+%  PsecureInvocationPolicy: POLICY \pfun SecureInvocationPolicy \\
+%  PdelegationPolicy: POLICY \pfun DelegationPolicy \\
+%  PQOPPolicy: POLICY \pfun QOPPolicy \\
+%  PmechanismPolicy: POLICY \pfun MechanismPolicy \\
+  PinvocationCredentialsPolicy: POLICY \pfun InvocationCredentialsPolicy \\
+%  PestablishTrustPolicy: POLICY \pfun EstablishTrustPolicy \\
+%  PdelegationDirectivePolicy: POLICY \pfun DelegationDirectivePolicy \\
+  \where
+  \dom PdomainAccessPolicy \cup \dom PinvocationCredentialsPolicy 
+%  \t1 \cup \dom PsecureInvocationPolicy
+%  \t1 \cup \dom PdelegationPolicy \cup \dom PQOPPolicy \cup \dom PmechanismPolicy \\
+%  \t1 \cup \dom PinvocationCredentialsPolicy \cup \dom PestablishTrustPolicy \\
+%  \t1 \cup \dom PdelegationPolicy 
+  = \dom Ppolicy \\ 
+  \forall p: \dom PdomainAccessPolicy @ Ppolicy(p) \in \\
+  \t1 \{ SecTargetInvocationAccess, SecClientInvocationAccess \} \\
+%  \forall p: \dom PsecureInvocationPolicy @ Ppolicy(p) \in \\
+%  \t1 \{ SecClientSecureInvocation, SecTargetSecureInvocation \} \\
+%  \forall p: \dom PdelegationPolicy @ Ppolicy(p) = SecDelegation \\
+%  \forall p: \dom PQOPPolicy @ Ppolicy(p) = SecQOPPolicy \\
+%  \forall p: \dom PmechanismPolicy @ Ppolicy(p) = SecMechanismsPolicy \\
+  \forall p: \dom PinvocationCredentialsPolicy @ \\
+  \t1 Ppolicy(p) = SecInvocationCredentialsPolicy \\
+%  \forall p: \dom PestablishTrustPolicy @ Ppolicy(p) = SecEstablishTrustPolicy \\
+%  \forall p: \dom PdelegationPolicy @ Ppolicy(p) = SecDelegationDirectivePolicy \\
+\end{schema}
+
+
+\subsubsection{Operations on Policies} \label{sec:policyOps}
+The operations for creating, destroying and copying policies are modeled as
+disjunctions of operation schemas, where we have one schema for each policy
+type.
+
+\paragraph{copy}
+This operation is used to copy existing policies.  
+\begin{schema}{copyDAP}
+  \Delta PolicyS \\
+  id?: POLICY \\
+  id!: POLICY \\
+  \where
+  id? \in \dom PdomainAccessPolicy \\
+  id! \notin \dom Ppolicy \\
+
+  Ppolicy' = Ppolicy \cup \{ ( id!, Ppolicy ( id? ) ) \} \\
+
+  PdomainAccessPolicy' = PdomainAccessPolicy \cup \\
+  \t1 \{ ( id!, PdomainAccessPolicy ( id? ) ) \} \\ 
+\end{schema}
+\begin{schema}{copyICP}
+  \Delta PolicyS \\
+  id?: POLICY \\
+  id!: POLICY \\
+  \where
+  id? \in \dom PinvocationCredentialsPolicy \\
+  id! \notin \dom Ppolicy \\
+
+  Ppolicy' = Ppolicy \cup \{ ( id!, Ppolicy ( id? ) ) \} \\
+
+  PinvocationCredentialsPolicy' = PinvocationCredentialsPolicy \cup \\
+  \t1 \{ ( id!, PinvocationCredentialsPolicy ( id? ) ) \} \\
+\end{schema}
+\begin{zed}
+  P\_copy  == ( ( copyDAP \lor copyICP ) \land NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\paragraph{destroy}
+This operation destroys a policy object.
+\begin{schema}{destroyDAP}
+  \Delta PolicyS \\
+  id?: POLICY \\
+  \where
+  id? \in \dom PdomainAccessPolicy \\
+
+  Ppolicy' = Ppolicy \setminus \{ (id?,Ppolicy(id?)) \} \\
+
+  PdomainAccessPolicy' = PdomainAccessPolicy \setminus \\
+  \t1 \{ (id?, PdomainAccessPolicy(id?)) \} \\
+\end{schema}
+\begin{schema}{destroyICP}
+  \Delta PolicyS \\
+  id?: POLICY \\
+  \where
+  id? \in \dom PinvocationCredentialsPolicy \\
+
+  Ppolicy' = Ppolicy \setminus \{ (id?,Ppolicy(id?)) \} \\
+
+  PinvocationCredentialsPolicy' = PinvocationCredentialsPolicy \setminus \\
+  \t1 \{ (id?, PinvocationCredentialsPolicy(id?)) \} \\ 
+\end{schema}
+\begin{zed}
+  P\_destroy == ( ( destroyDAP \lor destroyICP ) \land NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\paragraph{create\_policy}
+This operation raises a problem, since we cannot handle objects of type $Any$
+properly in our model.  We define a creation operation for each policy type and
+define $create\_policy$ as a disjunction of all these operations.
+
+This is the original IDL definition of this operation:
+\begin{verbatim}
+interface ORB {
+    ...
+    Policy create_policy(
+        in PolicyType type,
+        in any val
+    ) raises(PolicyError);
+    ...
+};
+\end{verbatim}
+
+\note{It is not clear when and how policies are actually created.  We could
+  assume that they are initially created by some security administrator and that
+  no new policies can be create at runtime but only copies of existing ones may
+  be created.}
+
+As an example for a specialized creation operation, we define the schema
+$createDomainAccessPolicy$ for creating domain access policies.  Initially no
+rights are granted to any attributes.  The operation $grant\_rights$, defined in
+the interface $DomainAccessPolicy$ must be used to grant rights to attributes.
+
+\begin{schema}{createDAP}
+  \Delta PolicyS \\
+  type: PolicyType \\
+  id!: POLICY \\
+  \where
+  type \in \{ SecTargetInvocationAccess, SecClientInvocationAccess \} \\
+
+  id! \notin \dom Ppolicy \\
+
+  Ppolicy' = Ppolicy \cup \{ (id!, type) \} \\
+  PdomainAccessPolicy' = PdomainAccessPolicy \cup \{ (id!, \\
+  \t1 \lbind Ppolicy\_type == type, PgrantedRights == \emptyset \rbind ) \} \\
+\end{schema}
+
+The operation $createICP$ must be defined after the definition of
+$CredentialsS$; see section~\ref{sec:createICP}.  
+\zcomment{
+  \begin{schema}{createICP}
+    \Delta PolicyS \\
+    \Xi CredentialsS \\
+    type: PolicyType \\
+    id!: POLICY \\
+    creds?: CredentialsList \\
+    \where
+    type = SecInvocationCredentialsPolicy \\
+    id! \notin \dom Ppolicy \\
+    \ran creds? \in \dom CR\_isValid \\
+    
+    Ppolicy' = Ppolicy \cup \{ (id!, type) \} \\
+    PinvocationCredentialsPolicy' = PinvocationCredentialsPolicy \cup \{ (id!, \\
+    \t1 \lbind Ppolicy\_type == type, Pcreds == creds? \rbind ) \} \\
+  \end{schema}
+}
+We clearly need constraints on the Credentials, a user might create.  The
+\corbasec{} specification does not constrain these Credentials in any way.  One
+might argue that the only constraint is that they must be existing valid
+credentials, but without any constraints on the attributes.  The credentials
+could be obtained by delegation and might contain any attribute the initiating
+principal wanted to.  $create\_policy$ is then defined as follows (omitting not
+yet specified policies):\footnote{It is properly defined where $createICP$ is
+  defined!} 
+\zcomment{
+  \begin{zed}
+    P\_create == ( ( createDAP \lor createICP ) \land NoEx ) \lor PolicyError
+    \lor SysEx \\ 
+  \end{zed}
+  }
+
+\subsubsection{Operations on DomainAccessPolicy}
+For the specification of the policy, see section~\ref{sec:DAP}.
+
+\paragraph{grant\_rights}
+This operation is used to grant rights to a DomainAccessPolicy for a pair of a
+security attribute and its delegation state.
+\begin{schema}{DAPappendRights}
+  \Delta DomainAccessPolicy \\
+  priv\_attr?: SecAttribute \\
+  del\_state?: DelegationState \\
+  rights?: RightsList \\
+  \where
+  PgrantedRights' = PgrantedRights \oplus \{ (priv\_attr?, del\_state?) \mapsto \\
+  \t1 (PgrantedRights(priv\_attr?, del\_state?) \cup \ran rights?) \} \\
+  Ppolicy\_type' = Ppolicy\_type \\
+\end{schema}
+Now we lift this operation to $PolicyS$:
+\begin{schema}{S\_DAPappendRights}
+  \Delta PolicyS \\
+  DAPappendRights \\
+  policy?: POLICY \\
+  \where  
+  policy? \in \dom PdomainAccessPolicy \\
+  PdomainAccessPolicy' = PdomainAccessPolicy' \oplus \\
+  \t1 \{ policy? \mapsto (\theta DomainAccessPolicy ') \}\\ 
+\end{schema}
+The CORBA specification defines no error conditions for these operations.
+However, we handle all errors with a $BadParam$ exception.
+\begin{zed}
+  DAP\_grant\_rights == (S\_DAPappendRights \land NoEx) \lor BadParam \lor
+  SysEx \\ 
+\end{zed}
+
+\paragraph{revoke\_rights}
+This operation is used to revoke previously granted rights.  Here, a case
+distinction is needed: (i) if only a subset of the granted rights is to be
+revoked, we subtract this subset from the rights, (ii) if all rights have to be
+revoked, then we have to remove the attribute/delegation state entry as well.
+\begin{schema}{DAPrevokeSomeRights}
+  \Delta DomainAccessPolicy \\
+  priv\_attr?: SecAttribute \\
+  del\_state?: DelegationState \\
+  rights?: RightsList \\
+  \where
+  (priv\_attr?, del\_state?) \in \dom PgrantedRights \\
+  PgrantedRights' = PgrantedRights \oplus \{ (priv\_attr?, del\_state?) \mapsto \\
+  \t1 (PgrantedRights(priv\_attr?, del\_state?) \setminus \ran rights?) \} \\
+  Ppolicy\_type' = Ppolicy\_type \\
+\end{schema}
+\begin{schema}{DAPrevokeAllRights}
+  \Delta DomainAccessPolicy \\
+  priv\_attr?: SecAttribute \\
+  del\_state?: DelegationState \\
+  rights?: RightsList \\
+  \where
+  (priv\_attr?, del\_state?) \in \dom PgrantedRights \\
+  PgrantedRights(priv\_attr?, del\_state?) = \ran rights? \\
+  PgrantedRights' = \{ (priv\_attr?, del\_state?) \} \ndres PgrantedRights \\
+  Ppolicy\_type' = Ppolicy\_type \\
+\end{schema}
+Now, we have to lift these two operations:
+\begin{schema}{S\_DAPrevokeSomeRights}
+  \Delta PolicyS \\
+  DAPrevokeSomeRights \\
+  policy?: POLICY \\
+  \where  
+  policy? \in \dom PdomainAccessPolicy \\
+  PdomainAccessPolicy' = PdomainAccessPolicy' \oplus \\
+  \t1 \{ policy? \mapsto (\theta DomainAccessPolicy ') \}\\ 
+\end{schema}
+\begin{schema}{S\_DAPrevokeAllRights}
+  \Delta PolicyS \\
+  DAPrevokeAllRights \\
+  policy?: POLICY \\
+  \where
+  policy? \in \dom PdomainAccessPolicy \\
+  PdomainAccessPolicy' = PdomainAccessPolicy' \oplus \\
+  \t1 \{ policy? \mapsto (\theta DomainAccessPolicy ') \}\\
+\end{schema}
+\begin{zed}
+  DAP\_revoke\_rights == \< (S\_DAPrevokeSomeRights \lor S\_DAPrevokeAllRights \\
+  \land NoEx) \lor BadParam \lor SysEx \>
+\end{zed}
+
+
+\paragraph{replace\_rights}
+In contrast to the above operations, no case distinction is needed for this
+operation.  The complete set of rights for an attribute/delegation state pair is
+replaced.
+\begin{schema}{DAPreplaceRights}
+  \Delta DomainAccessPolicy \\
+  priv\_attr?: SecAttribute \\
+  del\_state?: DelegationState \\
+  rights?: RightsList \\
+  \where
+  (priv\_attr?, del\_state?) \in \dom PgrantedRights \\
+  PgrantedRights' = PgrantedRights \oplus \{ ((priv\_attr?, del\_state?) \mapsto
+  \ran rights?) \} \\
+\end{schema}
+\begin{schema}{S\_DAPreplaceRights}
+  \Delta PolicyS \\
+  DAPreplaceRights \\
+  policy?: POLICY \\
+  \where  
+  policy? \in \dom PdomainAccessPolicy \\
+  PdomainAccessPolicy' = PdomainAccessPolicy' \oplus \\
+  \t1 \{ policy? \mapsto (\theta DomainAccessPolicy ') \}\\ 
+\end{schema}
+\begin{zed}
+  DAP\_replace\_rights == (S\_DAPreplaceRights \land NoEx) \lor BadParam \lor
+  SysEx \\
+\end{zed}
+
+
+\paragraph{get\_rights}
+This operation retrieves the rights granted to an individual privilege attribute.
+\index{makeRightsList}
+\begin{axdef}
+  makeRightsList: \power CRight \fun RightsList
+  \where
+  \forall S: \power CRight; e: CRight @ makeRightsList( \emptyset ) = \langle
+  \rangle \land \\ 
+  \t1 makeRightsList( S \cup \{ e \} ) = makeRightsList( S ) \cat \langle e
+  \rangle \\ 
+\end{axdef}
+\begin{schema}{DAPgetRights}
+  \Xi DomainAccessPolicy \\
+  priv\_attr?: SecAttribute \\
+  del\_state?: DelegationState \\
+  rights\_family?: ExtensibleFamily \\
+  get\_rights!: RightsList \\
+  \where 
+  (priv\_attr?, del\_state?) \in \dom PgrantedRights \\
+  get\_rights! = makeRightsList(\{ r: CRight | \\
+  \t1 r \in PgrantedRights(priv\_attr?, del\_state?) \\
+  \t2 \land Right\_rights\_family(r) = rights\_family? \} ) \\
+\end{schema}
+\begin{schema}{S\_DAPgetRights}
+  \Xi PolicyS \\
+  DAPgetRights \\
+  policy?: POLICY \\
+  \where  
+  policy? \in \dom PdomainAccessPolicy \\
+  \theta DomainAccessPolicy = PdomainAccessPolicy(policy?) \\ 
+\end{schema}
+\begin{zed}
+  DAP\_get\_rights == (S\_DAPgetRights \land NoEx) \lor BadParam \lor SysEx \\
+\end{zed}
+
+
+\paragraph{get\_all\_rights}
+This operation is just a shorthand for multiple invocations of $get\_rights$ and
+is for this reason not included into our formal analysis.
+%\begin{schema}{DAPgetAllRights}
+%  \Xi PolicyS \\
+%  policy?: POLICY \\
+%  priv\_attr?: SecAttribute \\
+%  del\_state?: DelegationState \\
+%  get\_all\_rights!: RightsList \\
+%  gr: GrantedRights \\
+%  \where
+%  Ppolicy(policy?) \in \{ SecTargetInvocationAccess, SecClientInvocationAccess
+%  \} \\
+%  (priv\_attr?, del\_state?) \in \dom
+%  (PdomainAccessPolicy~policy?).PgrantedRights \\ 
+%  get\_all\_rights! = makeRightsList(\\
+%  \t1 (PdomainAccessPolicy~policy?).PgrantedRights( priv\_attr?, del\_state? ))
+%  \\  
+%\end{schema}
+%\begin{zed}
+%  DAP\_get\_all\_rights == (DAPgetAllRights \land NoEx) \lor BadParam \lor SysEx
+%\end{zed}
+
+\paragraph{get\_effective\_rights}
+
+\note{This and the following operation don't add new features to our
+  specification (they are generalizations of $get\_rights$) and are, for
+  simplicity, omitted in our formal analysis.}
+
+As defined in the interface $AccesssPolicy$.  These operations are actually
+superseded by the previous operations and are only defined because
+$DomainAccessPolicy$ is derived from $AccesssPolicy$.  For consistency reasons,
+though, one has to show that the results of these operations are consistent with
+$get\_rights$ and $get\_all\_rights$, i.e.\ the rights returned for a particular
+attribute and delegation state must be the same for all of these operations.
+
+Attributes that are in $attrib\_list?$ but are not part of the policy are
+silently ignored.
+%\zcomment{
+%\begin{schema}{APgetEffectiveRights}
+%  \Xi PolicyS \\
+%  policy?: POLICY \\
+%  attrib\_list?: AttributeList \\
+%  rights\_family?: ExtensibleFamily \\
+%  get\_effective\_rights!: RightsList \\
+%  gr: GrantedRights \\
+%  \where
+%  Ppolicy(policy?) \in \{ SecTargetInvocationAccess, SecClientInvocationAccess
+%  \} \\
+%  get\_effective\_rights! = makeRightsList( \{ a: SecAttribute; r: Right | \\
+%  \t1 a \in \ran attrib\_list? \land (\exists d: DelegationState @ \\
+%  \t2 (a,d) \in \dom (PdomainAccessPolicy~policy?).PgrantedRights \land \\
+%  \t3 r \in (PdomainAccessPolicy~policy?).PgrantedRights(a,d) \\
+%  \t3\land Right\_rights\_family(r) = rights\_family? ) @ r \} ) \\ 
+%\end{schema}
+%\begin{zed}
+%  AP\_get\_effective\_rights == ( APgetEffectiveRights \land NoEx ) \lor \\
+%  \t6 BadParam \lor SysEx 
+%\end{zed}
+%}
+
+\paragraph{get\_all\_effective\_rights}
+%\zcomment{
+%\begin{schema}{APgetAllEffectiveRights}
+%  \Xi PolicyS \\
+%  policy?: POLICY \\
+%  attrib\_list?: AttributeList \\
+%  get\_all\_effective\_rights!: RightsList \\
+%  gr: GrantedRights \\
+%  \where
+%  Ppolicy(policy?) \in \{ SecTargetInvocationAccess, SecClientInvocationAccess
+%  \} \\
+%  get\_all\_effective\_rights! = makeRightsList(\{ a: SecAttribute; r: Right | \\
+%  \t1 a \in \ran attrib\_list? \land (\exists d: DelegationState @ \\
+%  \t2 (a,d) \in \dom (PdomainAccessPolicy~policy?).PgrantedRights \land \\
+%  \t2 r \in (PdomainAccessPolicy~policy?).PgrantedRights(a,d) ) @ r \} ) \\ 
+%\end{schema}
+%\begin{zed}
+%  AP\_get\_all\_effective\_rights == ( APgetAllEffectiveRights \land NoEx ) \lor
+%  \\
+%  \t7 BadParam \lor SysEx \\ 
+%\end{zed}
+%}
+
+%\subsubsection{Operations for SecureInvocationPolicy}
+
+%\paragraph{set\_association\_options}
+%\begin{schema}{SIPsetAssociationOptions}
+%  \Delta SecureInvocationPolicy \\
+%  object\_type?: RepositoryId \\
+%  requires\_supports?: RequiresSupports \\
+%  direction?: CommunicationDirection \\
+%  options?: AssociationOptions \\
+%\end{schema}
+%\begin{zed}
+%  SIP\_set\_association\_options == SIPsetAssociationOptions
+%\end{zed}
+
+%\paragraph{get\_association\_options}
+%\begin{schema}{SIPgetAssociationOptions}
+%  \Xi SecureInvocationPolicy \\
+%  object\_type?: RepositoryId \\
+%  requires\_supports?: RequiresSupports \\
+%  direction?: CommunicationDirection \\
+%  get\_association\_options!: AssociationOptions \\
+%\end{schema}
+%\begin{zed}
+%  SIP\_get\_association\_options == SIPgetAssociationOptions
+%\end{zed}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Administration of Users} \label{sec:users}
+
+\zsection[ZSpolicies]{ZSusers}\vspace{2ex}
+
+The \corbasec{} specification does not define mechanisms for administrating
+users, but this must be present in order to define meaningful properties.  The
+following definitions can be thought of as a simple authentication and
+authorization mechanism which should be replaced by some full fledged technology
+(actually its specification) like Kerberos~\cite{gollmann:computer:1999}.
+Alternatively, this can be viewed as an interface to this concrete security
+technology.
+
+First, we define a special security attribute $publicAttribute$ which is
+initially assigned to every principal and indicates that this principal can only
+access public data.  The creation of new identity security attributes for a new
+principal is done implicitly when the principal is created, i.e.\ the only
+attributes that can be created are identity attributes.  The function
+$principalId$ identifies every principal uniquely by its access identity
+attribute.  Since this function defines an id for every possible name, we can
+make it constant.
+\index{publicAttribute} \index{principalId} 
+\begin{axdef}
+  publicAttribute: SecAttribute \\
+  principalId: SecurityName \bij SecAttribute \\
+  \where
+  AttributeType\_attribute\_type( SecAttribute\_attribute\_type(
+  publicAttribute)) = Public \\ 
+  \forall a: \ran principalId @ \\
+  \t1 AttributeType\_attribute\_type( SecAttribute\_attribute\_type(a) ) =
+  AccessId \\
+\end{axdef}
+
+$Users$ specifies the state of the security data.  The subjects in a secure
+CORBA system are called principals.  This can be human users or system
+components, like business objects or printers, etc.  $Uprincipals$ is the set of
+all such principals that are registered by the system.  $Uauthenticates$ defines
+the authentication data for each principal and $Uattributes$ defines the
+security attributes a principal is entitled to.
+\begin{schema}{Users}
+  Uprincipals: \power SecurityName \\
+  Uauthenticates: SecurityName \fun Opaque \\
+  Uattributes: SecurityName \fun \power SecAttribute \\
+  Uprivileges: SecurityName \fun \power SecAttribute \\
+  \where
+  \forall sn: SecurityName @ Uprivileges(sn) \subseteq Uattributes(sn) \\
+  \forall a: \bigcup (\ran Uprivileges) @ \\
+  \t1 ExtensibleFamily\_family( AttributeType\_attribute\_family( \\
+  \t2 SecAttribute\_attribute\_type(a))) = 1 \\
+  \dom Uauthenticates = Uprincipals \\
+  \forall s: Uprincipals @ principalId(s) \in Uattributes(s) \\
+  \forall s,ss: SecurityName @ principalId(s) \in Uattributes(ss) \implies s =
+  ss \\ 
+\end{schema}
+
+
+\subsubsection{Operations on Principals and Attributes}
+
+The creation and deletion of the identity security attributes will be handled
+implicitly in the operations for creating and deleting principals.
+
+\paragraph{Create principal} 
+This operation creates a new principal, sets its initial authentication data,
+creates a new identity attribute and sets the principals' initial security
+attributes (including the identity).
+\begin{schema}{createPrincipal}
+  \Delta Users \\
+  name?: SecurityName \\
+  auth?: Opaque \\
+  \where
+  name? \notin Uprincipals \\
+  Uprincipals' = Uprincipals \cup \{ name? \} \\
+  Uauthenticates' = Uauthenticates \cup \{ name? \mapsto auth? \} \\
+  Uattributes' = Uattributes \oplus \{ name? \mapsto \{ principalId(name?),
+  publicAttribute \} \} \\
+\end{schema}
+
+
+\paragraph{Delete principal} 
+When we delete a principal, we must also delete its identity security attribute
+in all security domain access policies (actually in all policies, but we are
+only concerned with domain access policies), or more drastically, delete all
+policies containing this attribute.
+\begin{schema}{deletePrincipal}
+  \Delta Users \\
+  name?: SecurityName \\
+  \where
+  name? \in Uprincipals \\
+  Uprincipals' = Uprincipals \setminus \{ name? \} \\
+  Uauthenticates' = Uauthenticates \setminus \{ name? \mapsto
+  Uauthenticates(name?) \} \\ 
+  Uattributes' = Uattributes \oplus \{ name? \mapsto \emptyset \} \\
+\end{schema}
+\begin{schema}{deleteAttributes}
+  \Delta PolicyS \\
+  Users \\
+  name?: SecurityName \\
+  \where
+  PdomainAccessPolicy' = PdomainAccessPolicy \nrres \\
+  \t1 \{ p: \ran PdomainAccessPolicy | \exists a: (SecAttribute \cross
+  DelegationState) @  \\
+  \t2 a \in \dom p.PgrantedRights \land first(a) \in Uattributes(name?) \} \\
+%  \t1 \{ p: \ran PdomainAccessPolicy; a: (SecAttribute \cross DelegationState) |
+%  \\
+%  \t2 a \in \dom p.PgrantedRights \land first(a) \in Uattributes(name?) @ p \} \\
+%  Ppolicy' =  \\
+%  PsecureInvocationPolicy' = PsecureInvocationPolicy \\
+\end{schema}
+\index{delete\_principal}
+\begin{zed}
+  delete\_principal == deletePrincipal \land deleteAttributes \\
+\end{zed}
+
+
+\paragraph{Change authentication data} 
+This operation allows that an authenticated principal can change its
+authorization data.
+\begin{schema}{changeAuthData}
+  \Delta Users \\
+  name?: SecurityName \\
+  auth?: Opaque \\
+  \where
+  name? \in Uprincipals \\
+  Uauthenticates' = Uauthenticates \oplus \{ name? \mapsto auth? \} \\
+  Uprincipals' = Uprincipals \\
+  Uattributes' = Uattributes \\
+\end{schema}
+
+
+\paragraph{Set security attributes} 
+This operation is used to set the security attributes of a principal.  The old
+attributes are overridden by the new ones!
+\begin{schema}{setAttributes}
+  \Delta Users \\
+  name?: SecurityName \\
+  creds?: \power SecAttribute \\
+  \where
+  Uattributes' = Uattributes \oplus \{ name? \mapsto creds? \} \\
+  Uauthenticates' = Uauthenticates \\
+  Uprincipals' = Uprincipals \\
+\end{schema}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Domains and Objects} \label{sec:domains}
+
+\zsection[ZSusers]{ZSdomainsObjects}\vspace{2ex}
+
+This section introduces domains.  Although \corbasec{} talks also about
+environment and technology domains, only security policy domains are specified
+in the \corbasec{} specification.  We will focus on security policy domains
+only.  We begin with a quote from the \corba{} specification that describes
+domains.
+
+\begin{quote}
+  A policy domain is a set of objects to which the policies associated with that
+  domain apply. These objects are the domain members. The policies represent the
+  rules and criteria that constrain activities of the objects which belong to
+  the domain. On object reference creation, the ORB implicitly associates the
+  object reference with one or more policy domains. Policy domains provide
+  leverage for dealing with the problem of scale in policy management by
+  allowing application of policy at a domain granularity rather than at an
+  individual object instance granularity.
+  
+  \hspace*{\fill}\emph{(4.10 Management of Policy Domains, p. 4-44 --
+    4-46~\cite{omg:CORBA:2.4:2000})}
+\end{quote}
+
+\note{Every object must be associated with at least one domain.}
+
+
+\subsubsection{DomainManager} \label{sec:DomainManager}
+
+Every policy domain has one domain manager which defines the policies applicable
+for the objects in this domain.  The domain manager is synonymous with its
+managed domain.  We define an identifier $DOMAIN\_MANAGER$ for such managers, a
+schema $DomainManager$ that specifies a policy for each policy type for this
+domain and a schema $Domains$ that represents the part of the system state where
+domains (represented by their manager) are defined (the set of objects belonging
+to a domain).
+\index{DOMAIN\_MANAGER}
+\begin{zedgroup}
+  \begin{zed}
+    [ DOMAIN\_MANAGER ] \\
+  \end{zed}
+  \begin{schema}{DomainManager}
+    DMpolicy: PolicyType \pinj POLICY \\
+  \end{schema}
+\end{zedgroup}
+The policy domains are defined by $Domains$\footnote{We ignore our naming
+  convention in this case ($Domains$ should actually be called $DomainManagerS$)
+  because we actually want to talk about domains and not their managing
+  objects.}: A domain encompasses all objects that have the same domain manager,
+whereby an object can be a member of more than one domain, i.e.\ be related to
+more than one domain manager.  There might be empty domains and every object
+must be a member of at least one domain.
+
+$Ddomain$ specifies the set of objects (actually ids) that belong to a domain
+(actually its DomainManager) and $DmanagerId$ maps domain manager ids to the
+respective DomainManagers.
+\begin{schema}{Domains}
+  DmanagerId: DOMAIN\_MANAGER \pinj DomainManager \\
+  Ddomain: DOMAIN\_MANAGER \pfun \power OBJECT \\
+  \where
+  \dom Ddomain = \dom DmanagerId \\
+\end{schema}
+\index{DomainManagersList}
+\begin{zed}
+  DomainManagersList == \seq DOMAIN\_MANAGER \\
+\end{zed}
+
+
+\subsubsection{Objects} \label{sec:objects}
+We break with the distinction between clients and objects.  Objects may have
+role client or role target, but they are always treated as objects.  This
+implies that we need a transformation between the two different roles, and that
+the creation or initialization must be handled differently.  This becomes very
+important, when one considers delegation.
+
+Only policies of the policy types specified in $overridesAllowed$ can be
+overridden using this operation.
+\index{SetOverrideType} \index{overridesAllowed}
+\begin{zed}
+  SetOverrideType ::= SET\_OVERRIDE | ADD\_OVERRIDE \\
+\end{zed}
+\begin{axdef}
+  overridesAllowed: \power PolicyType \\
+  \where
+  overridesAllowed = \{ \< SecQOPPolicy, \\
+  SecMechanismsPolicy, \\
+  SecEstablishTrustPolicy, \\
+  SecInvocationCredentialsPolicy, \\
+  SecDelegationDirectivePolicy \} \>
+\end{axdef}
+
+Client applications can only get a reference to some real object, not the object
+itself.  It is therefor sufficient to only talk about references to objects
+($Object$).  $OoverridePolicies$ may contain more than one policy of a certain
+policy type.
+\begin{schema}{Object}
+  OsupportedMechanisms: \power MechanismType \\
+  OoverridePolicies: \power POLICY \\
+\end{schema}
+
+The schema $ObjectS$ defines that part of the system state that handles objects
+with the function $objectId$ mapping ids to the active (known to the system)
+objects.
+\begin{schema}{ObjectS}
+  OobjectId: OBJECT \pinj Object \\
+  Otarget: OBJECT \pfun CURRENT \\
+  \where
+  \dom Otarget = \dom OobjectId \\
+\end{schema}
+
+
+\subsubsection{Operations for Domains}
+
+The \corbasec{} specification lacks administration operations for domains, which
+are nevertheless crucial for a realistic system.  In the following, we will
+define operations to create and delete policy domains and to insert and remove
+objects into and from policy domains.
+
+
+\paragraph{get\_domain\_policy}
+This operations retrieves the policy of the specified type for the domain
+managed by the specified domain manager.  If no such policy is defined, an
+$INV\_POLICY$ exception is raised.
+\begin{zedgroup}
+  \begin{schema}{DMgetDomainPolicy}
+    \Xi DomainManager \\
+    policy\_type?: PolicyType \\
+    get\_domain\_policy!: POLICY \\
+    \where
+    policy\_type? \in \dom DMpolicy \\  
+    get\_domain\_policy! = DMpolicy(policy\_type?) \\
+  \end{schema}
+  \begin{schema}{S\_DMgetDomainPolicy}
+    \Xi Domains \\
+    id?: DOMAIN\_MANAGER \\
+    DMgetDomainPolicy \\
+    \where
+    DmanagerId(id?) = \theta DomainManager \\
+  \end{schema}
+\end{zedgroup}
+This schema defines the condition, when no policy of the requested type is
+available from this DomainManager.
+\begin{zedgroup}
+  \begin{schema}{DMwrongType}
+    \Xi DomainManager \\
+    policy\_type?: PolicyType \\
+    \where
+    policy\_type? \notin \dom DMpolicy \\
+  \end{schema}
+  \begin{schema}{S\_DMwrongType}
+    \Xi Domains \\
+    DMwrongType \\
+    id?: DOMAIN\_MANAGER \\
+    \where
+    DmanagerId(id?) = \theta DomainManager \\
+  \end{schema}
+\end{zedgroup}
+The actual operation can then be defined by the combination of the above
+schemas, the $InvPolicy$ and a potential system exception:
+\begin{zed}
+  DM\_get\_domain\_policy == ( S\_DMgetDomainPolicy \land NoEx ) \lor \\
+  \t7 ( S\_DMwrongType \land InvPolicy ) \\
+\end{zed}
+
+
+\paragraph{Creating domains} 
+This operation is used to create a new domain and returns the identifier of this
+new domain.  Initially this domain is empty.
+\begin{schema}{createDomain}
+  \Delta Domains \\
+  id!: DOMAIN\_MANAGER \\
+  \where
+  \exists id: DOMAIN\_MANAGER; d: DomainManager | \\
+  \t1 id \notin \dom DmanagerId \land d \notin \ran DmanagerId @ \\
+  \t2 DmanagerId' = DmanagerId \cup \{ ( id \mapsto d ) \} \land \\
+  \t2 Ddomain' = Ddomain \cup \{ id \mapsto \emptyset \} \land id! = id \\
+\end{schema}
+
+
+\paragraph{Deleting domains}
+The following operation is used to delete an empty domain.  In order to get a
+simple operation, we require a domain to be empty before it can be deleted.
+This must be done via the operation $removeObject$.
+\begin{schema}{deleteDomain}
+  \Delta Domains \\
+  id?: DOMAIN\_MANAGER \\
+  \where
+  Ddomain(id?) = \emptyset \\
+  DmanagerId' = DmanagerId \setminus \{ ( id? \mapsto DmanagerId(id?) ) \} \\
+  Ddomain' = Ddomain \setminus \{ ( id? \mapsto Ddomain(id?) ) \} \\
+\end{schema}
+
+
+\paragraph{Inserting objects into domains}
+This operation is used to insert an existing object into an existing domain.  
+
+An object can be a member in different domains where some domains might have
+policies of the same type.  This implies the need for a strategy how potential
+conflicts between these policies can be resolved.  Because this issue is not
+addressed in \corbasec, we add the constraint that an object cannot be inserted
+into a domain which defines policies of types that already apply for this
+object.  However, this is a simple resolution strategy.  In order to define this
+constraint, we introduce a new function $policyTypes$ which calculates all
+policy types of all domains of an object:
+\begin{axdef}
+  policyTypes: OBJECT \cross Domains \fun \power PolicyType \\
+  \where
+  \forall o: OBJECT; d: Domains @ policyTypes(o,d) = \\
+  \t1 \bigcup \{ dm: \dom d.Ddomain | o \in d.Ddomain(dm) @ \\
+  \t2 \dom (d.DmanagerId~dm).DMpolicy \}
+\end{axdef}
+\begin{schema}{insertObject}
+  \Xi ObjectS \\
+  \Delta Domains \\
+  did?: DOMAIN\_MANAGER \\
+  oid?: OBJECT \\
+  \where
+  did? \in \dom DmanagerId \\
+  oid? \in \dom OobjectId \\
+  \dom (DmanagerId~did?).DMpolicy \cap policyTypes(oid?, \theta Domains) =
+  \emptyset \\
+  
+  Ddomain' = Ddomain \oplus \{ did? \mapsto (Ddomain(did?) \cup \{ oid? \}) \} \\
+  DmanagerId' = DmanagerId \\
+\end{schema}
+
+
+\paragraph{Removing objects from domains} 
+This operation is used to remove an object from a domain.
+\begin{schema}{removeObject}
+  \Delta Domains \\
+  did?: DOMAIN\_MANAGER \\
+  oid?: OBJECT \\
+  \where
+  did? \in \dom DmanagerId \\
+  oid? \in Ddomain(did?) \\
+  DmanagerId' = DmanagerId \\
+  Ddomain' = Ddomain \oplus \{ did? \mapsto (Ddomain(did?) \setminus \{ oid? \})
+  \} \\
+\end{schema}
+
+
+\subsubsection{Operations on Object References} \label{sec:objects:ops}
+
+\note{The OMG specifications of the Security Service and CORBA are inconsistent
+  for the following operations.  This is also true for the newest specifications
+  that are available from the OMG web site.  The exceptions that will be raised
+  by these operations are different and the semantics is differently explained!
+  We try to focus on the semantics given by the Security Service specification.}
+
+
+\paragraph{get\_domain\_managers}
+This operation allows administration services (and applications) to retrieve a
+list of immediately enclosing domain managers of an object reference, and hence
+the security and other policies applicable to this object.  At least one domain
+manager is always returned in the list since by default each object is
+associated with at least one domain manager at creation.
+\index{makeDomainManagersList}
+\begin{axdef}
+  makeDomainManagersList: \\
+  \t1 \power DOMAIN\_MANAGER \fun \seq DOMAIN\_MANAGER
+  \where
+  \forall S: \power DOMAIN\_MANAGER; e: DOMAIN\_MANAGER @ \\
+  \t1 makeDomainManagersList( \emptyset ) = \langle \rangle \land \\
+  \t1 makeDomainManagersList( S \cup \{ e \} ) = makeDomainManagersList( S )
+  \cat \langle e \rangle \\ 
+\end{axdef}
+\index{domainsOf}
+\begin{axdef}
+  domainsOf: OBJECT \cross Domains \fun \power DOMAIN\_MANAGER \\
+  \where
+  \forall o: OBJECT; ds: Domains @ domainsOf( o, ds ) = \\
+  \t1 \{ m: \dom ds.Ddomain | o \in ds.Ddomain( m ) \}
+\end{axdef}
+
+\begin{schema}{OgetDomainManagers}
+  \Xi Domains \\
+  id?: OBJECT \\
+  get\_domain\_managers!: DomainManagersList \\
+  \where
+  get\_domain\_managers! = \\
+  \t1 makeDomainManagersList(\{m:\dom Ddomain | id? \in Ddomain(m)\}) \\ 
+\end{schema}
+\begin{zed}
+  O\_get\_domain\_managers == ( OgetDomainManagers \land NoEx ) \lor SysEx \\
+\end{zed}
+
+\note{The sequence of domain managers that are returned should have a distinct
+  order to reflect the way inconsistencies in the policies will be solved.}
+
+\note{One could imagine that for access policies, no right can appear more often
+  than in one policy, i.e.\ the assignment of rights is monotone.  Principals can
+  have more rights in more special domains, but rights cannot be revoked within
+  an inheritance chain of domains.\fix{Look at the work of Gerald.}}
+
+
+\paragraph{set\_policy\_overrides}
+This operation is used to override some policies in an object reference by the
+client.  Only policies of the policy types specified in $overridesAllowed$ can
+be overridden using this operation.  Attempts to override any other policy will
+result in the raising of the $NO\_PERMISSION$ exception.
+\index{makeTypedPolicyList}
+This function must be defined when we need it in a proof!
+\begin{axdef}
+  makeTypedPolicyList: \power POLICY \pfun \power (PolicyType \cross POLICY) \\
+\end{axdef}
+We define a helper to set policies of objects and leave all other components
+untouched: \index{OcopyObjectOverrides}
+\begin{axdef}
+  OcopyObjectOverrides: (Object \cross \power POLICY) \fun Object
+  \where
+  \forall o: Object; ps: \power POLICY @ OcopyObjectOverrides(o,ps) = \\
+  \t1 \lbind \< OoverridePolicies == ps, \\
+  OsupportedMechanisms == o.OsupportedMechanisms \rbind \>
+\end{axdef}
+The parameter $set\_add$ indicates whether these policies should be added onto
+any other overrides that already exist ($ADD\_OVERRIDE$) in the object
+reference, or they should be added to a clean override free object reference
+($SET\_OVERRIDE$). This operation associates policies with a newly created
+object reference that it returns.
+
+The association of these overridden policies with the object reference is a
+purely local phenomenon. These associations are never passed on in any IOR or
+any other marshaled form of the object reference. The associations last until
+the object reference is destroyed or the process/capsule/ORB instance in which
+it exists is destroyed.
+
+The policies thus overridden in this new object reference and all subsequent
+duplicates of this new object reference apply to all invocations that are done
+through these object references. The overridden policies apply even when the
+default policy associated with current is changed. It is always possible that
+the effective policy on an object reference at any given time will fail to be
+successfully applied, in which case the invocation attempt will fail and raise a
+$NO\_PERMISSION$ exception.
+
+With the above definitions we can finally define the operation schema for a
+successful operation:
+
+\begin{schema}{OsetPolicyOverrides}
+  \Xi PolicyS \\
+  \Delta ObjectS \\
+  oid?: OBJECT \\
+  policies?: PolicyList \\
+  set\_add?: SetOverrideType \\
+  set\_policy\_overrides: OBJECT \\
+  \where
+  oid? \in \dom OobjectId \\
+  \forall p,q: \ran policies? @ Ppolicy(p) \in overridesAllowed \\
+  \t1 \land (Ppolicy(p) = Ppolicy(q) \implies p = q) \\
+
+  set\_policy\_overrides \notin \dom OobjectId \\
+
+  set\_add? = ADD\_OVERRIDE \implies \\
+  \t1 OobjectId' = OobjectId \cup \{ ( set\_policy\_overrides, \\
+  \t2 OcopyObjectOverrides ( OobjectId ( oid? ), \\
+  \t3 \ran policies? \cup ( OobjectId~oid? ).OoverridePolicies ) ) \} \\
+  set\_add? = SET\_OVERRIDE \implies \\
+  \t1 OobjectId' = OobjectId \cup \{ ( set\_policy\_overrides, \\
+  \t2 OcopyObjectOverrides ( OobjectId ( oid? ), \\
+  \t3 \ran policies? ) ) \} \\
+  Otarget' = Otarget \cup \{ set\_policy\_overrides \mapsto Otarget ( oid? ) \}
+  \\
+\end{schema}
+\begin{schema}{adjustDomains}
+  \Delta Domains \\
+  oid?: OBJECT \\
+  set\_policy\_overrides: OBJECT \\
+  \where
+  Ddomain' = Ddomain \oplus \{ d: DOMAIN\_MANAGER | \\
+  \t1 d \in domainsOf( oid?, \theta Domains ) @ \\ 
+  \t2 d \mapsto ( Ddomain( d ) \cup \{ set\_policy\_overrides \} ) \}
+\end{schema}
+\begin{schema}{OPolicyNotAllowed}
+  \Xi PolicyS \\
+  policies?: PolicyList \\
+  \where
+  \exists p: \ran policies? @ Ppolicy(p) \notin overridesAllowed \\
+\end{schema}
+\begin{zed}
+  O\_set\_policy\_overrides == \< ( OsetPolicyOverrides \land adjustDomains \land
+  NoEx ) \lor \\
+  (OPolicyNotAllowed \land NoPermission) \lor SysEx \>
+\end{zed}
+
+
+\paragraph{get\_policy}
+This operation is used to retrieve the policy of the given type that is
+applicable for the given object reference.  The policies that are applicable for
+a reference depend on the domains that this reference belongs to.  
+
+\design{The security service does not define a mechanism to decide which domain
+  is relevant for a policy.  We assume that only one domain in the list of
+  enclosing domains defines a policy of the requested type.  One could define
+  that the most specialized domain, in a hierarchy of domains, that defines a
+  policy of the requested type will be taken; but how to handle domains on the
+  same ``level''?}
+
+The security service defines three kinds of policies that might be applicable
+for an object reference on invocations: (i) policies supplied by the target
+object are associated with the object reference and represent the requirements
+of the target object; (ii) the client can supply certain policies as overrides
+to the object reference; and (iii) the system may define default policies for
+the initiating client in its Current object.  The operation $get\_policies$
+computes the effective policies (a consistent combination of all these policies)
+that would be used for the next invocation using this object reference.
+
+\note{Due to inconsistencies in the different OMG specifications, we only
+  specify kinds (i) and (ii).}
+
+We define different schemas that capture the places where the requested policies
+are defined.
+
+For now, we are only concerned with access control and only define this
+operation for the $InvocationCredentialsPolicy$ because that's the only relevant
+policy for our purposes.  These Credentials are usually only set as overrides
+end must be combined with the domain access policies of the object reference.
+
+\begin{schema}{OpolicyInOverrides}
+  \Xi PolicyS \\
+  \Xi ObjectS \\
+  id?: OBJECT \\
+  policy\_type?: PolicyType \\
+  get\_policy!: POLICY \\
+  \where
+  id? \in \dom OobjectId \\
+  policy\_type? = SecInvocationCredentialsPolicy \\
+  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+
+  get\_policy! = (\mu p: (OobjectId~id?).OoverridePolicies | Ppolicy(p) =
+  policy\_type?) \\
+\end{schema}
+
+%\zsection{ZSgetPolicy}\vspace{2ex}
+
+%Note that this operation returns the policies that would be applied.  It is
+%still possible that the application will fail, because, say the client's
+%credentials don't support the mechanisms that were required.
+%\begin{schema}{OpolicyInDomains}
+%  \Xi PolicyS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  policy\_type? \notin Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \exists d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \\
+%  \t1 \land policy\_type? \in \dom (DmanagerId~d).DMpolicy @ \\
+%  \t2 get\_policy! = (DmanagerId~d).DMpolicy(policy\_type?) \\
+%\end{schema}
+%This operation implicitely contains the InvocationCredentialsPolicies since they
+%cannot be set by an object.
+%\begin{schema}{OpolicyInOverrides}
+%  \Xi PolicyS \\
+%  \Xi ObjectS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  id? \in \dom OobjectId \\
+%  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \forall d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} @
+%  \\
+%  \t1 policy\_type? \notin \dom (DmanagerId~d).DMpolicy \\
+%  get\_policy! = (\mu p: (OobjectId~id?).OoverridePolicies | Ppolicy(p) =
+%  policy\_type?) \\
+%\end{schema}
+%When a policy is in both, the object's domain and in the overrides, we define
+%properties that define which policy is actually taken according to the policy
+%type.  The principal idea is that the most rigorous policy is applied, i.e.\ the
+%specified policy is assumed to be the least security that the target or client
+%require, i.e.\ the intersection of the different policies.
+
+%\begin{axdef}
+%  combineQOP: QOP \cross QOP \fun QOP \\
+%  \where
+%  \forall p,q: QOP @ combineQOP(p,q) = \IF p = q \THEN p \\
+%  \t1 \ELSE \IF p = SecQOPNoProtection \THEN q \\
+%  \t2 \ELSE \IF q = SecQOPNoProtection \THEN p \\
+%  \t3 \ELSE SecQOPIntegrityAndConfidentiality \\
+%\end{axdef}
+
+%\zcomment{Or in a more theorem prover friendly notation:
+%\begin{axdef}
+%  combineQOP: QOP \cross QOP \fun QOP \\
+%  \where
+%  \forall p,q: QOP @ \\
+%  \t1 (p = q \implies combineQOP(p,q) = p) \land \\
+%  \t1 (p = SecQOPNoProtection \implies combineQOP(p,q) = q) \land \\
+%  \t1 (q = SecQOPNoProtection \implies combineQOP(p,q) = p) \land \\
+%  \t1 (\lnot (p = q \lor p = SecQOPNoProtection \lor q = SecQOPNoProtection) \\
+%  \t2 \implies combineQOP(p,q) = SecQOPIntegrityAndConfidentiality) \\
+%\end{axdef}}
+
+%\begin{schema}{OQOPPolicyInBoth}
+%  \Delta PolicyS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  policy\_type? = SecQOPPolicy \\
+%  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \exists d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} @
+%  \\
+%  \t1 policy\_type? \in \dom (DmanagerId~d).DMpolicy \\
+%%
+%  \exists op: POLICY; dp: POLICY; d: DOMAIN\_MANAGER; id: POLICY | \\
+%  \t1 SecQOPPolicy = Ppolicy(op) \land op \in (OobjectId~id?).OoverridePolicies
+%  \land \\
+%  \t1 d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \land \\
+%  \t1 dp \in \ran (DmanagerId~d).DMpolicy \land \\ 
+%  \t1 Ppolicy(dp) = SecQOPPolicy \land id \notin \dom Ppolicy @ \\
+%  \t2 Ppolicy' = Ppolicy \cup \{ (id,SecQOPPolicy) \} \land \\
+%  \t2 PQOPPolicy' = PQOPPolicy \cup \{ (id, \\
+%  \t3 \lbind Ppolicy\_type == SecQOPPolicy, \\
+%  \t4 qop == combineQOP((PQOPPolicy~dp).qop, \\
+%  \t5 (PQOPPolicy~op).qop) \rbind ) \} \\
+%  \t2 \land get\_policy! = id \\
+%\end{schema}
+
+%The combined mechanism policy is the intersection of the supported mechanisms of
+%both, client and target.  If no mechanism can be found that are supported by
+%both, then an exception is raised.
+%\begin{schema}{OMechanismPolicyInBoth}
+%  \Delta PolicyS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  policy\_type? = SecMechanismsPolicy \\
+%  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \exists d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} @
+%  \\
+%  \t1 policy\_type? \in \dom (DmanagerId~d).DMpolicy \\
+%%
+%  \exists op, dp, id: POLICY; d: DOMAIN\_MANAGER | \\
+%  \t1 SecMechanismsPolicy = Ppolicy(op) \land op \in
+%  (OobjectId~id?).OoverridePolicies \\ 
+%  \t1 \land d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \land \\
+%  \t1 dp \in \ran (DmanagerId~d).DMpolicy \land \\ 
+%  \t1 Ppolicy(dp) = SecMechanismsPolicy \land id \notin \dom Ppolicy @ \\
+%  \t2 \ran (PmechanismPolicy~op).mechanisms \cap \\
+%  \t3 \ran (PmechanismPolicy~dp).mechanisms \neq \emptyseq \\
+%%
+%  \exists op, dp, id: POLICY; d: DOMAIN\_MANAGER | \\
+%  \t1 SecMechanismsPolicy = Ppolicy(op) \land op \in
+%  (OobjectId~id?).OoverridePolicies \\
+%  \t1 \land d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \land \\
+%  \t1 dp \in \ran (DmanagerId~d).DMpolicy \land \\ 
+%  \t1 Ppolicy(dp) = SecMechanismsPolicy \land id \notin \dom Ppolicy @ \\
+%  \t2 Ppolicy' = Ppolicy \cup \{ (id,SecMechanismsPolicy) \} \land \\
+%  \t2 PmechanismPolicy' = PmechanismPolicy \cup \{ (id, \\
+%  \t3 \lbind Ppolicy\_type == SecMechanismsPolicy, \\ 
+%  \t3 mechanisms == makeSeq(\ran (PmechanismPolicy~op).mechanisms \cap \\
+%  \t4 \ran (PmechanismPolicy~dp).mechanisms) \rbind ) \} \land \\
+%  \t2 get\_policy! = id \\
+%\end{schema}
+%\begin{axdef}
+%  combineTrust: EstablishTrust \cross EstablishTrust \fun EstablishTrust \\
+%  \where
+%  \forall s_1, s_2, t_1, t_2: Boolean @ combineTrust((s_1, t_1), (s_2, t_2)) =
+%  \\
+%  \t1 ( (\IF s_1 = FALSE \land s_2 = FALSE \THEN FALSE \ELSE TRUE), \\
+%  \t2 (\IF t_1 = FALSE \land t_2 = FALSE \THEN FALSE \ELSE TRUE) ) \\
+%\end{axdef}
+%\begin{schema}{OEstablishTrustPolicyInBoth}
+%  \Delta PolicyS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  policy\_type? = SecEstablishTrustPolicy \\
+%  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \exists d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} @
+%  \\
+%  \t1 policy\_type? \in \dom (DmanagerId~d).DMpolicy \\
+%%
+%  \exists op: POLICY; dp: POLICY; d: DOMAIN\_MANAGER; id: POLICY | \\
+%  \t1 SecEstablishTrustPolicy = Ppolicy(op) \land \\
+%  \t1 op \in (OobjectId~id?).OoverridePolicies \land \\
+%  \t1 d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \land \\
+%  \t1 dp \in \ran (DmanagerId~d).DMpolicy \land \\ 
+%  \t1 Ppolicy(dp) = SecEstablishTrustPolicy \land id \notin \dom Ppolicy @ \\
+%  \t2 Ppolicy' = Ppolicy \cup \{ (id,SecEstablishTrustPolicy) \} \land \\
+%  \t2 PestablishTrustPolicy' = PestablishTrustPolicy \cup \{ (id, \\
+%  \t3 \lbind Ppolicy\_type == SecEstablishTrustPolicy, \\
+%  \t4 trust == combineTrust((PestablishTrustPolicy~dp).trust,\\
+%  \t5 (PestablishTrustPolicy~op).trust) \rbind ) \} \land \\
+%  \t2 get\_policy! = id \\
+%\end{schema}
+%\begin{schema}{ODelegationDirectivePolicyInBoth}
+%  \Delta PolicyS \\
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  get\_policy!: POLICY \\
+%  \where
+%  policy\_type? = SecDelegationDirectivePolicy \\
+%  policy\_type? \in Ppolicy \limg (OobjectId~id?).OoverridePolicies \rimg \\
+%  \exists d: DOMAIN\_MANAGER | d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} @
+%  \\
+%  \t1 policy\_type? \in \dom (DmanagerId~d).DMpolicy \\
+%%
+%  \exists op: POLICY; dp: POLICY; d: DOMAIN\_MANAGER; id: POLICY | \\
+%  \t1 SecDelegationDirectivePolicy = Ppolicy(op) \land \\
+%  \t1 op \in (OobjectId~id?).OoverridePolicies \land \\
+%  \t1 d \in \{m: \dom Ddomain | id? \in Ddomain(m) \} \land \\
+%  \t1 dp \in \ran (DmanagerId~d).DMpolicy \land \\ 
+%  \t1 Ppolicy(dp) = SecDelegationDirectivePolicy \land id \notin \dom Ppolicy @ \\
+%  \t2 Ppolicy' = Ppolicy \cup \{ (id,SecDelegationDirectivePolicy) \} \land \\
+%  \t2 PdelegationDirectivePolicy' = PdelegationDirectivePolicy \cup \{ (id, \\
+%  \t3 \lbind Ppolicy\_type == SecDelegationDirectivePolicy, \\
+%  \t4 delegate == \< \IF (PdelegationDirectivePolicy~op).delegate = \\
+%  \t1 Delegate \land \\
+%  \t1 (PdelegationDirectivePolicy~dp).delegate = \\
+%  \t1 Delegate \\
+%  \THEN Delegate \\
+%  \ELSE NoDelegate \rbind ) \} \> \\
+%  \t2 \land get\_policy! = id \\
+%\end{schema}
+
+%If no policy of the requested policy type is found, a $PadParam$ exception is
+%raised. \note{The CORBA specification defines for this event the exception
+%  $InvPolicy$.  This is an inconsistency in the specification of CORBA and its
+%  security service!}
+
+%\begin{schema}{OpolicyNotFound}
+%  \Xi Domains \\
+%  id?: OBJECT \\
+%  policy\_type?: PolicyType \\
+%  \where
+%  \forall d: DOMAIN\_MANAGER | d \in \{m:\dom Ddomain | id? \in Ddomain(m)\} @ \\
+%  \t1 policy\_type? \notin \dom (DmanagerId~d).DMpolicy \\
+%\end{schema}
+%\begin{zed}
+%  O\_get\_policy == ( ( OpolicyInOverrides \lor OpolicyInDomains \lor \\
+%  \t1 OQOPPolicyInBoth \lor OMechanismPolicyInBoth \\
+%  \t1 \lor OEstablishTrustPolicyInBoth \\
+%  \t1 \lor ODelegationDirectivePolicyInBoth) \land NoEx ) \lor \\
+%  \t1 (OpolicyNotFound \land BadParam) \lor SysEx \\ 
+%\end{zed}
+\index{O\_get\_policy}
+\begin{zed}
+  O\_get\_policy == ( OpolicyInOverrides \land NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\subsection{Credentials and Current \label{sec:Credentials}}
+
+\zsection[ZSdomainsObjects]{ZScredentialsCurrent}\vspace{2ex}
+
+%%inrel \utctl
+%%inrel \utctg
+%%inrel \utcte
+%%inop  \utctp 1
+%% \begin{axdef}
+%%   \_ \utctl \_ , \_ \utctg \_ , \_ \utcte \_ : UtcT \rel UtcT \\
+%%   \_ \utctp \_ : ( UtcT \cross UtcT ) \fun UtcT \\
+%% \end{axdef}
+
+\subsubsection{Data and State of Credentials}
+
+The OMG specification distinguishes between Credentials and ReceivedCredentials.
+To accommodate this distinction, we define an identifier $CREDS$ for any
+Credentials and a $CredentialsType$\footnote{Not ``$CredentialType$'', which is
+  defined by \corbasec.}.
+
+These types must actually be defined in section~\ref{sec:policies} because the
+declaration-before-use rule, but we describe it here to keep the Credentials
+together.  
+\zcomment{
+  \begin{zedgroup}
+    \begin{zed}
+      [ CREDS ] \\
+    \end{zed}
+    \begin{zed}
+      CredentialsType ::= Own | Received \\
+      CredentialsList == \seq CREDS \\
+    \end{zed}
+  \end{zedgroup}
+  }
+We define an auxiliary function $makeCredentialsList$ which takes a set of
+Credentials Ids and builds a sequence in non-deterministic order.
+\index{makeCredentialsList}
+\begin{axdef}
+  makeCredentialsList: \power CREDS \fun CredentialsList \\
+  \where
+  \forall S: \power CREDS; e: CREDS @ makeCredentialsList( \emptyset ) = \langle
+  \rangle \land \\
+  \t1 makeCredentialsList( S \cup \{ e \} ) = makeCredentialsList( S ) \cat
+  \langle e \rangle \\  
+\end{axdef}
+
+The schema $Credentials$ defines the data components a Credentials object
+consists of.  Most important are the security attributes of a principal, which
+are stored in its credentials.
+\begin{schema}{Credentials}
+  Cprivileges: \power SecAttribute \\
+  Cattributes: \power SecAttribute \\
+  CsecurityFeatures: CommunicationDirection \rel SecurityFeature \\
+  Ccredentials\_type: InvocationCredentialsType \\
+  Cauthentication\_state: AuthenticationStatus \\
+  Cmechanism: MechanismType \\
+  Caccepting\_options\_supported: AssociationOptions \\
+  Caccepting\_options\_required: AssociationOptions \\
+  Cinvocation\_options\_supported: AssociationOptions \\
+  Cinvocation\_options\_required: AssociationOptions \\
+  \where
+  Cprivileges \subset Cattributes \\
+  \forall p: Cprivileges @ ExtensibleFamily\_family( \\
+  \t1 AttributeType\_attribute\_family(SecAttribute\_attribute\_type(p))) = 1
+  \\
+  \forall d: CommunicationDirection; f: SecurityFeature | \\
+  \t1 (d,f) \in CsecurityFeatures @ d = SecDirectionReply \lor \\
+  \t2 d = SecDirectionRequest \\
+\end{schema}
+When setting security features, the operation must unfold the direction
+$SecDirectionBoth$ into the two directions for request and reply.
+\begin{schema}{ReceivedCredentials}
+  Credentials \\
+  RCaccepting\_credentials: Credentials \\
+  RCassociation\_options\_used: AssociationOptions \\
+  RCdelegation\_state: DelegationState \\
+  RCdelegationMode: DelegationMode \\
+\end{schema}
+
+
+To define a validity of credentials, we introduce the system time in an
+axiomatic fashion for simplicity.  $systemTime$ is actually changing but we do
+not care about it and $credsTime$ is the time credentials are valid for
+(additionally we have to define addition on $UtcT$).  The function $family0ids$
+defines for each principal the audit, accounting and non-repudiation ids if
+applicable:
+\index{systemTime}\index{family0ids}\index{publicCreds}
+\begin{axdef}
+  systemTime, credsTime: UtcT \\
+  family0ids: SecurityName \fun \power SecAttribute \\
+  publicCreds, undefCreds: CREDS \\
+  \where
+  \forall a: SecAttribute; as: \ran family0ids | a \in as @ \\
+  \t1 ExtensibleFamily\_family( AttributeType\_attribute\_family( \\
+  \t2 SecAttribute\_attribute\_type(a)) ) = 0 \\ 
+\end{axdef}
+This schema defines the part of the system state that manages all credentials
+objects.
+\begin{schema}{CredentialsS}
+  CcredentialsId: CREDS \pfun Credentials \\
+  CreceivedCredentialsId: CREDS \pfun ReceivedCredentials \\
+  CisValid: CREDS \rel UtcT \\
+  CcredentialsType: CREDS \fun CredentialsType \\
+  \where
+  \exists c: Credentials @ (publicCreds \mapsto c) \in CcredentialsId \land \\
+  \t1 c.Cattributes = \{ publicAttribute \} \\
+  \dom CcredentialsId \cup \dom CreceivedCredentialsId = \dom CcredentialsType \\
+  \forall t: \ran CisValid @ systemTime \utctl t \\
+  \dom CisValid \subseteq \dom CcredentialsId \cup \dom CreceivedCredentialsId
+  \\
+  \forall c: \dom CcredentialsId @  CcredentialsType(c) = Own \land \\
+  \t1 (CcredentialsId~c).Ccredentials\_type = SecOwnCredentials \\
+  \forall c: \dom CreceivedCredentialsId @  CcredentialsType(c) = Received \land
+  \\
+  \t1 (CreceivedCredentialsId~c).Ccredentials\_type = SecReceivedCredentials \\
+\end{schema}
+
+
+\subsubsection{Data and State of Current}
+
+In this specification we ignore the security levels and only define one current
+schema.
+
+We defined a given type $CURRENT$ for current object identifiers in
+section~\ref{sec:ImplementationRepository}, and a type $CurrentRole$ which
+indicates the actual role of a current object (either client or target).  Later
+we can define a transformation between the two roles.  To make this
+transformation easier we define every ``thing'' to have an object id and if a
+client is transformed to a target object the first time we additionally initiate
+the object.
+\index{CurrentRole}
+\begin{zed}
+  CurrentRole ::= ClientCurrent | TargetCurrent \\
+\end{zed}
+\begin{schema}{Current}
+  CUinitiator: SecurityName \\
+  CUreceived\_credentials: CREDS \\
+  CUsupported\_mechanisms: MechandOptionsList \\
+  CUown\_credentials: CredentialsList \\
+  CUpolicies: \power POLICY \\
+\end{schema}
+The following read only attributes are not needed in this Z-specification
+although they are present in the OMG-spec. (because they are global in Z):
+$required\_rights\_object, principal\_authenticator, access\_decision,
+audit\_decision$. 
+
+\begin{schema}{CurrentS}
+  CUcurrentId: CURRENT \pfun Current \\
+  CUcurrentRole: CURRENT \pfun CurrentRole \\
+  \where
+  \dom CUcurrentRole = \dom CUcurrentId \\
+\end{schema}
+
+\subsubsection{Initialization of Current}
+The initialization of current objects is tightly connected to the creation of
+objects (client and target).  We therefore put these specifications into
+section~\ref{sec:creation}.
+
+
+\subsubsection{Operations on Credentials}
+%%% FIXME
+\index{supportedSecurityFeatures}
+\begin{axdef}
+  supportedSecurityFeatures: CommunicationDirection \rel SecurityFeature \\
+\end{axdef}
+
+
+\paragraph{copy}
+This operation creates a new Credentials object which is an exact duplicate of
+the input Credentials.  We define two operation schemas, one for regular
+Credentials and one for ReceivedCredentials.
+\index{copyCred}\index{copyRCred}
+\begin{axdef}
+  copyCred: Credentials \fun Credentials \\
+  copyRCred: ReceivedCredentials \fun ReceivedCredentials \\
+\end{axdef}
+\begin{schema}{CRcopy}
+  \Delta CredentialsS \\
+  c?, copy!: CREDS \\
+  \where
+  c? \in \dom CcredentialsId \\
+  copy! \notin \dom CcredentialsId \\ 
+  CcredentialsId' = CcredentialsId \cup \{ (copy!, copyCred(CcredentialsId~c?)) \} \\
+  CisValid' = \< \IF c? \in \dom CisValid \\
+  \THEN CisValid \cup \{ (copy!, CisValid(c?)) \} \\
+  \ELSE CisValid \> \\
+  CreceivedCredentialsId' = CreceivedCredentialsId  \\
+\end{schema}
+\note{The OMG specification does not mention the validity of the credentials in
+  this context.  It is not clear how to treat the validity here.  We assumed
+  that the validity will be copied as well and if the Credentials is valid, then
+  we insert the new one into $CisValid$.}
+\begin{schema}{RCcopy}
+  \Delta CredentialsS \\
+  c?, copy!: CREDS 
+  \where
+  c? \in \dom CreceivedCredentialsId \\
+  copy! \notin \dom CreceivedCredentialsId \\ 
+  CreceivedCredentialsId' = CreceivedCredentialsId \cup \\
+  \t1 \{ (copy!, copyRCred(CreceivedCredentialsId~c?)) \} \\ 
+  CisValid' = \< \IF c? \in \dom CisValid \\
+  \THEN CisValid \cup \{ (copy!, CisValid(c?)) \} \\
+  \ELSE CisValid \> \\
+  CcredentialsId' = CcredentialsId  \\
+\end{schema}
+The total operation can then be defined by the disjunction of both operation
+schemas and the exceptions:
+\index{CR\_copy}
+\begin{zed}
+  CR\_copy == (( CRcopy \lor RCcopy ) \land NoEx) \lor SysEx
+\end{zed}
+
+
+\paragraph{destroy}
+\note{The OMG specification says: \dots When Credentials are used as ``in''
+  parameters the callee always makes a copy if needed and manages its
+  life-style. \dots In case of ``out'' parameters, the callee is responsible for
+  creating it and the caller is responsible for destroying it. \dots}
+\begin{schema}{CRdestroy}
+  \Delta CredentialsS \\
+  c?: CREDS
+  \where
+  c? \in \dom CcredentialsId \implies ( CcredentialsId' = CcredentialsId \setminus \{ (c?,
+  CcredentialsId(c?)) \} \\
+  \t1 \land CreceivedCredentialsId' = CreceivedCredentialsId ) \\
+  c? \in \dom CreceivedCredentialsId \implies ( CreceivedCredentialsId' = \\
+  \t1 CreceivedCredentialsId \setminus \{ (c?, CreceivedCredentialsId(c?)) \} \\
+  \t1 \land CcredentialsId' = CcredentialsId ) \\ 
+  CisValid' = \< \IF c? \in \dom CisValid \\
+  \THEN CisValid \setminus \{ (c?,CisValid(c?)) \} \\
+  \ELSE CisValid \>
+\end{schema}
+\index{CR\_destroy}
+\begin{zed}
+  CR\_destroy == ( CRdestroy \land NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\paragraph{set\_privileges}
+This is used to request a set of privilege attributes (and only privilege
+attributes such as role, groups), updating the state of the supplied Credentials
+object.
+
+An auxiliary function to create lists.
+\index{makeAttributeList}
+\begin{axdef}
+  makeAttributeList: \power SecAttribute \fun AttributeList
+  \where
+  \forall S: \power SecAttribute; e: SecAttribute @ \\
+  \t1 makeAttributeList( \emptyset ) = \langle \rangle \land \\
+  \t2 makeAttributeList( S \cup \{ e \} ) = makeAttributeList( S ) \cat \langle
+  e \rangle \\ 
+\end{axdef}
+
+This operation can still succeed even if not all privileges could be acquired!
+\begin{schema}{CRsetPrivileges}
+  \Xi CurrentS \\
+  \Xi Users \\
+  \Delta Credentials \\
+  cuid?: CURRENT \\
+  force\_commit?: Boolean \\
+  requested\_privileges?: AttributeList \\
+  actual\_privileges!: AttributeList \\
+  set\_privileges!: Boolean \\
+  \where
+  \exists a: \ran requested\_privileges? @ a \in Uprivileges( \\
+  \t1 (CUcurrentId~cuid?).CUinitiator ) \\
+  Cprivileges = \{ a: \ran requested\_privileges? | \\
+  \t1 a \in Uprivileges( (CUcurrentId~cuid?).CUinitiator ) \} \\
+  Cattributes' = Cattributes \\
+  CsecurityFeatures' = CsecurityFeatures \\
+  Ccredentials\_type' = Ccredentials\_type \\
+  Cauthentication\_state' = Cauthentication\_state \\
+  Cmechanism' = Cmechanism \\
+  Caccepting\_options\_supported' = Caccepting\_options\_supported \\
+  Caccepting\_options\_required' = Caccepting\_options\_required \\
+  Cinvocation\_options\_supported' = Cinvocation\_options\_supported \\
+  Cinvocation\_options\_required' = Cinvocation\_options\_required \\
+  actual\_privileges! = makeAttributeList(Cprivileges) \\
+  set\_privileges! = TRUE \\
+\end{schema}
+\begin{schema}{S\_CRsetPrivileges}
+  \Delta CredentialsS \\
+  CRsetPrivileges \\
+  c?: CREDS \\
+  \where
+  c? \in \dom CisValid \\
+  c? \in \dom CcredentialsId \\
+  CcredentialsId(c?) = ( \theta Credentials ) \\
+  CcredentialsId' = CcredentialsId \oplus \{ c? \mapsto (\theta Credentials ')\} \\
+  CreceivedCredentialsId' = CreceivedCredentialsId \\
+  CisValid' = CisValid \\
+\end{schema}
+It is noteworthy that a failure of the $setPrivileges$ operation does not
+necessarily result in an exception!
+\begin{schema}{CRfailure}
+  \Xi CredentialsS; \Xi Users; \Xi CurrentS \\
+  cuid?: CURRENT \\
+  requested\_privileges?: AttributeList \\
+  set\_privileges!: Boolean \\
+  \where
+  \forall a: \ran requested\_privileges? @ a \notin Uprivileges(
+  (CUcurrentId~cuid?).CUinitiator ) \\
+  set\_privileges! = FALSE \\
+\end{schema}
+The total operation can be assembled by the partial operations and the system
+exceptions:
+\index{CR\_set\_privileges}
+\begin{zed}
+  CR\_set\_privileges == (( S\_CRsetPrivileges \lor CRfailure ) \land NoEx )
+  \lor SysEx \\
+\end{zed}
+
+
+\paragraph{get\_attributes}
+This is used to get privilege and other attributes from the Credentials
+object.
+\begin{schema}{CRgetAttributes}
+  \Xi Credentials \\
+  attributes?: AttributeTypeList \\
+  get\_attributes!: AttributeList \\
+  \where
+  get\_attributes! = \< \IF attributes? = \langle \rangle \\
+  \THEN makeAttributeList(Cattributes) \\
+  \ELSE makeAttributeList( \{ t: AttributeType; o_1,o_2: Opaque | \\
+  \t1 (t,o_1,o_2) \in Cattributes \land t \in \ran attributes? \} ) \>
+\end{schema}
+\begin{schema}{RCgetAttributes}
+  \Xi ReceivedCredentials \\
+  attributes?: AttributeTypeList \\
+  get\_attributes!: AttributeList \\
+  \where
+  get\_attributes! = \< \IF attributes? = \langle \rangle \\
+  \THEN makeAttributeList(Cattributes) \\
+  \ELSE makeAttributeList( \{ t: AttributeType; o_1,o_2: Opaque | \\
+  \t1 (t,o_1,o_2) \in Cattributes \land t \in \ran attributes? \} ) \>
+\end{schema}
+\begin{schema}{S\_CRgetAttributes}
+  \Xi CredentialsS \\
+  CRgetAttributes \\
+  id?: CREDS \\
+  \where
+  id? \in \dom CcredentialsId \\
+  CcredentialsId(id?) = (\theta Credentials ' ) \\
+\end{schema}
+\begin{schema}{S\_RCgetAttributes}
+  \Xi CredentialsS \\
+  RCgetAttributes \\
+  id?: CREDS \\
+  \where
+  id? \in \dom CreceivedCredentialsId \\
+  CreceivedCredentialsId(id?) = (\theta ReceivedCredentials ' ) \\
+\end{schema}
+\index{CR\_get\_attributes}
+\begin{zed}
+  CR\_get\_attributes == (( S\_CRgetAttributes \lor S\_RCgetAttributes ) \land
+  NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\paragraph{is\_valid}
+Credentials objects may have limited lifetimes.  This operation is used to check
+if the Credentials are still valid.
+\begin{schema}{CRisValid}
+  \Xi CredentialsS \\
+  id?: CREDS \\
+  expiry\_time!: UtcT \\
+  is\_valid!: Boolean \\
+  \where
+  \forall t: UtcT @ (is\_valid!, expiry\_time!) = \\
+  \t1 \IF (id?,t) \in CisValid \THEN (TRUE,t) \ELSE (FALSE,t) \\
+\end{schema}
+\index{CR\_is\_valid}
+\begin{zed}
+  CR\_is\_valid == ( CRisValid \land NoEx ) \lor SysEx \\
+\end{zed}
+
+
+\paragraph{refresh}
+This operation is used to refresh a credentials object.  All aspects of this
+operation are implementation dependent.
+
+%%% FIXME  Must be adjusted for implementation...
+\zrelation{(CRRefreshable \_)}
+\index{CRRefreshable}
+\begin{axdef}
+  CRRefreshable \_ : \power (CREDS \cross Opaque) \\
+\end{axdef}
+$CRRefreshable$ should probably be part of the schema $CredentialsS$ and defines
+whether a credentials object is refreshable.
+\begin{schema}{CRRefresh}
+  \Delta CredentialsS \\
+  c?: CREDS \\
+  refresh\_data?: Opaque \\
+  refresh!: Boolean \\
+  \where
+  CRRefreshable(c?, refresh\_data?) \\
+  CisValid' = CisValid \oplus \{ (c?, systemTime \utctp credsTime) \} \\
+  CcredentialsId' = CcredentialsId \\
+  CreceivedCredentialsId' = CreceivedCredentialsId \\
+\end{schema}
+If Credentials cannot be refreshed due to limitations of the implementation a
+\texttt{NO\_IMPLEMENT} exception is raised.  If the Credentials object cannot be
+refreshed due to limitations of the security mechanism a \texttt{BAD\_OPERATION}
+exception is raised.  If the Credentials object cannot be refreshed due to
+invalid $refresh\_data$ (i.e.\ stipulating a new expiry time beyond a legal
+time) a \texttt{BAD\_PARAM} exception is raised.
+
+\note{Here we are a bit careless and ignore the exact cases where which
+  exception should be raised\dots}
+\index{CR\_refresh}
+\begin{zed}
+  CR\_refresh == ( CRRefresh \land NoEx ) \lor BadParam \lor NoImplement \lor \\
+  \t1 BadOperation \lor SysEx 
+\end{zed}
+
+
+\paragraph{get\_security\_feature} 
+This operation is not of concern for access control and its specification is
+postponed until necessary.
+
+%In order to model this operation we have to define two auxiliary relations:\\
+%\zrelation{(CR\_get\_security\_feature \_)} \\
+%\zrelation{(RC\_get\_security\_feature \_)}
+%\begin{axdef}
+%  CR\_get\_security\_feature \_: \\
+%  \t1 \power (Credentials \cross CommunicationDirection \cross SecurityFeature)
+%  \\
+%  RC\_get\_security\_feature \_: \\
+%  \t1 \power (ReceivedCredentials \cross CommunicationDirection \cross
+%  SecurityFeature) \\ 
+%  \where
+%  \forall c: Credentials; d: CommunicationDirection; f: SecurityFeature @ \\
+%  \t1 CR\_get\_security\_feature(c,d,f) \iff (d,f) \in c.CsecurityFeatures \lor
+%  \\
+%  \t2 ( d = SecDirectionBoth \land (SecDirectionRequest,f) \in
+%  c.CsecurityFeatures \\
+%  \t3 \land (SecDirectionReply,f) \in c.CsecurityFeatures ) \\
+%  \forall c: ReceivedCredentials; d: CommunicationDirection; f: SecurityFeature
+%  @ \\
+%  \t1 RC\_get\_security\_feature(c,d,f) \iff (d,f) \in c.CsecurityFeatures \lor
+%  \\
+%  \t2 ( d = SecDirectionBoth \land (SecDirectionRequest,f) \in
+%  c.CsecurityFeatures \\
+%  \t3 \land (SecDirectionReply,f) \in c.CsecurityFeatures ) \\
+%\end{axdef}
+
+%\begin{schema}{CRgetSecurityFeature}
+%  \Xi CredentialsS \\
+%  id?: CREDS \\
+%  direction?: CommunicationDirection \\
+%  feature?: SecurityFeature \\
+%  get\_security\_feature!: Boolean \\
+%\end{schema}
+%\begin{zed}
+%  CR\_get\_security\_feature == ( CRgetSecurityFeature \land NoEx ) \lor SysEx \\
+%\end{zed}
+
+
+\paragraph{Readonly attributes}
+The attributes are modeled as components of the schema $Credentials$.
+\begin{itemize}
+\item credentials\_type: InvocationCredentialsType
+\item authentication\_state: AuthenticationStatus
+\item mechanism: MechanismType
+\item accepting\_options\_supported: AssociationOptions
+\item accepting\_options\_required: AssociationOptions
+\item invocation\_options\_supported: AssociationOptions
+\item invocation\_options\_required: AssociationOptions
+\end{itemize}
+
+
+
+\subsubsection{Operation for Creating an InvocationCredentialsPolicy}
+\label{sec:createICP}
+
+This and the following operation should be defined in
+section~\ref{sec:policyOps}, but due to declaration restrictions, it must be
+defined here.
+\begin{schema}{createICP}
+  CredentialsS \\
+  \Delta PolicyS \\
+  type: PolicyType \\
+  id!: POLICY \\
+  creds?: CredentialsList \\
+  \where
+  type = SecInvocationCredentialsPolicy \\
+  id! \notin \dom Ppolicy \\
+  \ran creds? \subseteq \dom CisValid \\
+  
+  Ppolicy' = Ppolicy \cup \{ (id!, type) \} \\
+  PinvocationCredentialsPolicy' = PinvocationCredentialsPolicy \cup \{ (id!, \\
+  \t1 \lbind Ppolicy\_type == type, Pcreds == creds? \rbind ) \} \\
+\end{schema}
+\begin{zed}
+  P\_create == ( ( createDAP \lor createICP ) \land NoEx ) \lor PolicyError
+  \lor SysEx \\ 
+\end{zed}
+
+
+\subsubsection{Operations on Current}
+
+\paragraph{get\_attributes}
+[pp. 2-95] This operation is used to obtain privilege and other attributes from
+the client's credentials.  At the client this generally gets the user's
+privileges and at the target, it gets the received privileges.
+\begin{schema}{ClientAttributes}
+  \Delta Current \\
+  \Xi CredentialsS \\
+  attributes?: AttributeTypeList \\
+  get\_attributes!: AttributeList \\
+  \where
+  get\_attributes! = makeAttributeList( \{ c: \ran CUown\_credentials; a: SecAttribute | \\
+  \t1 a \in (CcredentialsId~c).Cprivileges \\
+  \t2 \land SecAttribute\_attribute\_type( a ) \in \ran attributes? @ a \} )
+\end{schema}
+\begin{schema}{TargetAttributes}
+  \Delta Current \\
+  \Xi CredentialsS \\
+  attributes?: AttributeTypeList \\
+  get\_attributes!: AttributeList \\
+  \where
+  get\_attributes! = makeAttributeList( \{ a: SecAttribute | \\
+  \t1 a \in (CcredentialsId~CUreceived\_credentials).Cprivileges \\
+  \t2 \land SecAttribute\_attribute\_type( a ) \in \ran attributes? \} )
+\end{schema}
+\begin{schema}{ClientGetAttributes}
+  \Xi CurrentS \\
+  ClientAttributes \\
+  id?: CURRENT \\
+  \where
+  CUcurrentRole(id?) = ClientCurrent \\
+  CUcurrentId(id?) = \theta Current ' \\
+\end{schema}
+\begin{schema}{TargetGetAttributes}
+  \Xi CurrentS \\
+  ClientAttributes \\
+  id?: CURRENT \\
+  \where
+  CUcurrentRole(id?) = TargetCurrent \\
+  CUcurrentId(id?) = \theta Current ' \\
+\end{schema}
+\begin{zed}
+  CU\_get\_attributes == \< ( ( TargetGetAttributes \lor ClientGetAttributes )
+  \land NoEx ) \\ \lor SysEx \> 
+\end{zed}
+
+\paragraph{set\_credentials}
+[pp. 2-96] The $set\_credentials$ operation sets the specified credentials as
+the default one (actually there are more than one!) for subsequent invocations.
+
+Section 2.3.7.1 of the \corbasec{} specification~\cite{omg:Security:1.5:2000}
+(pp. 2-93) mentions that set\_credentials sets the Credentials in
+own\_credentials, here $CUown\_credentials$.
+
+\begin{schema}{CUsetCredentials}
+  \Delta Current \\
+  \Xi Users \\
+  \Xi CredentialsS \\
+  cred\_type?: CredentialType \\
+  creds?: CredentialsList \\
+  del?: DelegationMode \\
+  \where
+  \forall c: \ran creds? @ (CcredentialsId~c).Cattributes \subseteq \\
+  \t1 Uattributes( CUinitiator ) \\
+
+  cred\_type? = SecInvocationCredentials \\
+  del? = SecDelModeNoDelegation \\
+
+  CUown\_credentials' = creds? \\
+  CUinitiator' = CUinitiator \\
+  CUreceived\_credentials' = CUreceived\_credentials \\
+  CUsupported\_mechanisms' = CUsupported\_mechanisms \\
+  CUpolicies' = CUpolicies\\ 
+\end{schema}
+\begin{schema}{S\_CUsetCredentials}
+  \Delta CurrentS \\
+  CUsetCredentials \\
+  c?: CURRENT \\
+  \where
+  c? \in \dom CUcurrentId \\ 
+
+  CUcurrentId' = CUcurrentId \oplus \{ c? \mapsto ( \theta Current ' ) \} \\ 
+  CUcurrentRole' = CUcurrentRole \\
+\end{schema}
+\index{CU\_set\_credentials}
+\begin{zed}
+  CU\_set\_credentials == ( S\_CUsetCredentials \land NoEx ) \lor SysEx
+\end{zed}
+
+
+\paragraph{get\_credentials}
+[pp. 2-96] This thread specific operation allows an application access to the
+credentials associated with its execution environment.  For now we only support
+invocation Credentials and no non-repudiation Credentials.  These are the
+Credentials that will be used for the next invocation.
+\begin{schema}{CUgetCredentials}
+  \Xi Current \\
+  cred\_type?: CredentialType \\
+  get\_credentials!: CredentialsList \\
+  \where
+  cred\_type? = SecInvocationCredentials \\
+  get\_credentials! = CUown\_credentials \\
+\end{schema}
+\begin{schema}{S\_CUgetCredentials}
+  \Xi CurrentS \\
+  CUgetCredentials \\
+  c?: CURRENT \\
+  \where
+  c? \in \dom CUcurrentId \\ 
+
+  CUcurrentId( c? ) = \theta Current ' \\
+\end{schema}
+\index{CU\_get\_credentials}
+\begin{zed}
+  CU\_get\_credentials == ( S\_CUgetCredentials \land NoEx ) \lor SysEx
+\end{zed}
+
+
+\paragraph{get\_policy}
+[pp. 2-97] This capsule specific operation returns the policy object of the
+specified policy\_type for the non \corba{} object client from which it is
+invoked, or for the \corba{} object from which it is invoked.
+\begin{schema}{CUgetPolicy}
+  \Xi Current \\
+  \Xi PolicyS \\
+  policy\_type?: PolicyType \\
+  get\_policy!: POLICY \\
+  \where
+  get\_policy! = (\mu p: CUpolicies | Ppolicy( p ) = policy\_type? ) \\
+\end{schema}
+\begin{schema}{S\_CUgetPolicy}
+  \Xi CurrentS \\
+  CUgetPolicy \\
+  c?: CURRENT \\
+  \where
+  c? \in \dom CUcurrentId \\ 
+
+  CUcurrentId( c? ) = \theta Current ' \\
+\end{schema}
+\index{CU\_get\_policy}
+\begin{zed}
+  CU\_get\_policy == ( S\_CUgetPolicy \land NoEx ) \lor SysEx
+\end{zed}
+
+
+\paragraph{remove\_own\_credentials}
+[pp. 2-99] This operation is used by applications that wish to remove
+credentials that were put on the own\_credentials list by virtue of the
+PrinicipalAuthenticator. 
+
+\note{OMG-specification: ``This operation does not manipulate or destroy the
+  objects in any way.''  What does this mean??  For me, it looks like a memory
+  leak.}
+
+\design{This operation makes no constraints on the order of the Credentials in
+  $CUown\_credentials$.}
+\begin{schema}{CUremoveOwnCredentials}
+  \Delta Current \\
+  creds?: CREDS \\
+  \where
+  creds? \in \ran CUown\_credentials \\
+
+  CUown\_credentials' = \{ (CUown\_credentials\inv)(creds?) \} \extract
+  CUown\_credentials \\
+%  CUown\_credentials' = makeCredentialsList( \ran CUown\_credentials \setminus
+%  \{ creds? \} ) \\
+  CUinitiator' = CUinitiator \\
+  CUreceived\_credentials' = CUreceived\_credentials \\
+  CUsupported\_mechanisms' = CUsupported\_mechanisms \\
+  CUpolicies' = CUpolicies\\ 
+\end{schema}
+
+
+\begin{schema}{S\_CUremoveOwnCredentials}
+  \Delta CurrentS \\
+  CUremoveOwnCredentials \\
+  c?: CURRENT \\
+  \where
+  c? \in \dom CUcurrentId \\ 
+
+  CUcurrentId' = CUcurrentId \oplus \{ c? \mapsto ( \theta Current ' ) \} \\ 
+  CUcurrentRole' = CUcurrentRole \\
+\end{schema}
+\begin{schema}{CUwrongCreds}
+  \Xi CurrentS \\
+  c?: CURRENT \\
+  creds?: CREDS \\
+  \where
+  creds? \notin \ran (CUcurrentId~c?).CUown\_credentials \\
+\end{schema}
+\index{CU\_remove\_own\_credentials}
+\begin{zed}
+  CU\_remove\_own\_credentials == ( S\_CUremoveOwnCredentials \land NoEx ) \lor \\
+  \t1 ( CUwrongCreds \land BadParam ) \lor SysEx
+\end{zed}
+
+\paragraph{get\_security\_mechanisms}
+[pp. 2-99] This operation is not relevant for the moment.
+%\begin{schema}{CUgetSecurityMechanisms}
+%  \Xi CurrentS \\
+%  c?: CURRENT \\
+%  obj\_ref?: Object \\
+%  get\_security\_mechanisms!: SecurityMechanismDataList \\
+%\end{schema}
+%\begin{zed}
+%  CU\_get\_security\_mechanisms == ( CUgetSecurityMechanisms \land NoEx ) \lor
+%  SysEx
+%\end{zed}
+
+
+
+\subsection{Creation of Objects} \label{sec:creation}
+The initialization of Current objects and the creation of objects is tightly
+connected.  This is the reason why we specify these two operations together in
+this section.
+
+
+\subsubsection{System Constants and Helpers}
+The ORB's runtime configuration, i.e.\ the supported mechanisms and features,
+can be viewed as constants.  Hence, we model them using axiomatic definitions.
+Currently these constants are unimportant for our specification (we only model
+signatures!).
+\index{systemPolicies} \index{supportedMechOptions} \index{supportedMechanisms}
+\index{initialDomain} 
+\begin{axdef}
+  systemPolicies: \power POLICY \\
+  supportedMechOptions: \power MechandOptions \\
+  supportedMechanisms: \power MechanismType \\
+  initialDomain: RepositoryId \fun DOMAIN\_MANAGER \\
+\end{axdef}
+$initialDomain$ defines the domain where every object will be contained
+initially.
+\index{makeMechandOptionsList}
+\begin{axdef}
+  makeMechandOptionsList: \power MechandOptions \fun MechandOptionsList
+  \where
+  \forall S: \power MechandOptions; e: MechandOptions @ \\
+  \t1 makeMechandOptionsList( \emptyset ) = \langle \rangle \land \\
+  \t1 makeMechandOptionsList( S \cup \{ e \} ) = makeMechandOptionsList( S ) \cat
+  \langle e \rangle \\ 
+\end{axdef}
+%We define a helper function which creates Currents:
+%\begin{axdef}
+%  makeCurrent: SecurityName \cross CREDS \cross \power MechandOptions \\
+%  \t1 \cross CredentialsList \cross \power POLICY \pfun Current \\
+%  \where
+%  \forall s: SecurityName; c: CREDS; opts: \power MechandOptions; \\
+%  \t1 cs: CredentialsList; ps: \power POLICY @ \\
+%  \t2 makeCurrent(s,c,opts,cs,ps) = \\
+%  \t3 \lbind \< CUinitiator == s, \\
+%  CUreceived\_credentials == c, \\
+%  CUsupported\_mechanisms == makeMechandOptionsList(opts), \\
+%  CUown\_credentials == cs, \\
+%  CUpolicies == ps \rbind \>
+%\end{axdef}
+
+
+\subsubsection{Object Creation}
+Creating an object means that some object adaptor instantiates an object and
+registers this with the implementation repository.  Additionally we introduce a
+Current object which represents the runtime information of this \corba{} object
+inside the ORB.
+
+The schema $initTargetCurrent$ initializes a current object and initializes it
+for a target object.\fix{$cuid$ should actually be $cuid!$ and should be piped
+  to the next schema, but because this is not yet implemented in the theorem
+  prover we stick with the unmarked versions.}
+\begin{schema}{InitCurrent}
+  Current \\
+  p?: SecurityName \\
+  \where
+  CUinitiator = p? \\
+  CUreceived\_credentials = undefCreds \\
+  CUsupported\_mechanisms = makeMechandOptionsList(supportedMechOptions) \\
+  CUown\_credentials = \langle publicCreds \rangle \\
+  CUpolicies = systemPolicies \\
+\end{schema}
+\begin{schema}{createCORBAObject}
+  \Xi InterfaceRepository \\
+  \Delta ImplementationRepository \\
+  \Delta CurrentS \\
+  InitCurrent \\
+  cuid: CURRENT \\
+  if?: RepositoryId \\
+  \where
+  if? \in \dom IRinterface \\
+  \exists i: IMPLEMENTATION; cuid: CURRENT | cuid \notin \dom CUcurrentId @ \\
+  \t1 CUcurrentId' = CUcurrentId \cup \{ cuid \mapsto ( \theta Current ) \} \\
+  \t1 \land CUcurrentRole' = CUcurrentRole \cup \{ cuid \mapsto TargetCurrent \} \\
+  \t1 \land IRinstance' = IRinstance \cup \{ cuid \mapsto i \} \\
+  \t1 \land IRimplements' = IRimplements \cup \{ cuid \mapsto if? \} \\
+\end{schema}
+
+
+\subsubsection{Initialization of Object References}
+
+In this section we will describe the creation and initialization of an object
+reference.  In order to perform requests on an object, a reference to it must be
+created, and must be associated with some policy domains and with a current. The
+notion of a business object is abstract. We are not concerned about the concrete
+behavior of the object. The only thing we know are the interfaces it implements
+(from the implementation repository).
+
+We specify an operation that creates a reference for a supplied interface
+($interface?$). 
+\begin{schema}{InitObject}
+  Object \\
+  \where
+  OsupportedMechanisms = supportedMechanisms \\
+  OoverridePolicies = \emptyset \\
+\end{schema}
+\begin{schema}{createReference}
+  \Xi ImplementationRepository \\
+  \Delta ObjectS \\
+  InitObject \\
+  if?: RepositoryId \\
+  oid! : OBJECT \\
+  \where
+  \exists c: \dom IRimplements | if? = IRimplements(c) \land \\
+  \t1 oid! \notin \dom OobjectId @ Otarget' = Otarget \cup \{ oid! \mapsto c\} \\
+  \t2 \land OobjectId' = OobjectId \cup \{ oid! \mapsto ( \theta Object ) \} \\
+\end{schema}
+In order to create a target object reference, we have to perform two steps:
+\begin{enumerate}
+\item create the reference, i.e.\ an $Object$, in the global state, and
+\item associate the object reference with an access policy domain.
+\end{enumerate}
+\begin{zedgroup}
+\begin{schema}{objectRef}
+  oid!, oid?: OBJECT \\
+  did?: DOMAIN\_MANAGER \\
+  if?: RepositoryId \\
+  \where
+  did? = initialDomain(if?) \\
+  oid? = oid! \\
+\end{schema}
+\begin{schema}{createObjectReference2}
+  createReference \\
+  insertObject \\
+  \where
+  did? = initialDomain(if?) \\
+  oid? = oid! \\
+\end{schema}
+\end{zedgroup}
+\index{createObjectReference}
+\begin{zed}
+  createObjectReference == createReference \land insertObject \land objectRef \\
+\end{zed}
+Proof obligation: a target current can only be created in conjunction with a
+target object.
+
+
+\subsubsection{Initialization of ``pure'' Clients}
+We view current objects as a placeholder for client applications between each
+application is associated with a current object, which represents the state
+information of the application within the CORBA system.  Hence the creation of a 
+current object and the start of an application are modeled as the same operation.
+\begin{schema}{StartClient}
+  \Delta CurrentS \\
+  InitCurrent \\
+  cid!: CURRENT \\
+  \where
+  cid! \notin \dom CUcurrentId \\
+  CUcurrentId' = CUcurrentId \cup \{ cid! \mapsto ( \theta Current ) \} \\
+  CUcurrentRole' = CUcurrentRole \cup \{ cid! \mapsto ClientCurrent \} \\
+\end{schema}
+
+
+\subsubsection{Deleting References and Objects}
+
+We postpone these operations for later.\fix{To be completed!}
+
+%\begin{schema}{DeleteObjectReference}
+  
+%\end{schema}
+
+%\begin{schema}{DeleteObjectCurrent}
+  
+%\end{schema}
+
+%\begin{schema}{DeleteClient}
+%  \Delta CurrentS \\
+%  c?: CURRENT \\
+%  \where
+%  c? \in \dom CUcurrentId \\
+%  CUcurrentId' = CUcurrentId \setminus \{ (c?, CUcurrentId(c?)) \} \\
+%  CUcurrentRole' = CUcurrentRole \setminus \{ c? \mapsto CUcurrentRole(c?) \} \\
+%\end{schema}
+
+
+\subsection{PrincipalAuthenticator \label{sec:PrincipalAuthenticator}}
+
+\zsection[ZScredentialsCurrent]{ZSauthenticator}\vspace{2ex}
+
+This interface is not modeled with schemas because it is only used to group
+operations for authentication.  There are no objects of type
+PrincipalAuthenticator.
+
+\subsubsection{get\_supported\_authen\_methods}
+This operation returns the authentication methods that are valid for a
+particular mechanism that the Vault object supports.  The
+\texttt{CORBA::BAD\_PARAM} exception is raised if the Vault does not support the
+mechanism.  It is implementation dependent.
+
+The function $supportedAuthMethods$ defines all supported mechanisms and their
+associated authentication methods: We further require that all clients and all
+target objects supported the same set of mechanisms.  This appears to be simpler
+for our implementation and even more realistic.
+\begin{axdef}
+  supportedAuthMethods: MechanismType \pfun \power AuthenticationMethod
+\end{axdef}
+
+\index{makeAuthenticationMethodList}
+\begin{axdef}
+  makeAuthenticationMethodList: \power AuthenticationMethod \fun
+  AuthenticationMethodList \\
+  \where
+  \forall S: \power AuthenticationMethod; e: AuthenticationMethod @ \\
+  \t1 makeAuthenticationMethodList( \emptyset ) = \langle \rangle \land \\
+  \t1 makeAuthenticationMethodList( S \cup \{ e \} ) =
+  makeAuthenticationMethodList( S ) \cat \langle e \rangle \\ 
+\end{axdef}
+
+\begin{schema}{PAgetSupportedAuthenMethods}
+  mechanism?: MechanismType \\
+  get\_supported\_authen\_methods!: AuthenticationMethodList \\
+  \where
+  mechanism? \in \dom supportedAuthMethods \\
+  get\_supported\_authen\_methods! = \\
+  \t1 makeAuthenticationMethodList (supportedAuthMethods(mechanism?))\\ 
+\end{schema}
+\begin{zed}
+  PA\_get\_supported\_authen\_methods == \\
+  \t1 ( PAgetSupportedAuthenMethods \land NoEx ) \lor BadParam \lor SysEx
+\end{zed}
+
+
+\subsubsection{authenticate}
+This operation is called to authenticate the principal and request privilege
+attributes that the principal requires during its \emph{capsule specific}
+session with the system.
+
+The function $makeCreds$ creates a new Credentials object and initializes its
+components.  This is in contrast to our scheme so far, for initializing schemas,
+but seems more appropriate in this context.
+\index{makeCreds}\index{setCreds}
+\begin{axdef}
+  makeCreds: AttributeList \cross SecurityName \cross InvocationCredentialsType \\
+  \t2 \cross AuthenticationStatus \cross MechanismType \fun Credentials \\
+
+  setCreds: Current \cross CREDS \fun Current \\
+  \where
+  \forall al: AttributeList; sn: SecurityName; ct: InvocationCredentialsType; \\
+  \t1 as: AuthenticationStatus; mt: MechanismType; @ \\
+  \t2 makeCreds(al,sn,ct,as,mt) = \\
+  \t3 \lbind \< Cprivileges == \ran al, \\
+  Cattributes == ( \ran al )\cup family0ids(sn), \\
+  CsecurityFeatures == supportedSecurityFeatures, \\
+  Ccredentials\_type == ct, \\
+  Cauthentication\_state == as, \\
+  Cmechanism == mt, \\
+  Caccepting\_options\_supported == NoProtection, \\
+  Caccepting\_options\_required == NoProtection, \\
+  Cinvocation\_options\_supported == NoProtection, \\
+  Cinvocation\_options\_required == NoProtection \rbind \> \\
+
+  \forall c: Current; cs: CREDS @ setCreds(c, cs) = \\
+  \t1 \lbind \< CUown\_credentials == \langle cs \rangle, \\
+  CUinitiator == c.CUinitiator, \\
+  CUreceived\_credentials == c.CUreceived\_credentials, \\
+  CUsupported\_mechanisms == c.CUsupported\_mechanisms, \\
+  CUpolicies == c.CUpolicies \rbind \> 
+\end{axdef}
+
+
+\begin{schema}{PAsecAuthSuccess}
+  \Xi Users \\
+  \Delta CredentialsS \\
+  method?: AuthenticationMethod \\
+  mechanism?: MechanismType \\
+  security\_name?: SecurityName \\
+  auth\_data?: Opaque \\
+  privileges?: AttributeList \\
+  creds!: CREDS \\
+  continuation\_data!: Opaque \\
+  auth\_specific\_data!: Opaque \\
+  authenticate!: AuthenticationStatus \\
+  \where
+  method? \notin supportedAuthMethods( mechanism? ) \\
+  security\_name? \in Uprincipals \\
+  auth\_data? = Uauthenticates( security\_name? ) \\
+  \ran privileges? \subseteq Uattributes( security\_name? ) \\
+
+  \exists cid: CREDS; c: Credentials | cid \notin \dom CcredentialsId @ \\
+  \t1 c = makeCreds( privileges?, security\_name?, SecOwnCredentials, \\
+  \t2 SecAuthSuccess, mechanism? ) \\
+  \t1 \land CcredentialsId' = CcredentialsId \cup \{ (cid, c) \} \\
+  \t1 \land CisValid' = CisValid \cup \{ ( cid, systemTime \utctp
+  credsTime ) \} \\
+  \t1 \land creds! = cid \\
+
+  authenticate! = SecAuthSuccess \\
+  CreceivedCredentialsId' = CreceivedCredentialsId  \\
+  CisValid' = CisValid \\
+\end{schema}
+\begin{schema}{PAadjustCurrent}
+  \Delta CurrentS \\
+  PAsecAuthSuccess \\
+  cuid?: CURRENT \\
+  \where
+  CUcurrentId' = CUcurrentId \oplus \{ cuid? \mapsto
+  setCreds(CUcurrentId(cuid?), creds!) \} \\
+  CUcurrentRole' = CUcurrentRole \\
+\end{schema}
+
+
+The relation $validAuthData$ defines the set of valid authentication data, e.g.
+Kerberos tickets:
+%\zrelation{(validAuthData \_)} \index{validAuthData}
+%\begin{axdef}
+%  validAuthData \_ : \power Opaque \\
+%\end{axdef}
+
+%\begin{schema}{PAsecAuthExpired}
+%  auth\_data?: Opaque \\
+%  authenticate!: AuthenticationStatus \\
+%  \where
+%  auth\_data? \notin validAuthData \\
+%%  \lnot validAuthData(auth\_data?) \\
+%  authenticate! = SecAuthExpired \\
+%\end{schema}
+
+\begin{axdef}
+  validAuthData: \power Opaque \\
+\end{axdef}
+
+\begin{schema}{PAsecAuthExpired}
+  auth\_data?: Opaque \\
+  authenticate!: AuthenticationStatus \\
+  \where
+  auth\_data? \notin validAuthData \\
+  authenticate! = SecAuthExpired \\
+\end{schema}
+
+%\begin{schema}{PAsecAuthContinue}
+%%%% FIXME
+%\end{schema}
+%\design{In our implementation model of the security service we only support
+%  username/password authentication and therefore only have one authentication
+%  step.} 
+
+\begin{schema}{PAmethodNotSupported}
+  mechanism?: MechanismType \\
+  method?: AuthenticationMethod \\
+  authenticate!: AuthenticationStatus \\
+  \where  
+  method? \notin supportedAuthMethods( mechanism? ) \\
+  authenticate! = SecAuthFailure \\
+\end{schema}
+\begin{schema}{PAmechanismNotSupported}
+  mechanism?: MechanismType \\
+  authenticate!: AuthenticationStatus \\
+  \where  
+  mechanism? \notin \dom supportedAuthMethods \\
+  authenticate! = SecAuthFailure \\
+\end{schema}
+\begin{schema}{PAuserNotKnown}
+  \Xi Users \\
+  security\_name?: SecurityName \\
+  authenticate!: AuthenticationStatus \\
+  \where  
+  security\_name? \notin Uprincipals \\
+  authenticate! = SecAuthFailure \\
+\end{schema}
+\begin{schema}{PAwrongData}
+  \Xi Users \\
+  security\_name?: SecurityName \\
+  auth\_data?: Opaque \\
+  authenticate!: AuthenticationStatus \\
+  \where  
+  Uauthenticates(security\_name?) \neq auth\_data? \\
+  authenticate! = SecAuthFailure \\
+\end{schema}
+\begin{schema}{PAwrongAttributes}
+  \Xi Users \\
+  security\_name?: SecurityName \\
+  privileges?: AttributeList \\
+  authenticate!: AuthenticationStatus \\
+  \where  
+  \exists a: \ran privileges? @ a \notin Uattributes(security\_name?) \\
+  authenticate! = SecAuthFailure \\
+\end{schema}
+\index{PA\_authenticate}
+\begin{zed}
+  PA\_authenticate == ( ( PAadjustCurrent \lor PAsecAuthExpired \\
+  \t1 \lor PAmethodNotSupported \lor PAmechanismNotSupported \lor PAwrongData \\
+  \t1  \lor PAuserNotKnown \lor PAwrongAttributes ) \land NoEx ) \lor SysEx \\ 
+\end{zed}
+
+
+\subsubsection{continue\_authentication}
+This operation continues the authentication process for authentication
+procedures that cannot complete in a single operation.
+
+%\begin{schema}{PAcontinueAuthentication}
+%  \Delta CurrentS \\
+%  \Delta CredentialsS \\
+%  response\_data?: Opaque \\
+%  creds!: Credentials \\
+%  continuation\_data!: Opaque \\
+%  auth\_specific\_data!: Opaque \\
+%  continue\_authentication!: AuthenticationStatus \\
+%\end{schema}
+%\begin{zed}
+%  PA\_continue\_authentication == PAcontinueAuthentication \\
+%\end{zed}
+
+\note{In this specification, we will assume that all authentication is
+  accomplished by a single call to authenticate and no further interaction is
+  needed, therefore we ignore this operation here.}
+
+
+\subsection{RequiredRights \label{sec:RequiredRights}}
+
+\zsection[ZSauthenticator]{ZSrequiredRights}\vspace{2ex}
+
+The same calls to different RequiredRights objects must lead to the same result.
+It is therefore common practice to only have one such object.
+
+This object serves as a kind of database for looking up the rights required for
+interfaces.  This lookup table is modeled by the function $requiredRights$.
+\begin{schema}{RequiredRightsS}
+  requiredRights: ( Identifier \cross RepositoryId ) \pfun ( RightsList \cross
+  RightsCombinator ) \\
+\end{schema}
+
+
+\subsubsection{get\_required\_rights}
+This operation is used to query the rights that are required for a certain
+operation of a certain interface.
+\note{The types in the following schema should match with the ones in the
+  interface repository.  But they don't!}
+\begin{schema}{RRgetRequiredRights}
+  \Xi InterfaceRepository; \Xi ImplementationRepository; \Xi ObjectS \\
+  \Xi RequiredRightsS \\
+  obj?: OBJECT \\
+  operation\_name?: Identifier \\
+  interface\_name?: RepositoryId \\
+  rights!: RightsList \\
+  rights\_combinator!: RightsCombinator \\
+  \where
+  IRimplements(Otarget~obj?) \in \ran (IRparents~interface\_name?) \\
+  (rights!, rights\_combinator!) = \\
+  \t1 requiredRights( operation\_name?, interface\_name? ) \\
+\end{schema}
+\index{RR\_get\_required\_rights}
+\begin{zed}
+  RR\_get\_required\_rights == ( RRgetRequiredRights \land NoEx ) \lor SysEx
+\end{zed}
+
+
+\subsubsection{set\_required\_rights}
+This operation is a very important operation in terms of security, because it is
+used to set the required rights for every operation invocation in the system.
+Especially for setting the required rights to call itself.  Only the security
+administrator of the system should be able to call this operation.
+\begin{schema}{RRsetRequiredRights}
+  \Delta RequiredRightsS \\
+  operation\_name?: Identifier \\
+  interface\_name?: RepositoryId \\
+  rights?: RightsList \\
+  rights\_combinator?: RightsCombinator \\
+  \where
+  requiredRights' = requiredRights \oplus \\
+  \t1 \{ ( (operation\_name?, interface\_name?), (rights?, rights\_combinator?)
+  ) \} \\ 
+\end{schema}
+\index{RR\_set\_required\_rights}
+\begin{zed}
+  RR\_set\_required\_rights == ( RRsetRequiredRights \land NoEx ) \lor SysEx
+\end{zed}
+
+
+\subsection{Object Invocation and Access Control \label{sec:invocAccess}}
+
+\zsection[ZSrequiredRights]{ZSaccessDecision}\vspace{2ex}
+
+In this section we specify object invocation and the access control mechanisms.
+These two things are tightly connected.
+
+\subsubsection{Object Invocation}
+In the preceding sections, we defined the operations of the security service or
+internal operations of the ORB infrastructure.  These operations are handled
+differently from ``application-level'' operations, in that no access control is
+employed form them.  In the rare cases where information on the current thread
+is needed this is directly realized in the operations' schemas. 
+
+For each operation invocation (or method invocation or object invocation) the
+ORB knows the thread of control that initiates this invocation, i.e.\ the
+current object of this thread.  From this all necessary information about the
+initiating principal is known.
+
+Access to attributes will be handled exactly like object invocation.  This
+enables us to reason in a uniform way about security.  This is justified by the
+fact that access control is made on identifiers of the interface repository and
+attributes and operations are of the same base type for the interface
+repository, and the Java mapping handles attributes like this as well.
+
+Although the invocation is split into two parts: the first part initiates a
+security context between the client and target (if one exists this one is
+retrieved) and the second part performs the actual invocation, including access
+control checks; we focus on the access control part for now.
+
+%The scheme for defining access control and operation invocation is as follows:
+%\zsection{foo}
+%\begin{zedgroup}
+%\begin{axdef}
+%  allowed: \power \nat \\
+%\end{axdef}
+%\begin{zed}
+%  S == [ s: \nat ] \\
+%\end{zed}
+%\end{zedgroup}
+
+%\begin{zedgroup}
+%\begin{schema}{Foo}
+%  \Delta S \\
+%  foo: \nat \\
+%\end{schema}
+%\begin{schema}{Boo}
+%  \Delta S \\ 
+%  boo: \nat \\
+%\end{schema}
+%\end{zedgroup}
+
+%\begin{zedgroup}
+%\begin{schema}{IFoo}
+%  \Delta S \\
+%  op?: \nat
+%  \where
+%  op? = 1 \\
+%  \exists foo: \nat @ Foo \\
+%\end{schema}
+%\begin{schema}{IBoo}
+%  \Delta S \\
+%  op?: \nat
+%  \where
+%  op? = 2 \\
+%  Boo \hide (boo) \\
+%\end{schema}
+%\end{zedgroup}
+%Here we used two different ways to hide the components of the operation schemas
+%(their formal paramaters); either is acceptable.
+
+%\begin{zed}
+%  I\_Foo == (AccessAllowed \land NoEx \land IFoo) \lor (AccessDenied \land
+%  NoAccess \land \Xi S) \\
+%  I\_Boo == (AccessAllowed \land NoEx\land IBoo) \lor (AccessDenied \land
+%  NoAccess \land \Xi S) \\
+%  Invocation = I\_Foo \lor I\_Boo \\
+%\end{zed}
+
+%$AccessAllowed$ is defined in the following section.
+
+%This scheme must be applied to all operations that are subject to access
+%control.  This also includes some operations defined by \corbasec .  These
+%operations will be identified in section~\ref{sec:ORB-model}.
+
+
+\subsubsection{AccessDecision}
+
+\corbasec{} specifies an interface AccessDecision that encapsulates the
+mechanisms for access control.  It only defines one operation $access\_allowed$
+which yields $True$ or $False$.  We don't model any state schema because we only
+need to model one operation that makes an access decision which is based on all
+information present in the ORB.
+
+\note{Here, we deviate from our conventional way to specify operations that are
+  defined in IDL.  Here we don't define a return parameter, but specify the
+  operation such that it can be conjoined with other operation schemas to yield
+  the desired behavior.}
+
+\note{Interface names (like $target\_interface\_name?$) are usually of type
+  $RepositoryId$ except this operation here where it is an Identifier!}
+
+\paragraph{getDomainAccessPolicy}
+%\begin{axdef}
+%  getDomainAccessPolicy: OBJECT \cross Domains \cross PolicyS \fun
+%  DomainAccessPolicy \\
+%  \where
+%  \forall o: OBJECT; d: Domains; ps: PolicyS @ getDomainAccessPolicy(o, d, ps) =
+%  \\
+%  \t1 \mu p: DomainAccessPolicy | (\exists pid: POLICY; dm: \dom d.Ddomain | \\
+%  \t2 o \in d.Ddomain(dm) @ pid \in \ran ((d.DmanagerId~dm).DMpolicy)) @
+%  ps.PdomainAccessPolicy(pid) \\ 
+%\end{axdef}
+The strategy for resolving conflicts of policies, when an object is in different
+domains that have a policy of the same type, is not yet fixed.  For now, we
+require that an object may only be in one domain for each policy type.  This
+rule must be controlled by the $insertObject$ operation for domains.
+
+The function $getDomainAccessPolicy$ resolves the unique $DomainAccessPolicy$
+for a given object reference.  \index{getDomainAccessPolicy}
+\begin{axdef}
+  getDomainAccessPolicy: OBJECT \cross Domains \cross PolicyS \fun
+  DomainAccessPolicy \\
+  \where
+  \forall o: OBJECT; d: Domains; ps: PolicyS; p: DomainAccessPolicy @ \\
+  \t1 ((o, d, ps),p) \in getDomainAccessPolicy \iff \\
+  \t2 (\exists pid: POLICY; dm: \dom d.Ddomain | o \in d.Ddomain(dm) @ \\
+  \t3 pid \in \ran ((d.DmanagerId~dm).DMpolicy) \land \\
+  \t3 p = ps.PdomainAccessPolicy(pid)) \\
+\end{axdef}  
+
+\paragraph{Making the Decision}
+\begin{schema}{AccessAllowed}
+  InterfaceRepository; ImplementationRepository \\
+  Domains; PolicyS \\
+  CredentialsS; RequiredRightsS \\
+
+  cred\_list?: CredentialsList \\
+  target? : OBJECT \\
+  operation\_name?: Identifier \\
+  target\_interface\_name?: Identifier \\
+  \where
+  \exists ds: DelegationState; a: SecAttribute; c: \ran cred\_list? | \\
+  \t1 a \in (CcredentialsId~c).Cattributes @ \\
+  \t2 \ran (first(requiredRights(operation\_name?, \\
+  \t3 (IRname\inv)(target\_interface\_name?)))) \subseteq \\
+  \t2 (getDomainAccessPolicy~(target?, \theta Domains, \\
+  \t3 \theta PolicyS)).PgrantedRights(a, ds) \\
+\end{schema}
+\begin{schema}{AccessParams}
+  InterfaceRepository; ImplementationRepository \\
+  CurrentS; ObjectS; PolicyS \\
+
+  cuid?: CURRENT \\
+
+  cred\_list?: CredentialsList \\
+  target? : OBJECT \\
+  operation\_name?: Identifier \\
+  target\_interface\_name?: Identifier \\
+  \where
+  target\_interface\_name? \in \ran IRname \\
+  operation\_name? \in IRinterface((IRname\inv)(target\_interface\_name?)) \\
+  (IRname\inv)(target\_interface\_name?) \in \\
+  \t1 \ran (IRparents(IRimplements(Otarget~target?))) \\
+
+  \exists p: POLICY @ cred\_list? = \\
+  \t1 \< \IF p \in (OobjectId~target?).OoverridePolicies \land \\
+  \t1 p \in \dom PinvocationCredentialsPolicy \\
+  \THEN (PinvocationCredentialsPolicy~p).Pcreds \\
+  \ELSE (CUcurrentId~cuid?).CUown\_credentials \>
+\end{schema}
+\index{AccessDecision}
+\begin{zed}
+  AccessDecision == AccessParams \land AccessAllowed \\
+\end{zed}
+
+%\begin{schema}{AccessAllowed}
+%  ObjectS \\
+%  PolicyS \\
+%  CurrentS \\
+%  InterfaceRepository \\
+%  ImplementationRepository \\
+%  Acuid?: CURRENT \\
+%  target? : OBJECT \\
+%  target\_interface\_name?: Identifier \\
+%  operation\_name?: Identifier \\
+%  \where
+%%  \forall c : \ran Acreds? @ c \in \ran (CUcurrentId~Acuid?).CUown\_credentials \\
+%  Aoperation? \in IRinterface(Ainterface?) \\
+%  Ainterface? \in \ran (IRparents(IRimplements(Otarget~Aobject?))) \\
+
+
+%  \exists cs: CredentialsList; p: (OobjectId~Aobject?).OoverridePolicies | \\
+%  \t1 cs = \< \IF Ppolicy(p) = SecInvocationCredentialsPolicy  \\
+%  \THEN (PinvocationCredentialsPolicy~p).Pcreds \\
+%  \ELSE (CUcurrentId~Acuid?).CUown\_credentials \> \\
+%  \t2 @ accessAllowed(cs, Aobject?, Aoperation?, IRname(Ainterface?)) \\
+%\end{schema}
+
+
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: "model"
+%%% End: 

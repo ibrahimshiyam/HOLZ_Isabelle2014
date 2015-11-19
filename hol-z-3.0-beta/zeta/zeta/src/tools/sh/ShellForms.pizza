@@ -1,0 +1,361 @@
+package zeta.tools.sh;
+
+/**
+ * Basic forms provided by the shell.
+ *
+ * @version $Id: ShellForms.pizza,v 1.14 2000/07/23 07:10:30 wg Exp $ */
+
+import java.io.*;
+import zeta.format.*;
+import zeta.agl.*;
+import zeta.util.*;
+import zeta.session.*;
+import zeta.form.*;
+import zeta.content.graphics.*;
+
+import zeta.tools.util.SessionUtil;
+
+
+public class ShellForms {
+
+  /*
+   * The shell state
+   */
+  private final ShellState state;
+
+  /** 
+   * Make a new object providing shell forms.
+   */
+  private ShellForms(ShellState state){
+    this.state = state;
+  }
+
+  /**
+   * Register shell forms BEFORE other forms.
+   */
+  static void registerPre(ShellState state){
+    ShellForms forms = new ShellForms(state);
+    state.session.registerForm(forms.evalForm);
+    state.session.registerForm(forms.makeForm);
+    state.session.registerForm(forms.pluginForm);
+
+  }
+
+  /**
+   * Register shell forms AFTER other forms.
+   */
+  static void registerPost(ShellState state){
+    ShellForms forms = new ShellForms(state);
+    state.session.registerForm(forms.interruptForm);
+    state.session.registerForm(forms.quitForm);
+    // hidden in GUI:
+    state.session.registerForm(forms.saveAndQuitForm);
+    state.session.registerForm(forms.helpForm);
+    state.session.registerForm(forms.listUnitsForm);
+    state.session.registerForm(forms.listTypesForm);
+    state.session.registerForm(forms.setPropForm);
+    // state.session.registerForm(forms.previewForm);
+  }
+
+  // EXITING 
+
+  private TopLevelForm quitForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Shell(),
+      new LiteralForm("quit").describe("Quit"),
+      "Quit ZETA Commander",
+      fun (Session s, Locator l) throws Failures.FormFailed ->void {
+	state.session.abort();
+      }
+    );
+  
+  private TopLevelForm saveAndQuitForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new LiteralForm("squit").describe("Save & Quit (EXPERIMENTAL)"),
+      "Save & Quit ZETA Commander",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	state.sendProgress(
+	  "exiting, please wait while storing project data ...");
+	state.session.exit();
+      }
+    );
+  
+  // INTERRUPTING
+
+  private TopLevelForm interruptForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Shell().setToolIcon("@interrupt.gif;IR"),
+      new LiteralForm("interrupt")
+		     .describe("Interrupt Computation"), 
+      "Interrupt Computation",
+      fun (Session s, Locator l) throws Failures.FormFailed -> void {
+	state.killEvaluation();
+      }
+    );
+
+  // MAKING 
+
+  private OptionForm.State dumpOption = new OptionForm.State(false);
+  private OptionForm.State dumpFileOption = new OptionForm.State(true);
+  private FileForm.State dumpFile = new FileForm.State(new File("zeta.dump"));
+
+  private TopLevelForm makeForm =
+    TopLevelForm.make(
+      // TopLevelForm.Style.MenuAt(new String[]{"Unit"}),
+      TopLevelForm.Style.Function().setModal(false),
+      new SeqForm(
+	    new LiteralForm("make").describe("Make Content"),
+	    new UnitForm().style(Form.Style.INVISIBLE),
+	    new ContentTypeForm(),
+	    new OptionForm(dumpOption,
+			   new SeqForm(
+			     new LiteralForm("-d"),
+			     new OptionForm(dumpFileOption,
+					    new FileForm(FileForm.Mode.PLAIN, 
+							 dumpFile))
+					   .style(new Form.Style.Border(
+							"Output File"))
+			       )
+			  )
+			  // .style(new Form.Style.Dialog("dump ...",
+			 // 			       "Dump Contents"))
+	  ).style(Form.Style.HORIZONTAL),
+      "Dump Content of Unit",
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	Unit unit = UnitForm.defaultState.unit;
+	ContentType type = ContentTypeForm.defaultState.type;
+	Format fmt;
+	try {
+	  Object ob = unit.query(type);
+	  state.sendProgress("formatting " + new Target(unit,type));
+	  fmt = Format.buildFormat(ob);
+	}
+	catch (Failures.ComputationFailed e){
+	  // diagnostics will have been printed
+	  throw new Failures.FormFailed("Dump");
+	}
+	catch (Failures.CannotCompute e){
+	  // e.printStackTrace();
+	  state.sendDiag(
+	    new Diag(
+		  state.defaultLocator,
+		  Diag.Category.Error,
+		  Format.describe(
+		    "query not resovable",
+		    "target", Format.buildFormat(e.target)
+		  )
+		)
+	  );
+	  throw new Failures.FormFailed("Dump");
+	}
+	if (dumpOption.selected){
+	  if (dumpFileOption.selected){
+	    try {
+	      PrintWriter writer = 
+		new PrintWriter(new FileWriter(dumpFile.file));
+	      fmt.printFormat(writer, 75);
+	      writer.close();
+	    }
+	    catch (IOException e){
+	      state.sendDiag(new Diag(locator,
+				      Diag.Category.Error, 
+				      Format.literal("could not open file `"+
+						     dumpFile.file.getName()+"'")));
+	      throw new Failures.FormFailed("Dump");
+	    }
+	  } else 
+	    state.sendResult(fmt);
+	}
+      }
+    );
+  
+  // PREVIEW GIF
+
+  /*
+  private UnitForm.State previewUnit = new UnitForm.State(null); 
+  private TopLevelForm previewForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new SeqForm(
+	    new LiteralForm("msl-preview-gif"),
+	    new UnitForm(previewUnit)
+	  ),
+      "Result a file name containing a gif preview",
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	if (previewUnit.unit != null){
+	  File f = (File)SessionUtil.query(s, locator,
+					   new Target(previewUnit.unit,
+						      GraphicsContentTypes
+						      .gif));
+	  if (f != null){
+	    state.sendResult(Format.literal(f.getAbsolutePath()));
+	  } else
+	    throw new Failures.FormFailed("Preview");
+	} else {
+	  state.sendDiag(locator,
+			 "unit required");
+	  throw new Failures.FormFailed("Preview");
+	}
+      }
+    );
+    */
+	  
+
+  // GENERIC EVALUATION 
+
+  private StringForm.State evalState = 
+    new StringForm.State(""){
+    public File getExternFile(Session s){
+      return new File("_ZETA_Command_");
+    }
+  };
+
+  private TopLevelForm evalForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Shell().setModal(false).setToolIcon("@com.gif;CI"),
+      new SeqForm(
+	    new LiteralForm("command").describe("Command Input"),
+	    new StringForm(evalState)
+			  .style(new Form.Style.View(-1,-1))
+			  .style(new Form.Style.PreferredSize(-40, -2))
+			  .style(Form.Style.HISTORY)
+			  .describe(null,
+				    "A text to be evaluated by the ZETA shell")
+			  
+	  ),
+      "Evaluate the given command",
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	String[] words = state.interpreter.tokenize(locator, evalState.string);
+	state.doEval(new ChoiceForm(s.getForms()), locator, words);
+      }
+    );
+      
+
+  // LOADING PLUGINS
+
+  private StringForm.State adaptorName = new StringForm.State("");
+
+  private TopLevelForm pluginForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.Shell().setModal(false),
+      new SeqForm(
+	    new LiteralForm("plugin").describe("Plugin Adaptor"),
+	    new StringForm(adaptorName)
+			  .style(new Form.Style.PreferredSize(-40, -1))
+			  .style(Form.Style.FIXSIZE)
+			  .describe("Class Name",
+				    "Class name of the adaptor to plugin")
+	  ),
+      "Plugin a tool adaptor specified by its qualified class name",
+      fun (Session s)->void {
+	// adaptorName.string = "";
+      },
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	if (adaptorName.string.length() > 0){
+	  try {
+	    state.session.registerAdaptor(Class.forName(adaptorName.string));
+	  } catch(IllegalArgumentException e) {
+	    state.sendDiag(state.defaultLocator,
+			   "cannot load class `"+adaptorName.string+"'");
+	    throw new Failures.FormFailed("plugin");
+	  } catch(ClassNotFoundException e) {
+	    state.sendDiag(state.defaultLocator,
+			   "cannot load class `"+adaptorName.string+"'");
+	    throw new Failures.FormFailed("plugin");
+	  } catch(Failures.EntityExists e) {
+	    state.sendDiag(state.defaultLocator,
+			   "already installed `"+adaptorName.string+"'");
+	    throw new Failures.FormFailed("plugin");
+	  }
+	}
+      }
+    );
+  
+  // HELP
+  private TopLevelForm helpForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new LiteralForm("help"),
+      "Print command syntax",
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	state.sendResult(
+	  Format.beneath(
+	    new ArraySeq(state.session.getForms()).map(
+		  fun (TopLevelForm f)->Format {
+		    return Format.literal(f.getSyntax());
+		  }
+		)
+	  )
+	);
+      }
+    );
+
+  // LIST
+
+  private TopLevelForm listUnitsForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new SeqForm(new LiteralForm("list"), new LiteralForm("units")),
+      "List known unit names",
+      fun (Session session, Locator locator) 
+      throws Failures.FormFailed -> void {
+	state.sendResult(
+	  Format.list(
+	    Format.empty,
+	    Format.literal(","),
+	    Format.empty,
+	    fun (Unit u)->Format { 
+	      return Format.literal(u.getName().toString());
+	    },
+	    new ArraySeq(session.getUnits())
+	  )
+	);
+      }
+    );
+
+  private TopLevelForm listTypesForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new SeqForm(new LiteralForm("list"), new LiteralForm("types")),
+      "List known content type names",
+      fun (Session session, Locator locator)
+      throws Failures.FormFailed -> void {
+	state.sendResult(
+	  Format.list(
+	    Format.empty,
+	    Format.literal(","),
+	    Format.empty,
+	    fun (ContentType t)->Format { 
+	      return Format.literal(t.toString());
+	    },
+	    new ArraySeq(session.getContentTypes())
+	  )
+	);
+      }
+    );
+
+
+  // SET PROPERTY
+
+  private StringForm.State propState = new StringForm.State("");
+  private StringForm.State valState = new StringForm.State("");
+  private TopLevelForm setPropForm =
+    TopLevelForm.make(
+      TopLevelForm.Style.HIDDEN,
+      new SeqForm(new LiteralForm("set"), 
+		  new StringForm(propState)
+				.style(new Form.Style.PreferredSize(-16,-1))
+				.style(Form.Style.HISTORY),
+		  new StringForm(valState)
+				.style(new Form.Style.PreferredSize(-16,-3))
+				.style(Form.Style.HISTORY)
+		 ),
+      "Set Java property",
+      fun (Session s, Locator locator) throws Failures.FormFailed -> void {
+	// looks dirty:
+	System.getProperties().put(propState.string, valState.string);
+      }
+    );
+  
+}

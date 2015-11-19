@@ -1,0 +1,405 @@
+package zeta.content.zirp;
+
+/** Type annotation slot and auxilary methods for types.
+  *
+  * This slot is provided at all <code>Expr</code>
+  * terms if the syntax is context-checked.
+  *
+  * A type is represented as an expression of a restricted form, which
+  * matches one of the following patterns:
+  * <pre>
+  *      Expr.Variable(NameAppl(Name, {Type1,...,TypeN}))
+  *      Expr.Product({Type1,...,TypeN})
+  *      Expr.Signature(_,{Type1,...,TypeN})
+  *      Expr.Unary(Expr.UnaryKind.Power,Type)
+  * </pre>
+  * where <code>TypeI</code> is a type expression again, and <code>
+  * Name </code> refers to a given type.<p>
+  *
+  * Furthermore, types may contain unification variables
+  * (<code>Expr.UniVar</code>), yet these do not appear
+  * in annotations of type-checked expressions.<p>
+  *
+  * In contrast to normal expressions, the expressions used for
+  * type annotations do not have annotations again.<p>
+  *
+  * @version $Id: Type.pizza,v 1.5 2000/05/08 07:07:43 wg Exp $ 
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+
+import net.sf.pizzacompiler.lang.Pair;
+import zeta.util.*;
+import zeta.format.*;
+import zeta.agl.*;
+
+public class Type {
+
+  /** The slot object. */
+  public static final Slot slot = Slot.register(Type.class.getName(),
+						Expr.class);
+
+  /** Set value of type annotation slot.
+    * @param an    the annotation
+    * @param type  the expression representing the type.
+    *   This should be a valid type expression as explained
+    *   above (no automatic consistency checks are currently made).
+    */
+  public static void put(Annotation an, Expr type){
+    slot.put(an, type);
+  }
+
+  /** Get value of type annotation slot.
+    * @param an    the annotation
+    * @return the type, or null, if no one is provided.
+    */
+  public static Expr get(Annotation an){
+    return (Expr)slot.get(an);
+  }
+
+  /** Test whether type annotation slot is provided. 
+    * @param an   the annotation
+    * @return true if the type annotation slot is provided
+    */
+  public static boolean isProvided(Annotation an){
+    return slot.isProvided(an);
+  }
+
+
+  /** Make a given type expression. Returns an expression of
+    * form <code>Expr.Variable(NameAppl(Name,{})</code>.  */
+  public static Expr makeGiven(Name name){
+    return Expr.Variable(new NameAppl(name, new Expr[0]));
+  }
+
+  /** Make a generic given type expression. Returns an expression of
+    * form <code>Expr.Variable(NameAppl(Name,Generics)</code>.  */
+  public static Expr makeGenGiven(Name name, Expr[] actuals){
+    return Expr.Variable(new NameAppl(name, actuals));
+  }
+
+  /** Make a powerset type expression. Returns an expression of
+    * form <code>Expr.Unary(Expr.UnaryKind.Power,Type)</code>. */
+  public static Expr makePower(Expr type){
+    return Expr.Unary(Expr.UnaryKind.Power,type);
+  }
+
+  /** Make a product type expression. Returns an 
+    * expression of form <code>Expr.Product({Type1,...,TypeN})</code>
+    */
+  public static Expr makeProduct(Expr[] components){
+    if (components.length == 1)
+      return components[0];
+    else
+      return Expr.Product(components);
+  }
+
+  /** Make a signature type expression. Returns an expression
+    * of form
+    * <code>Expr.Signature({Name1,...,NameN},{Type1,...,TypeN})</code> */
+ public static Expr makeSignature(Name[] names, Expr[] types){
+    return Expr.Signature(names, types);
+  }
+ 
+  /** Make a free type variable expression. Returns an expression
+    * of form <code>Expr.UniVar(Name, null)</code>. */
+  public static Expr makeVar(Name name){
+    return Expr.UniVar(name, null);
+  }
+      
+
+  /**
+   * Substitute in type the given names by the given types.
+   */
+  public static Expr substitute(Expr type, Name[] names, Expr[] types){
+    Expr newType = 
+      new Substitutor(new HashMap().defineAll(new ArraySeq(names),
+					      new ArraySeq(types)))
+		     .visit(type);
+    return newType != null ? newType : type;
+  }
+    
+
+  /** 
+   * Term visitor class for substitution. 
+   */
+  private static class Substitutor extends TermVisitor {
+    private final Map<Name,Expr> subs;
+
+    Substitutor(Map<Name,Expr> subs){
+      this.subs = subs;
+    }
+    public Expr visit(Expr.Variable expr){
+      if (subs.defines(expr.name.name))
+	return subs.get(expr.name.name);
+      else 
+	return super.visit(expr);
+    }
+  }
+
+  /**
+   * Pretty-print the given type expression
+   */
+  public static Format toPrettyFormat(Expr type){
+    // return Format.build(type);
+    return showP(type).fst;
+  }
+
+  static private Pair<Format,int> showP(Expr expr) {
+    switch (expr) {
+    case Variable(NameAppl(Name name, Expr[] acts)):
+      if (acts.length == 0)
+	return new Pair(Format.literal(name.getRepr()), 1000);
+      else
+	return new Pair(Format.list(Format.literal(name.getRepr() + "["),
+				    Format.literal(","),
+				    Format.literal("]"),
+				    fun (Expr e)->Format {
+				      return showP(e).fst;
+				    },
+				    new ArraySeq(acts)
+				   ),
+			1000);
+    case Product(Expr[] elements):
+      return new Pair(Format.list(Format.empty,
+				  Format.literal(" ** "),
+				  Format.empty,
+				  fun (Expr e)->Format {
+				    return Format.parenth(showP(e), 101).fst;
+				  },
+				  new ArraySeq(elements)
+				 ),
+		      100);
+    case Signature(Name[] names, Expr[] types):
+      Seq<Pair<Name,Expr>> zipped = new BufferSeq(); // FIXME: Seq.zip!!!
+      for (int i = 0; i < names.length; i++){
+	zipped = zipped.append(new Pair(names[i], types[i]));
+      }
+      return new Pair(Format.list(Format.literal("["),
+				  Format.literal("; "),
+				  Format.literal("]"),
+				  fun (Pair<Name,Expr> p)->Format {
+				    return Format.line(
+					     Format.literal(p.fst.getRepr() +
+							   ": "),
+					     Format.indent(
+					       showP(p.snd).fst)
+					   );
+				  },
+				  zipped
+				 ),
+		      1000);
+    case Unary(Expr.UnaryKind.Power, Expr type):
+      return new Pair(Format.append(Format.literal("P "),
+				    Format.indent(
+				      Format.parenth(showP(type), 201).fst)),
+		      200);
+    case UniVar(Name name, Expr type):
+      if (type != null)
+	return showP(type);
+	/*
+	return new Pair(Format.append(
+			  Format.literal(name + "" + expr.hashCode() + ":"),
+			  showP(type).fst
+			),1000);
+	*/
+      else
+	return new Pair(Format.buildFormat(name), 1000);
+    default:
+      throw FatalError.unexpectedCase("type expression");
+    }
+  }
+
+  /**
+   * A constant for representing "any" type (error type) in types.
+   */
+  public static final Expr.Variable anyType =
+    new Expr.Variable(new NameAppl(new Name("<any>"), new Expr[0]));
+
+
+  /**
+   * Unify the two types. Throws exception if unification fails.<p>
+   *
+   * Type variables (<code>Expr.UniVar</code>) will be bound by the
+   * unification algorithm. The special type <code>anyType</code>,
+   * if apppearing in some of the type terms, will be treated.
+   */
+  public static void unify(Expr l, Expr r) throws UnificationFailure {
+    
+    for (;;) {
+      switch (l) {
+      case UniVar(_, Expr bounded):
+	if (bounded != null){
+	  l = bounded;
+	  continue;
+	}
+      }
+      break;
+    }
+
+    for (;;) {
+      switch (r) {
+      case UniVar(_, Expr bounded):
+	if (bounded != null){
+	  r = bounded;
+	  continue;
+	}
+      }
+      break;
+    }
+
+    if (l == r) return;
+
+    switch (l) {
+    case UniVar(_, _):
+      assign((Expr.UniVar)l, r);
+      return;
+    }
+    switch (r) {
+    case UniVar(_, _):
+      assign((Expr.UniVar)r, l);
+      return;
+    }
+
+    // propagate anyType
+    if (r == anyType){
+      Expr temp = r;
+      r = l;
+      l = temp;
+    }
+    if (l == anyType){
+      switch (r){
+      case Variable(NameAppl(_, Expr[] a)):
+	for (int i = 0; i < a.length; i++)
+	  unify(anyType, a[i]);
+	break;
+      case Unary(Expr.UnaryKind.Power, Expr e):
+	unify(anyType, e);
+	break;
+      case UniVar(_, Expr e):
+	if (e != null)
+	  unify(anyType, e);
+	break;
+      case Product(Expr[] a):
+	for (int i = 0; i < a.length; i++)
+	  unify(anyType, a[i]);
+	break;
+      case Signature(_, Expr[] a):
+	for (int i = 0; i < a.length; i++)
+	  unify(anyType, a[i]);
+	break;
+      default:
+	throw FatalError.unexpectedCase("type expression");
+      }
+      return;
+    }
+
+    // do hard unification
+    switch (l){
+    case Variable(NameAppl(Name n1, Expr[] a1)):
+      switch (r){
+      case Variable(NameAppl(Name n2, Expr[] a2)):
+	if (n1.equals(n2)){
+	  unifyArray(l, r, a1, a2);
+	  return;
+	}
+      }
+      break;
+    case Unary(Expr.UnaryKind.Power, Expr e1):
+      switch (r){
+      case Unary(Expr.UnaryKind.Power, Expr e2):
+	unify(e1, e2);
+	return;
+      }
+      break;
+    case Product(Expr[] a1):
+      switch (r){
+      case Product(Expr[] a2):
+	unifyArray(l, r, a1, a2);
+	return;
+      }
+      break;
+    case Signature(Name[] n1, Expr[] a1):
+      switch (r){
+      case Signature(Name[] n2, Expr[] a2):
+	if (n1.length != n2.length)
+	  throw new UnificationFailure(l, r);
+	for (int i = 0; i < n1.length; i++){
+	  if (!n1[i].equals(n2[i]))
+	    throw new UnificationFailure(l, r);
+	}
+	unifyArray(l, r, a1, a2);
+	return;
+      }
+    }
+    throw new UnificationFailure(l, r);
+  }
+
+  /** Unify two arrays of type expressions. */
+  private static void unifyArray(Expr l, Expr r, Expr[] ls, Expr[] rs) 
+  throws UnificationFailure {
+    int n1 = ls.length;
+    int n2 = rs.length;
+    if (n1 != n2){
+      throw new UnificationFailure(l, r);
+    } else {
+      for (int i = 0; i < n1; i++){
+	unify(ls[i], rs[i]);
+      }
+    }
+  }
+
+  /** 
+   * Perform type assignment for unification.
+   */
+  private static void assign(Expr.UniVar l, Expr r) throws UnificationFailure {
+    if (occures(l,r)) throw new UnificationFailure(l, r);
+    l.oper = r;
+  }
+
+  /** 
+   * Perform occurence test for unification.
+   */
+  private static boolean occures(Expr.UniVar v, Expr t){
+    if (t == v) return true;
+    else {
+      switch (t) {
+      case Variable(NameAppl(Name name, Expr[] acts)):
+	return occures(v, acts);
+      case Product(Expr[] elements):
+	return occures(v, elements);
+      case Signature(Name[] names, Expr[] types):
+	return occures(v, types);
+      case Unary(Expr.UnaryKind.Power, Expr type):
+	return occures(v, type);
+      case UniVar(_, Expr type):
+	if (type != null)
+	  return occures(v, type);
+	else
+	  return false;
+      default:
+	throw FatalError.unexpectedCase("type expression");
+      }
+    }
+  }
+
+  /** 
+   * Perform occurence test for unification.
+   */
+  private static boolean occures(Expr.UniVar v, Expr[] ts){
+    for (int i = 0; i < ts.length; i++){
+      if (occures(v, ts[i])) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Exception class representing a unification failure,
+   * holding the critical pair where the unification failed.
+   */
+  public static class UnificationFailure extends Exception {
+    public case UnificationFailure(Expr type1, Expr type2);
+  }
+
+  
+
+}

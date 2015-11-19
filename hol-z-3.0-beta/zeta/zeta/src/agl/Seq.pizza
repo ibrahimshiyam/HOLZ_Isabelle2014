@@ -1,0 +1,256 @@
+package zeta.agl;
+
+/** The basic aggregate class of sequences. This abstract class is
+  * superclass of diverse implementation variants of sequences.
+  *
+  * @version $Id: Seq.pizza,v 1.4 2000/01/02 17:35:17 wg Exp $
+  */
+
+import java.lang.IndexOutOfBoundsException;
+import java.util.NoSuchElementException;
+import net.sf.pizzacompiler.lang.Pair;
+
+public abstract class Seq<A> extends Aggregate<A> {
+
+  /** Return the first element of a sequence. 
+    * @exception IndexOutOfBoundsException   if sequence is empty. */
+  public A head() throws IndexOutOfBoundsException {
+    return at(0);
+  }
+
+  /** Return the last element of a sequence. 
+    * @exception IndexOutOfBoundsException   if sequence is empty. */
+  public A last() throws IndexOutOfBoundsException {
+    return at(size()-1);
+  }
+
+  /** Return the sub-sequence without the first element. 
+    * @exception IndexOutOfBoundsException   if sequence is empty. */
+  public Seq<A> tail() throws IndexOutOfBoundsException{
+    return subseq(1);
+  }
+
+  /** Return the element at given index. Indices start at 0.
+    * @exception IndexOutOfBoundsException   if index not in [0..size()-1].
+    */
+  public A at(int index) throws IndexOutOfBoundsException {
+    int i = index;
+    if (i < 0 ) throw new IndexOutOfBoundsException(index+"th");
+    for (Enum<A> e = enumerate(); e.more(); e.advance()){
+      if (i == 1) return e.current();
+      i--;
+    }
+    throw new IndexOutOfBoundsException(index+"th");
+  }
+
+  /** Update the element at the given index.
+   * @exception IndexOutOfBoundsException   if index not in [0..size()-1].
+   */
+  public Seq<A> update(int index, A elem){
+    if (index == 0)
+      return tail().prepend(elem);
+    else if (index+1 == size())
+      return subseq(0, index).append(elem);
+    return subseq(0, index).append(elem).appendAll(subseq(index+1));
+  }
+
+
+  /** Append element. */
+  public Seq<A> append(A elem){
+    return insertAll(size(), new ArraySeq(elem));
+  }
+
+  /** Append elements from other aggregate. */
+  public Seq<A> appendAll(Aggregate<A> other){
+    return insertAll(size(), other);
+  }
+    
+  /** Prepend element. */
+  public Seq<A> prepend(A elem){
+    return insertAll(0, new ArraySeq(elem));
+  }
+
+  /** Prepend elements from other aggregate. */
+  public Seq<A> prependAll(Aggregate<A> other){
+    return insertAll(0, other);
+  }
+
+  /** Insert element at given index. 
+    * @exception IndexOutOfBoundsException   if index not in [0..size()].
+    */
+   public Seq<A> insert(int at, A elem) 
+   throws IndexOutOfBoundsException{
+     return insertAll(at, new ArraySeq(elem));
+   }
+
+  /** Insert elements from other aggregate at given index. 
+    * @exception IndexOutOfBoundsException   if index not in [0..size()].
+    */
+
+  public abstract Seq<A> insertAll(int at, Aggregate<A> other) 
+  throws IndexOutOfBoundsException;
+
+  /** Return the index of the first occurence of element which
+    * equals (according to Object equality) to the given element.
+    * Return <code>-1</code> if no such element exists.
+    */
+  public int indexOf(A elem){
+    int i = 0;
+    for (Enum<A> enum = enumerate(); enum.more(); enum.advance()){
+      if (((Object)enum.current()).equals((Object)elem)){
+	return i;
+      }
+      i++;
+    }
+    return -1;
+  }
+
+  /** Return the index of the first occurence of element for which the
+    * given predicate holds.  Return <code>-1</code> if no such
+    * element exists.  */
+  public int indexOf((A)->boolean p){
+    int i = 0;
+    for (Enum<A> enum = enumerate(); enum.more(); enum.advance()){
+      if (p(enum.current())){
+	return i;
+      }
+      i++;
+    }
+    return -1;
+  }
+
+  /** Return the index of the last occurence of element which
+    * equals (according to Object equality) to the given element.
+    * Return <code>-1</code> if no such element exists.
+    */
+  public int lastIndexOf(A elem){
+    int i = 0;
+    int lasti = -1;
+    for (Enum<A> enum = enumerate(); enum.more(); enum.advance()){
+      if (((Object)enum.current()).equals((Object)elem)){
+	lasti = i;
+      }
+      i++;
+    }
+    return lasti;
+  }
+    
+  /** Return the index of the last occurence of element for which the
+    * given predicate holds.  Return <code>-1</code> if no such
+    * element exists.  */
+  public int lastIndexOf((A)->boolean p){
+    int i = 0;
+    int lasti = -1;
+    for (Enum<A> enum = enumerate(); enum.more(); enum.advance()){
+      if (p(enum.current())){
+	lasti = i;
+      }
+      i++;
+    }
+    return lasti;
+  }
+
+  /** Return the sub-sequence which starts at the specified index
+    * and extents until the end.
+    * @exception IndexOutOfBoundsException   if index not in [0..size()].
+    */
+  public Seq<A> subseq(int at) throws IndexOutOfBoundsException {
+    return subseq(at, size());
+  }
+
+  /** Return the sub-sequence which starts at the specified index
+    * and extends until index <code>end-1</code>. 
+    * @exception IndexOutOfBoundsException   if start index not in [0..size()],
+                          or end index not in [0..size()]
+  */
+  public Seq<A> subseq(int at, int end){
+    return subseq(at,end,fun(A x)->boolean { return true; });
+  }
+
+  /** Return the sub-sequence which starts at the specified index
+    * and extents as long as predicate holds or until the end.
+    * @exception IndexOutOfBoundsException   if index not in [0..size()].
+    */
+  public Seq<A> subseq(int at, (A)->boolean p)
+  throws IndexOutOfBoundsException{
+    return subseq(at, size(),p);
+  }
+
+  /** Return the sub-sequence which starts at the specified index
+    * and extents as long as predicate holds but not longer then
+    * <code>end-1</code>.
+    * @exception IndexOutOfBoundsException   if start index not in [0..size()],
+                          or end index not in [0..size()]
+    */
+  public abstract Seq<A> subseq(int at, int end, (A)->boolean p)
+    throws IndexOutOfBoundsException;
+    
+
+
+  /** Return sorted contents of this sequence. Sorting
+    * is done on base of the passed total ordering. 
+    * @see zeta.agl.Ordered
+    */
+  public abstract Seq<A> sort((A,A)-> int ecompare);
+
+  /** Revert order of elements in sequence. */
+  public abstract Seq<A> revert();
+
+  /** Map a function over a sequence. */
+  public abstract <B> Seq<B> map((A)->B f);
+
+  /** Filter a sequence. */
+  public abstract Seq<A> filter((A)->boolean p);
+
+  /** Partition a sequence. */
+  public Pair<Seq<A>,Seq<A>> partition((A)->boolean p){
+    // FIXME: customized implementations
+    return new Pair(filter(p),
+		    filter(fun (A x)->boolean { return !p(x); }));
+  }
+
+
+  /** Flat a sequence of sequences of lists.  Use <code>empty</code>
+    * if the list is empty. */
+  public static <B> Seq<B> flatten(Seq<B> empty, Seq<Seq<B>> s) {
+    if(s.isEmpty()) return empty;
+    else return s.fold(fun(Seq<B> s1, Seq<B> s2)->Seq<B>
+		       { return s1.appendAll(s2); });
+  }
+    
+    
+  /** Implementation of <code>Aggregate</code> method. Overwritten for
+    * reasons of efficiency. */
+  public boolean equals(Object other){
+    if (other instanceof Seq){
+      return equalsSeq(this, (Seq)other);
+    } else {
+      return super.equals(other);
+    }
+  }
+
+  private static <B> boolean equalsSeq(Seq<A> s1, Seq<B> s2){
+    int s = s1.size();
+    if (s == s2.size()){
+      for (int i = 0; i < s; i++){
+	if (!((Object)s1.at(i)).equals((Object)s2.at(i))) return false;
+      }
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /** Implementation of <code>Aggregate</code> method. Overwritten for
+    * reasons of efficiency. */
+  public int hashCode(){
+    int n = size();
+    int i = 0;
+    int hash = 0;
+    while (i < n){
+      hash += ((Object)at(i++)).hashCode();
+    }
+    return hash;
+  }
+
+}

@@ -1,0 +1,13 @@
+
+AUTOSUBNODES	= 
+JAVACC_FILES	:= LatexScanner.jj
+PIZZA_FILES 	:= LatexConfig.pizza TextLocator.pizza \
+		   LatexFormatter.pizza LatexAdaptor.pizza 
+JAVA_FILES	:= 
+JAVAFLAGS	= -nowarn
+NODEKIND	= javacc
+
+inst:
+	$(ET_INSTALL) lib/images load-latex.gif
+	$(ET_INSTALL) lib/images run-latex.gif
+	$(ET_INSTALL) lib/images run-viewer.gif

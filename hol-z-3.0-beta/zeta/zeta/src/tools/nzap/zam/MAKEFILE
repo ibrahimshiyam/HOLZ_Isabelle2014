@@ -1,0 +1,33 @@
+# $Id: MAKEFILE,v 1.4 2000/05/04 14:26:13 wg Exp $
+#
+# NMake makefile for building the ZAM under Windows
+#
+
+ET      = y:\et
+JDK     = c:\jdk1.2
+VC	= "c:\Program Files\Microsoft Visual Studio\VC98"
+
+CFLAGS  = /nologo /W0 /Zi /DZAM_WIN32 /GX /GR /O2 /Oi /Og /Ot /GD /DWIN32 /I$(JDK)\include /I$(JDK)\include\win32 /I$(VC)/Include
+
+OBJS	= zamutil.obj session.obj zammem.obj print.obj loader.obj natives.obj data.obj admin.obj unify.obj interp.obj javadriver.obj
+
+HEADERS    = zam.h session.h zammem.h print.h loader.h natives.h data.h admin.h unify.h interp.h javadriver.h zeta_tools_nzap_ZamJniIface.h
+
+build: $(OBJS)
+	link /nologo /libpath:$(VC)\Lib /debug /dll /out:ZAM.dll $?
+
+build_iface:
+	$(JDK)\bin\javah -classpath $(ET)\classes -jni zeta.tools.nzap.ZamJniIface
+
+
+.cpp.obj: 
+	cl /c $(CFLAGS) $<
+
+zamutil.cpp: $(HEADERS)
+session.cpp: $(HEADERS)
+
+#
+# Help deal with phony targets.
+#
+FORCE: ;
+

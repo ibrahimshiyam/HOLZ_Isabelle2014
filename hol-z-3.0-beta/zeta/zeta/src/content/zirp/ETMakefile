@@ -1,0 +1,14 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	NameAppl.pizza NameDecl.pizza Fixity.pizza \
+	LabelExpr.pizza Configuration.pizza \
+	Expr.pizza Predicate.pizza \
+	State.pizza Transition.pizza Item.pizza \
+	ZNames.pizza MSZNames.pizza DZNames.pizza  \
+	FileDump.pizza \
+	Type.pizza Act.pizza Used.pizza DeclAttr.pizza Layout.pizza \
+	TermVisitor.pizza \
+	UnitEnv.pizza UnitAbsy.pizza ZirpContentTypes.pizza
+JAVA_FILES = \
+	StreamDumper.java StreamUndumper.java
+NODEKIND	= java

@@ -1,0 +1,180 @@
+\rcsInfo $Id: conclusion.tex,v 1.14 2003/12/04 15:03:06 brucker Exp $
+
+\chapter{Conclusion}
+
+We presented a case-study where an access control security problem for a
+realistic system has been made amenable to formal, machine-based analysis. As a
+hidden theme, we also presented a \emph{method} for analyzing security in
+off-the-shelve operating system environments: First, specify the security
+architecture (as a framework for formal security properties), second, specify
+the implementation architecture (validated by inspecting informal specifications
+or code and by testing), third, set up the security technology mapping as a
+refinement problem, forth, establish a formal security analysis over the
+transitive closure over the system transition relation, and fifth, prove
+refinements and security properties by mechanized, gap-less proofs. This method
+is applicable for a wider range of security problems and may be relevant, e.g.,
+in mission critical e-commerce applications or in e-government applications,
+where high-level certifications are mandatory.
+
+More precisely, we have mapped an abstract model of the CVS-Server (with the
+access-control model RBAC inside) to a more concrete implementation model based
+on the concrete security mechanisms as offered by the traditional UNIX/POSIX
+security architecture. Moreover, we also provided an implementation in form of a
+configuration of the standard off-the-shelf implementation of
+CVS~\cite{cvshome:2001}.  Thus, we showed an application of formal methods for
+the field of security implementations, both from the technical and the
+conceptual side. In the sequel, we will discuss these aspects in more detail.
+
+\section{The Technical Side: A Secure CVS Configuration}
+Our formal model (and its analysis) built the foundation of ``our'' CVS server
+setup in our group at the University of Freiburg. At present, it is applied for
+a repository containing $2.5$ Gigabyte of data for over $80$ users categorized
+in five roles.
+
+The presented setup addresses our main requirements: it does not monopolize an
+additional machine with the CVS service, which would result in special
+administration and installation of it, and it enforces a highly desirable access
+control model. Moreover, any machine in our network can be assigned to our CVS
+service, without any loss in security. Our CVS-server implementation requires
+only the standard access control policy provided by the Unix standard, i.e.\ there
+is no need for e.g.\ access control lists (ACL) as provided by some Unix
+variants. Further, our implementation guarantees the encrypted transmission of
+the passwords and the versioned data (not discussed in this report).
+
+The main disadvantage for the users is the need for a special (patched) CVS
+client, which also leads to some additional administrative work, because we have
+to distribute these clients in source code and as binary for different operation
+systems. Further, the security policy is `hard-wired' into our setup, e.g.\ 
+support for write exclusion within one CVS role is realized via a different
+mechanism.
+
+\subsection{Related Work}
+Other approaches for securing the standard CVS client/server model (using the
+\texttt{pserver}-protocol) can roughly be divided into four classes:
+\begin{enumerate}
+\item Securing authentication and network traffic by providing SSL
+  support, e.g.\ via tunneling~\cite{berezin:tunnel:2001} or wrapping
+  the standard CVS server~\cite{vogt:cvsauth:2001},
+\item Protecting the local network by running the standard CVS server in a
+  sandbox (chrooted) environment~\cite{hess:anonymous:2001,idealx:chroot:2001},
+\item Re-engineering the implementation of the
+  \texttt{pserver}-protocol~\cite{nserver},
+\item Setting up large scale closed servers providing CVS functionality, together with
+  a project administration ~\cite{fsf:savannah:2001,osdn:sourceforge:2001}.
+\end{enumerate}
+These solutions mainly attempt to fix the known problems with the standard
+CVS implementation by either providing encryption or minimizing the harms of a
+intruder.  Whereas this is clearly one part of our problem, we also wanted to
+provide an access control model, which lead to our choice
+of~\cite{vogt:cvsauth:2001} as basis for our work, which solves the vital
+problem of authentication and encryption of data transmission. Our DAC based
+RBAC setup is an add-on on top of that, such that our setup can be used
+together with most of the other approaches listed above.
+\subsection{Future Work}
+In our opinion, the greatest improvement of our CVS-server setup would be the
+support of more flexible access control policies. Our implementation supports
+already write exclusion within a CVS permission via a script\footnote{This script,
+  called \texttt{cvs\_acls}, is part of the standard CVS distribution and can be
+  found in the \texttt{contrib} directory.} implementing ACLs (access control
+lists). Whereas such a write exclusion support clearly opens the door for
+generic access policies its success is clearly limited by the lack of generic
+hooks for implementing security checks (see for example~\cite{Linux-LSM} for
+such an interface). Therefore any effort implementing a generic access control
+into CVS (without rewriting the CVS system) would either lead to a complex and
+intransparent configuration or it would heavily depend on the
+underlying operation system (e.g.\ ACLs of the underlying filesystem), or both.
+
+Taking all the well known hassles (e.g.\ moving of files, \ldots) of CVS into
+account, we see a great future for projects creating a \emph{successor} of
+CVS\@. Candidates for a replacement --- we only mention
+Subversion~\cite{subversion} and OpenCM~\cite{opencm} here --- are taking long
+strides toward production use. Subversion can be considered as the natural choice,
+since it aims to solve the problems of CVS on the version control side
+and supports a fine grain access control model using WebDAV~\cite{} in the future.
+On the other side, OpenCM was designed with a refined access control mechanism
+beyond RBAC from the beginning, but is weaker as a version control system.
+
+Concluding, when setting up a \emph{new} version control system in the near
+future, we would probably use one the CVS successors. We would favor
+Subversion over OpenCM because of its better support in the free software
+community and our relatively modest demands with respect to access
+control.
+
+\section{The Conceptual Side: Formal Methods for Security Technology}
+
+It has been widely recognized that security properties can not be easily refined
+--- actually, finding refinement notions that preserve security properties are a
+hot research topic. However, standard refinement proof technology has still its
+value here since it checks that abstract security requirements (which can be
+seen as \emph{security against unintentional misuse}) are indeed achieved by a
+mapping to concrete security technology, and that implicit assumptions on this
+implementation have been made explicit. With respect to security against
+\emph{intentional exploits of security leaks}, we believe that specialized
+refinement notions will be limited to restricted aspects of a system. For this
+problem, in most cases the answer will be to analyze the security on the
+implementation level, possibly by reusing results from the abstract level. From
+the methodological viewpoint this simply means that for an analysis of
+\emph{intentional exploits of security leaks} implementation architectures must
+simply be taken more seriously, which implies that more detailed and
+implementation oriented models deserve more attention as before, where more
+abstract models have been preferred. But in security analysis, more abstract
+models are not necessarily better ones.
+
+It is characteristic for our approach to consider security properties like
+access control as ordinary functional properties; as a consequence, the
+classical distinction between security and safety is very often difficult to
+establish within our model. When refining a security architecture down
+to an
+implementation architecture, it is merely tradition to consider one form of
+exceptional behavior (e.g.\ precondition that $has\_w\_access$ holds for a user
+and a file) as security and another form (e.g.\ a path has the right format and
+enables indeed to access a file in the filesystem) as safety.
+
+\subsection{Related Work}
+
+\begin{enumerate}
+\item The common reference for stating that security properties (i.e.\ 
+  information flow) are incompatible with refinement
+  is~\cite{jacobs:derivation:1998}, where also a first method for stepwise
+  development is proposed. More recent work for information flow
+  is~\cite{Mantel:inp:2001} (where also a nice overview can be found). Other
+  recent work on security-preserving refinements
+  are~\cite{juerjens:secrecy-preserving:2001} (secrecy)
+  and~\cite{santen:confidentiality-preserving:2002} (confidentiality).  To all
+  these approaches, the critique above applies: these notion are focused on one
+  particular security notion (so the question on combination arises), the
+  transition to ``realistic'' implementations is not handled, such that these
+  techniques remain limited to special aspects of a system.
+\item Sandhu already described in~\cite{sandhu.ea:decentralized:1998} a method
+  for embedding Role-Based Access Control with the Discretionary Access Control
+  provided by standard \unix{} systems. Our implementation used this
+  construction for providing the static role.
+\item To our knowledge, there is amazingly few work on formalizing
+  the UNIX/POSIX filesystem in the literature. Some approaches focus
+  on the functional
+  aspects~\cite{heisel:specification:1995,morgan.ea:unix-filesystem:1984}.
+  The model in the Isabelle/HOL distribution by Markus Wenzel copes
+  with security aspects and has inevitably many similarities with ours;
+  however, it does not handle the execution flag, groups, not to
+  mention the set-bits which play an important role in the role
+  propagation when creating subdirectories.
+ \end{enumerate}
+\subsection{Future Work}
+The formal proofs we did so far represent in our opinion a ``proof of
+technology'' for this type of reasoning, but we do not claim that they represent
+a thorough and complete analysis of the (real) CVS-server. So far, most
+consistency, but only selected refinement and security properties have been proven.
+
+However, from our experience gained by our proofs, we believe that specialized
+proof technologies for certain types of proofs (refinement, security-properties)
+in our methodological frame and concrete proof-technology can be improved and
+will lead --- together with more and extended standard models for operating
+system interfaces --- will dramatically increase the effectivity and feasibility
+of our approach.
+
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:

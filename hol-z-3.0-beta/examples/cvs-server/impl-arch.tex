@@ -1,0 +1,1473 @@
+
+\rcsInfo $Id: impl-arch.tex,v 1.50 2003/12/04 15:03:06 brucker Exp $
+
+\chapter{A Formal Model of the Implementation Security Architecture}\label{cha:form-model-impl} 
+
+\section{The POSIX Security Architecture}\label{sec:posix-secur-arch}
+
+We implement our role-based access control model by embedding it into the
+Discretionary Access Control (DAC\index{DAC}\index{Discretionary
+  Access Control@see{DAC}}) as provided by the \unix{} operating system
+and its hierarchic filesystem layer. This specific DAC implementation was first
+described in POSIX.1\index{POSIX} and adopted by the ``Single UNIX Specification Version
+2'' (Unix98)~\cite{open:unix:1997}, a
+standard all modern \unix variants follow. This DAC is also described in the
+common successor of these two documents, which is ``The Single UNIX
+Specification Version 3''~\cite{open:unix:2002}\index{Single UNIX Specification}; referenced in the following as
+\susv.
+
+In this chapter, we define a formal model of this filesystem specification, and
+use it as a basis for specifying the implementations of the CVS commands.  
+
+\subsection{Prelude}
+
+\zsection{Prelude}\vspace{1ex}\noindent
+
+The following structure is a foundational part of our specification.
+Essentially, type sums are introduced, that are not part of the standard. Type
+sums can simulate enumerations in Z free type definitions on the fly. In the
+following, we define type sums via a generic schema in Z\footnote{While generic
+  schemes are not accepted by HOL-Z 2.0, type sums are compiled via another
+  mechanism and are therefore exceptionally accepted.}.
+
+$Prelude\_SUM$ just serves as a tag of the type for the translation.
+\begin{zed}
+  [Prelude\_SUM]
+\end{zed}
+\zfunction{30 (\_ \pplus \_)}
+\begin{gendef}[X,Y]
+  \_ \pplus \_ : X \cross Y \fun \power (Prelude\_SUM \cross X \cross Y) 
+\end{gendef}
+\begin{gendef}[X,Y]
+  Inl   : X \fun (X \pplus Y) \\
+  Inr   : Y \fun (X \pplus Y) \\ 
+\end{gendef}
+The definition of injection functions or recursors is omitted; the declarations
+above serve as pure type interface. A semantic definition of these constructs is
+straightforward, however.
+
+
+\subsection{The Basic Data Structures}
+
+\zsection[Prelude,Basics]{FileSystem}\vspace{1ex}\noindent
+
+In the following, we declare basic abstract sorts for \unix user IDs,
+group IDs, data (file contents; left abstract in this
+model)\index{ID}\index{ID!user}\index{ID!group} and filenames. The
+file hierarchy\index{file hierarchy} is left implicit in our model; it will be essentially
+captured by some kind of ``prefix-closedness'' on legal paths\index{path} in the
+filesystem.  Additionally, we define an enumeration $Unit$ which will
+be used to distinguish directories\index{directory} from regular files\index{file!regular}.
+\begin{zed}
+  [ Uid, Gid, Data, Name ] \\
+  Path == \seq Name \\
+  Unit ::= Nil \\
+\end{zed}
+
+In our model, we assume a static table \emph{groups} that assigns a set of
+groups to each user. The axiomatic definition below also states the existence
+of a special user ID $root$ which models the system administrator (usually
+called \textit{root}). In principle, all security properties can only hold for
+all users except $root$, because root is allowed to do (almost) everything in a
+\unix system.
+\begin{doc}{root_groups}
+  \begin{axdef}
+    groups: Uid \fun \power Gid \\
+    root: Uid \\
+  \end{axdef}
+\end{doc}
+
+The function $cutPath$ removes a given prefix from a path.
+\begin{axdef}
+  cutPath: (Path \cross Path) \pfun Path \\
+  \where
+  \forall a,b,c: Path @ cutPath(a,b) = c \iff  a = b \cat c \\
+\end{axdef}
+
+Now we introduce the set of permissions\index{permission}, including the ``set-uid bits'': Within
+\unix{} every file belongs to a unique pair of owner (user) and group.
+Logically \emph{file access}\index{file access} is divided into three classes:
+\begin{enumerate}
+\item Access by the \emph{user} (owner\index{owner}\index{file!owner}) of the file,
+\item access by a member of the \emph{group}\index{group}\index{file!group} the file is owned by, or
+\item access by any \emph{other}\index{other} user (world).
+\end{enumerate}
+Further, the standard \unix{} DAC\index{DAC} distinguishes between access for reading
+(\unixcmd{r}), writing (\unixcmd{w}), and executing (\unixcmd{x}).\footnote{For
+  directories, this can be interpreted as access for searching in the directory
+  (\unixcmd{r}), creating new files or subdirectories (\unixcmd{w}) and entering
+  (\unixcmd{x}) the directory.}  The execution model\index{execution model} of \unix{} further
+introduces the set-id\index{set-id} (for owner and group) and the
+sticky bit\index{sticky bit}. Our model uses
+only the set-gid\index{set-gid} (set-id for groups) facility on directories, which affects the
+default group of newly created files within that directory. We exclude the
+set-id bit, and the sticky bits, whose semantics has changed over time, and
+therefore can possibly have different semantics within the different
+\unix-implementations (a detailed discussion of the different implementations is
+for example given in~\cite{frisch:administration:1995}).  Apart from that, the
+sticky bits are irrelevant for our problem and are not used by our
+implementation either.
+\begin{zed}
+Perm  &::= &    ru | wu | xu \\
+      &    &  | rg | wg | xg \\
+      &    &  | ro | wo | xo \\
+      &    &  | sg \\
+\end{zed}
+
+The filesystem consists of files which are represented by mapping the
+file content to each path, which is either $Data$ for regular
+files\index{file!regular} or $Unit$ for directories\footnote{We do not
+  consider \emph{special files}\index{file!special}, like devices,
+  named pipes or process files.}\index{file!directory}, and of file
+attributes (assigning to each file or directory the
+permissions\footnote{Often the terms
+  \emph{attributes}\index{attribute} and
+  \emph{permissions}\index{permission} are used interchangeably.}, the
+user ID of the owner and the group it belongs to). In the following,
+if we speak only of \emph{files} we mean a regular file or a
+directory.  Note that our concept of file attributes may be extended
+easily by adding new components to its records.
+\begin{zed}
+  FILESYS\_TAB == Path \pfun (Data \pplus Unit) \\
+  FILEATTRIBUTES == [ perm: \power Perm; uid: Uid; gid: Gid ] \\
+  FILEATTR\_TAB == Path \pfun FILEATTRIBUTES \\
+\end{zed}
+
+For testing if a directory contains a specific file we provide the function
+$\isin$.  Further we provide functions that test for regular files ($\isfilein$)
+and for directories ($\isdirin$).
+% \zfunction{30 (\_ \isdirin \_)}
+%\begin{verbatim}
+%%inrel \isdirin
+%%inrel \isfilein
+%%inrel \isin
+%\end{verbatim}
+\begin{axdef}
+  \_ \isin \_     : Path  \rel (Path \pfun (Data \pplus Unit))  \\
+  \_ \isdirin \_  : Path  \rel (Path \pfun (Data \pplus Unit))  \\
+  \_ \isfilein \_ : Path  \rel (Path \pfun (Data \pplus Unit))  \\
+  \where
+  \forall fs: (Path \pfun (Data \pplus Unit)); f: Path @ \\
+  \t1 (f \isin fs) \iff f \in \dom fs \\
+
+  \forall fs: (Path \pfun (Data \pplus Unit)); d: Path @ \\
+  \t1 (d \isdirin fs) \iff (d \isin fs) \land (\exists u: Unit @ fs(d) = Inr(u))
+  \\
+
+  \forall fs: (Path \pfun (Data \pplus Unit)); f: Path @ \\
+  \t1 (f \isfilein fs) \iff (f \isin fs) \land \lnot (f \isdirin fs) \\
+\end{axdef}
+  
+
+\subsection{The Filesystem State}
+
+At this point we are ready to model the filesystem state, which mainly describes
+the set of existing files and their attributes.  The filesystem has to obey the
+following two invariants:
+\begin{enumerate}
+\item All defined paths must be ``prefix-closed'', i.e.\ all prefix paths must
+  be defined in the filesystem (thus constituting a tree) and point to
+  directories, and
+\item file attributes must be defined for every file in the filesystem.
+\end{enumerate}
+\begin{doc}{FileSystem}
+  \begin{schema}{FileSystem}
+    files: FILESYS\_TAB \\
+    attributes: FILEATTR\_TAB \\
+    \where
+     \forall p: \dom files @ (p = \langle \rangle) \lor (front(p) \isdirin
+     files) \\ 
+    \dom files = \dom attributes \\
+  \end{schema}
+\end{doc}
+
+%%% stolen axioms...
+%%\begin{axdef}
+%%  files\_has\_root: \nat \\
+%%  \where
+%%  \forall FileSystem @ \dom files \neq \emptyset \implies \langle \rangle \in
+%%  \dom files \\
+%%\end{axdef}
+
+First we introduce a function $has\_attrib$, which decides whether the
+attributes (read, write and execute) of a file are set with respect to a
+specific user (and the groups he is a member of). Within this function, a
+nitpicking detail of the \susv{} access model is formalized, namely (local) file
+access is strictly tested in the following order and testing ends whenever a
+test for access fails\index{file!access}:
+\begin{itemize}
+\item If the user owns the file, he can only access the file if the access
+  attributes for users ($\{ru,wu,xu\}$) grant access.
+\item If the user is a member of the group owning the file, he can access the
+  file if the access attributes for the group ($\{rg, wg, xg\}$) grant access.
+\item In all other cases the access attributes for others ($\{ro,wo,xo\}$) are
+  checked.
+\end{itemize}
+This testing strategy leads to the strict precedence of owner permissions over
+the group or other permissions and to the following detail, which seems to be a
+little awkward at first sight: Assume the user $u$ who is a member of the group
+$g$ tries to read a file, owned by him, with permissions $\lblot
+perm==\{rg,ro\},uid==u,gid==g \rblot$. Is the user $u$ allowed to read the file?
+Astonishingly, this is not the case because the rights specified for the user
+$u$ (who is also the owner of the file) precede the rights given for the group
+or others.  Therefore this file can only be read by all users not member of
+group $g$ and all members of group $g$ except the user $u$.  Using the same
+``trick'' it is possible to specify permissions for a file that is readable for
+all users except the members of one specific group.
+
+Based on $has\_attrib$ we introduce $has\_r\_attrib$, $has\_w\_attrib$ and
+$has\_x\_attrib$ for testing the read, write and execute attributes.
+%%prerel has\_attrib
+%%prerel has\_r\_attrib
+%%prerel has\_w\_attrib
+%%prerel has\_x\_attrib
+\begin{doc}{3}
+\begin{axdef}
+  has\_attrib \_ : \power(Uid\cross Path\cross FILEATTR\_TAB\cross Perm\cross Perm\cross Perm)\\ 
+  \where
+  \forall uid : Uid; fa : FILEATTR\_TAB; pu,pg,po:Perm @ \forall p : \dom(fa) @\\
+  \t1 has\_attrib(uid,p,fa,pu,pg,po) \iff \\
+  \t2 ((uid = root) \lor
+  \t2  (\forall m: \power Perm; diruid : Uid; dirgid : Gid |\\
+  \t3 \lblot perm==m,uid==diruid,gid==dirgid\rblot =fa(p) @\\
+  \t4 (diruid = uid \land pu \in m)  \lor                       \\
+  \t4 (diruid \neq uid \land dirgid \in groups(uid) \land pg \in m) \lor \\
+  \t4 (diruid \neq uid \land dirgid \notin groups(uid) \land po \in m))) \\
+\end{axdef}
+\begin{axdef}
+  has\_r\_attrib \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+  has\_w\_attrib \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+  has\_x\_attrib \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+  \where
+
+  \forall uid : Uid; p : Path; fa : FILEATTR\_TAB @ \\
+  \t1 has\_r\_attrib(uid,p,fa) \iff has\_attrib(uid,p,fa,ru,rg,ro) \\
+  
+  \forall uid : Uid; p : Path; fa : FILEATTR\_TAB @ \\
+  \t1 has\_w\_attrib(uid,p,fa) \iff has\_attrib(uid,p,fa,wu,wg,wo) \\
+  
+  \forall uid : Uid; p : Path; fa : FILEATTR\_TAB @ \\
+  \t1 has\_x\_attrib(uid,p,fa) \iff has\_attrib(uid,p,fa,xu,xg,xo) \\
+\end{axdef}
+\end{doc}
+
+For accessing a specific file described by an absolute path name, it is not
+sufficient to test the file attributes\index{file!access}.  Access to the directory containing that
+file also has to be granted. In particular, we need to be able to enter each
+directory (the execution bit has to be set) along the path. Here it makes no
+difference if the ``enter'' access is granted based on user, group or other
+permissions.  This is described in the functions $has\_w\_access$ and
+$has\_r\_access$ for testing if a user can write or read a file.
+%%prerel has\_w\_access
+%%prerel has\_r\_access
+%%prerel has\_x\_access
+\begin{doc}{3}
+  \begin{axdef}
+    has\_w\_access \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+    has\_r\_access \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+    has\_x\_access \_ : \power (Uid \cross Path \cross FILEATTR\_TAB) \\
+    \where
+    \forall uid : Uid; p : Path; fa : FILEATTR\_TAB @ \\
+    \t1 has\_w\_access(uid,p,fa) \iff \\
+    \t2 (\forall pref: Path | pref \prefix(front~p) @ has\_x\_attrib(uid,pref,fa)) \\
+                                %\t2 \land (has\_w\_access(uid,p,fa) 
+    \t2 \land has\_w\_attrib(uid, front~p ,fa) \\
+    
+    \forall uid : Uid; p : Path; fa : FILEATTR\_TAB @ \\
+    \t1 has\_r\_access(uid,p,fa) \iff \\
+    \t2 (\forall pref: Path | pref \prefix(front~p) @ has\_x\_attrib(uid,pref,fa)) \\
+    \t2 \land has\_r\_attrib(uid,p,fa) \\
+
+    \forall uid: Uid; p: Path; fa: FILEATTR\_TAB @ \\
+    \t1 has\_x\_access(uid,p,fa) \iff \\
+    \t2 (\forall pref: Path | pref \prefix(front~p) @ has\_x\_attrib(uid,pref,fa)) \\
+    \t2 \land has\_x\_attrib(uid,p,fa) \\
+  \end{axdef}
+\end{doc}
+
+
+\subsection{Process State}
+In addition to the filesystem state, we introduce a state schema for user
+related information, namely the current user and group ID, the user's umask
+(which is used to set the initial file attributes on newly created files), and
+the current working directory of the user.  The current working directory $wdir$
+will always be used as an implicit parameter to filesystem and CVS operations.
+\begin{doc}{ProcessState}
+  \begin{schema}{ProcessState}
+    uid: Uid \\
+    gid: Gid \\
+    umask: \power (Perm \setminus \{ sg \}) \\
+    wdir: Path
+  \end{schema}
+\end{doc}
+
+
+\subsection{Modeling \posix/\unix{} Operations}
+
+Now, we introduce the specification of the filesystem operations
+incorporating the access control mechanisms. We need to specify methods for
+changing directories, accessing files and changing their access modes. See
+Tab.~\ref{tab:comp-impl-arch} for an assignment of the \susv{} 
+functions~\cite{open:unix:2002} to our model.
+
+Although many of these operations have similar requirements, e.g.\ the current
+working directory must be a valid,% directory in the filesystem, 
+we didn't define these requirements as general state invariants to keep 
+our model general and reusable.  Furthermore, according to the \susv{} 
+specification, every operation checks at invocation-time if the working directory is 
+a valid directory and fails otherwise.
+
+\begin{table}[bt]
+\centering
+\begin{tabular}{l|l|l}
+Z Specification & \unix{} specification & purpose\\
+\hline
+$cd$       & \unixcmd{chdir}        & change current working directory\\
+$mkdir$    & \unixcmd{mkdir}        & create new directory\\
+$mkfile$   & \unixcmd{create} (\unixcmd{open}) & create new file\\
+$access$   & \unixcmd{read}         & read file content\\
+$write$    & \unixcmd{write}        & write data to file\\
+$rm$       & \unixcmd{unlink}       & remove file\\
+$rmdir$    & \unixcmd{rmdir}        & remove directory\\
+$mv$       & \unixcmd{rename}       & rename (move) file or directory\\
+$chown$    & \unixcmd{chown}        & change group and owner of files\\
+$chmod$    & \unixcmd{chmod}        & change access permissions of file or directory\\
+$setumask$ & \unixcmd{umask}        & set the file mode creation mask\\
+\end{tabular}
+\caption{Implementation architecture vs.\ \susv{}\label{tab:comp-impl-arch}}
+\end{table}
+
+The operation \unixcmd{cd} changes the user's current working 
+directory.  In order to set this, the new path must point to a valid directory, 
+and the user must have sufficient permissions to access
+it.
+\enlargethispage{3.5\baselineskip}
+\begin{doc}{cd}
+  \begin{schema}{cd}
+    \Xi FileSystem \\
+    \Delta ProcessState \\
+    p? : Path \\
+    \where
+% since prefix is reflexive, we don't have to define predicates on p?
+    has\_x\_attrib(uid,p?,attributes) \land p? \isdirin files \\ 
+    uid' = uid \land gid' = gid \land umask' = umask \land wdir' = p? \\
+  \end{schema}
+\end{doc}
+We introduce filesystem operations for creating directories
+(\unixcmd{mkdir}) and regular files (\unixcmd{mkfile}). In comparison to the
+\susv{} operations, these functions are slightly simplified, in particular we
+create the files in the current working directory.  Due to the necessary
+calculation of the initial attributes assigned to the newly created file
+(depending on the user's umask and set-gid bit), the specification of $mkdir$
+and $mkfile$ are already quite complex.  As expected, we require that the user
+must have write permissions on the working directory, and only files with names
+that don't yet exist in the working directory may be created.  
+\enlargethispage{3.5\baselineskip}
+\begin{doc}{mkdir}
+  \begin{schema}{mkdir}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u? : Name \\
+    \where
+    wdir \isdirin files \\
+    \lnot ( wdir\cat\langle u? \rangle \isdirin files) \\
+    has\_w\_access(uid,wdir,attributes) \\
+% otherwise Stale NFS handle: (and on a local drive, e.g.  non-NFS ;-))
+%  wdir \in \dom files \\
+    
+    files' = files \cup \{ wdir \cat \langle u? \rangle \mapsto Inr(Nil) \} \\
+
+    attributes' = ( \< \LET pms  == \{ru,wu,xu,rg,wg,xg,ro,wo,xo\} \setminus
+    umask @ \\ 
+    \LET pms' == \< \IF sg \in (attributes(wdir)).perm   \\
+    \THEN pms \cup ((attributes(wdir)).perm \cap \{rg,wg,xg\}) \\
+    \ELSE pms @ \>
+    \LET wdir\_gid == \< \IF sg \in (attributes(wdir)).perm\\
+    \THEN (attributes(wdir)).gid\\
+    \ELSE gid @ \> 
+    \t1 attributes \oplus \{wdir\cat\langle u?\rangle\mapsto \\
+    \t2 \lblot perm==pms',uid==uid,gid==wdir\_gid \rblot \})\>
+  \end{schema}
+\end{doc}
+\begin{doc}{mkfile}
+  \begin{schema}{mkfile}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u?: Name \\
+    d?: Data \\
+    \where
+    wdir \isdirin files \\
+    \lnot ( wdir\cat\langle u? \rangle \isdirin files)\\
+    has\_w\_access(uid,wdir,attributes) \\
+  % otherwise Stale NFS handle: (and on a local drive, e.g.  non-NFS ;-))
+  %  u? \notin subdirs(files)(wdir) \\
+%  wdir \in \dom files \\
+  
+    files' = files \oplus \{ wdir \cat \langle u? \rangle \mapsto Inl(d?)\}  \\
+
+    attributes' = (\< \LET pms  == \{ru,wu,xu,rg,wg,xg,ro,wo,xo\} \setminus umask @ \\
+    \LET pms' == \< \IF sg \in (attributes(wdir)).perm \\
+    \THEN pms \cup ((attributes(wdir)).perm \cap \{rg,wg,xg\}) \\
+    \ELSE pms @ \>
+    \LET wdir\_gid == \< \IF sg \in (attributes(wdir)).perm \\
+    \THEN (attributes(wdir)).gid \\
+    \ELSE gid @ \>
+    \t1 attributes \oplus \{wdir\cat\langle u?\rangle\mapsto \\
+    \t2 \lblot perm==pms',uid==uid,gid==wdir\_gid \rblot \})\>
+  \end{schema}
+\end{doc}
+Beside the fact
+that files of different types are created, the only difference lies in the
+treatment of the ``set-gid'' attribute ($sg$): If this attribute is set on the
+current working directory, it will also be set on newly created subdirectories
+whereas it is ignored on regular files.  
+
+For accessing and manipulating the file content, we provide the operations
+$access$ and $write$, which are only defined for accessing and writing the whole
+file ``at once''.  Variants of these operations for partial writing and reading
+(e.g.\ appending data) can be modeled at a higher abstraction level as a
+sequence of $access$ and $write$ operations.  As before, we require the accessed
+file to be a valid file in the current working directory and the user to have
+access and write permissions on the file, respectively.
+\begin{doc}{access}
+  \begin{schema}{access}
+    \Xi FileSystem \\
+    \Xi ProcessState \\
+    u?: Name \\
+    c!: (Data \pplus Unit) \\
+    \where
+%  wdir \isdirin files \\
+    ( wdir \cat \langle u? \rangle ) \isfilein files \\
+%  u? \in subdirs(files)(wdir) \\
+    
+    has\_r\_access(uid,wdir,attributes) \\
+    c! = files(wdir \cat\langle u?\rangle)
+  \end{schema}
+\end{doc}
+\begin{doc}{write}
+  \begin{schema}{write}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u?: Name \\
+    d?: Data \\
+    \where
+%  wdir \isdirin files \\
+    (wdir \cat \langle u?\rangle) \isfilein files\\ 
+    has\_w\_access(uid,wdir \cat \langle u?\rangle,attributes)\\
+
+    files' = ( \{wdir \cat \langle u?\rangle\} \ndres files ) \oplus \{(wdir
+    \cat \langle u?\rangle) \mapsto Inl(d?)\} \\ 
+    attributes' = attributes \\
+  \end{schema}
+\end{doc}
+\enlargethispage{3\baselineskip}
+For deleting, we provide the operation \unixcmd{rm} for files, and
+\unixcmd{rmdir} for directories. Following the \susv{}, \unixcmd{rmdir} can only
+delete empty directories.  
+\begin{doc}{rm}
+  \begin{schema}{rm}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u?: Name
+    \where
+%  wdir \isdirin files \\
+%\lnot(wdir\cat\langle u? \rangle \isdirin (files))\\
+%  u? \notin subdirs(files)(wdir) \\
+    (wdir \cat \langle u?\rangle) \isfilein files\\ 
+    has\_w\_access(uid,wdir,attributes) \\
+    has\_w\_access(uid,wdir \cat \langle u?\rangle,attributes)\\
+% files' = files \setminus \{y:\ran files @  (wdir \cat \langle u?\rangle) \mapsto y \} \\
+    files' = \{wdir \cat \langle u?\rangle\} \ndres files\\
+    attributes' = attributes \\ 
+  \end{schema}
+\end{doc}
+\begin{doc}{rmdir}
+  \begin{schema}{rmdir}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u?: Name
+    \where
+%  wdir \isdirin files \\
+    (wdir\cat\langle u? \rangle) \isin files \\
+%  u? \in subdirs(files)(wdir) \\
+%  subdirs(files)(wdir \cat \langle u? \rangle) = \emptyset\\
+    \{ x : Name | wdir \cat \langle u? \rangle \cat \langle x \rangle \isdirin
+    (files) \}= \emptyset \\
+    has\_w\_access(uid,wdir,attributes) \\
+    has\_w\_access(uid,wdir \cat \langle u?\rangle,attributes) \\
+ % files' = files \setminus \{y:\ran files @  (wdir \cat \langle u?\rangle) \mapsto y \} \\
+    files' = \{wdir \cat \langle u?\rangle\} \ndres files \\
+    attributes' = attributes \\ 
+  \end{schema}
+\end{doc}
+Again, we require the file or directory that should
+be deleted to be valid in the current working directory, and the user to have
+write permissions on the file or directory and the working directory.
+
+Additionally, we provide an operation $mv$ for moving (renaming) files.  This
+specification mimics the often misunderstood ``feature'' of the \susv{}
+\unixcmd{rename} operation which allows to move a file without requiring any
+permission on the file itself, but instead depends on the access attributes of
+the directory containing the file.  To be more precise: For moving a file, only
+write access for the source and the destination directory (including the needed
+execute attribute along the paths) is needed.  As a consequence, the behavior of
+\unixcmd{rename} can not be modeled as a sequence of \unixcmd{cp},
+\unixcmd{create}, \unixcmd{mkdir}, \unixcmd{mkfile}, \unixcmd{rm}, and
+\unixcmd{rmdir} operations.
+
+This confirms the intuition that directories can be interpreted as regular files
+whose content is the set of names (or references) of the files it contains.
+Using this intuition, moving a file is an operation which only accesses the
+content of the parent directory, hence no access or write privileges are needed
+on the file itself. We only model $mv$ as a simplified version of
+\unixcmd{rename}, allowing only renaming within the same working directory. This
+is no restriction, as all other behavior can be ``emulated'' by calling
+sequences of $cd$, $access$, $write$, $rmdir$ and $unlink$ operations.  Thus,
+the only reason for specifying $mv$ is the possibility of renaming files within
+a directory without having any rights on them.
+
+To handle the complexity of this operation, we employ the schema calculus and
+split the operation into different schemas: One that captures moving files, one
+that captures moving directories, and one that specifies renaming a directory.
+Files can either be renamed or an existing file can be overwritten with another
+file.
+\enlargethispage{2.5\baselineskip}
+\begin{doc}{mvfile}
+ \begin{schema}{mv\_file}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u1?,u2? : Name \\
+    \where
+    wdir \cat \langle u1? \rangle \isfilein files \\
+    has\_w\_access(uid,wdir,attributes) \\                                      
+
+    \lnot (wdir \cat \langle u2? \rangle \isin files) \\
+    \t1 \lor ((wdir \cat \langle u2? \rangle \isfilein files)
+    \land has\_w\_access(uid,wdir \cat \langle u2?\rangle,attributes)) \\
+    
+    files' = ( \{wdir \cat \langle u1?\rangle\} \ndres files ) \oplus \{(wdir
+    \cat \langle u2?\rangle) \mapsto files(wdir \cat \langle u1?\rangle)\} \\
+    
+    attributes' = ( \{wdir \cat \langle u1?\rangle\} \ndres attributes ) \oplus \\
+    \t1 \{(wdir \cat \langle u2?\rangle) \mapsto attributes(wdir \cat \langle
+    u1?\rangle)\} \\ 
+  \end{schema}
+\end{doc}
+The schema $mv\_dir$ defines the case where an existing file or directory (and
+subsequently its contents, i.e.\  files and subdirectories) is moved into an
+existing directory.
+\begin{doc}{mvdir}
+ \begin{schema}{mv\_dir}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u1?,u2? : Name \\
+    \where
+    wdir \cat\langle u1? \rangle \isin files \\
+    has\_w\_access(uid,wdir,attributes) \\                                      
+
+    wdir \cat \langle u2? \rangle \isdirin files \\
+    has\_w\_access(uid,wdir \cat \langle u1?\rangle,attributes) \\
+
+    files' = ( \{ p: \dom files | wdir \cat \langle u1?\rangle \prefix p \}
+    \ndres files ) \\
+    \t1 \oplus  \{ p: Path | wdir \cat \langle u1? \rangle \cat p \isin files @
+    \\
+    \t2 wdir \cat \langle u2? \rangle \cat p  \mapsto files(wdir \cat \langle
+    u1?\rangle \cat p )\} \\
+
+    attributes' = ( \{ p: \dom attributes | wdir \cat \langle u1?\rangle \prefix p \}
+    \ndres attributes ) \\
+    \t1 \oplus  \{ p: Path | wdir \cat \langle u1? \rangle \cat p \isin files @
+    \\
+    \t2 wdir \cat \langle u2? \rangle \cat p \mapsto attributes(wdir \cat \langle
+    u1?\rangle \cat p )\} \\
+  \end{schema}
+\end{doc}
+Sadly, renaming a directory cannot be captured by the above schema and we have
+to introduce the following additional schema $rename\_dir$.
+\begin{doc}{renamedir}
+ \begin{schema}{rename\_dir}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    u1?,u2? : Name \\
+    \where
+    wdir \cat \langle u1? \rangle \isdirin files \\
+    has\_w\_access(uid,wdir,attributes) \\                                      
+
+    \lnot (wdir \cat \langle u2? \rangle \isin files) \\
+
+    has\_w\_access(uid, wdir \cat \langle u1? \rangle, attributes) \\
+
+    files' = ( \{ p: \dom files | wdir \cat \langle u1? \rangle \prefix p \}
+    \ndres files ) \\
+    \t1 \oplus  \{ p: Path | wdir \cat \langle u1? \rangle \cat p \isin files @
+    wdir \cat \langle u2? \rangle \mapsto files(wdir \cat \langle
+    u1? \rangle \cat p )\} \\
+
+    attributes' = ( \{ p: \dom attributes | wdir \cat \langle u1?\rangle \prefix p \}
+    \ndres attributes ) \\
+    \t1 \oplus  \{ p: Path | wdir \cat \langle u1? \rangle \cat p \isin files @
+    \\
+    \t2 wdir \cat \langle u2? \rangle \mapsto attributes(wdir \cat \langle
+    u1? \rangle \cat p )\} \\
+  \end{schema}
+\end{doc}
+Using the schema calculus, we can now join these three operations to build a
+comprehensive $mv$ operation:
+\begin{zed}
+  mv == mv\_file \lor mv\_dir \lor rename\_dir \\
+\end{zed}
+
+For the following two operations ($chown$ and $chmod$), we require that the
+input file exists in the filesystem and that the user is either the
+administrator or the owner of the file.
+
+The operation ``change owner'' ($chown$) allows to set the owner and group of
+files and directories.  To set the group attribute of a file, the user must be a
+member of that new group.  Then the attributes are set according to the input
+parameters; the permissions remain unchanged except for one minor issue: the
+set-id flags are omitted.
+\begin{doc}{chown}
+  \begin{schema}{chown}
+    \Delta FileSystem \\
+    \Xi ProcessState \\
+    p? : Path \\
+    gr? : Gid \\
+    ow? : Uid \\
+    \where
+  % path must be defined in the filesystem
+%  wdir \isdirin files \\
+    p? \in \dom(files) \\
+
+  %either you are root
+    (root = uid) \lor \\
+  %or you must be owner and belong to the group you
+    \t1 (root \neq uid \land ow? = uid \land ow? = ((attributes~p?).uid) \land
+    gr?\in groups(uid)) \\ 
+
+    files' = files \\
+    attributes' = attributes \oplus \{ p? \mapsto \lblot \< perm ==
+    (attributes~p?).perm \setminus\{ sg \}, \\
+    uid == ow?, \\
+    gid == gr? \rblot \} \> \\
+  \end{schema}
+\end{doc}
+
+The operation ``change mode'' ($chmod$) allows to set the file access attributes
+for a file.
+\begin{doc}{chmod}
+  \begin{schema}{chmod}
+    \Delta FileSystem   \\
+    \Xi ProcessState \\
+    ps? : \power Perm \\
+    p? : Path \\
+    \where  % path must be defined in the filesystem
+%  wdir \isdirin files \\
+    p? \in \dom files \\
+
+%either you are root or you are owner
+    (root = uid) \lor (root \neq uid \land uid = (attributes~p?).uid) \\
+    
+    files' = files \\
+    attributes' = attributes \oplus \{ p? \mapsto \lblot \< perm == ps?, \\
+    uid == (attributes~p?).uid, \\ 
+    gid==(attributes~p?).gid \rblot \} \> \\
+  \end{schema}
+\end{doc}
+
+The operation $setumask$ allows setting the value of the $umask$, which
+influences the file attributes of newly created files. It is fairly simple --
+apart from the fact that one cannot use it to set the set-uid and the set-gid
+bit, it straightforwardly updates the $umask$ in the $ProcessState$.
+\begin{doc}{setumask}
+  \begin{schema}{setumask} 
+    \Xi FileSystem \\
+    \Delta ProcessState \\
+    mask? : \power (Perm \setminus \{ sg \}) 
+    \where
+%  wdir \isdirin files \\
+    uid' = uid \land gid' = gid \land umask' = mask? \land wdir' = wdir
+  \end{schema}
+\end{doc}
+
+
+\section[CVS-Server]{The CVS-Server Security Architecture}
+
+\zsection[Prelude,FileSystem,Basics]{CVSServer}\vspace{1ex}\noindent
+
+Our CVS-Server provides two security mechanisms for access control of files
+managed by the data base of the CVS server (called repository), an ACL-based
+(access control list) mechanism and a general hierarchical role concept.
+
+However, in the following, we will not model the ACL-based mechanism that allows
+for an individual, ``point-wise'' access control of files in the CVS system.
+This mechanism is an add-on to the hierarchical concept described in this
+section and has quite complementary pragmatics.  We base our model on a
+bijection between roles and permissions and use the terms ``role'' and
+``permission'' interchangeably as described in Section~\ref{cha:sys-arch}.  In
+our formal model we only define a type for permissions ($Cvs\_Perm$) but in the
+textual descriptions we might use the term ``roles'' when appropriate.
+
+
+\subsection{Mapping CVS onto \unix}
+
+Technically, our CVS-Server role model will be mapped onto a \unix{} file
+system. In the following, we collect several requirements of this mapping.
+Essentially, we describe a mapping of the CVS roles (actually CVS permissions)
+on \unix{} user and group IDs and their permissions (file attributes).
+
+For every CVS operation, the server determines the CVS permissions according to
+the user's CVS user ID and password.  These permissions are then mapped onto
+\unix{} user and group IDs, and these are compared to the file attributes of the
+files and directories which are the arguments of the operations.  It is
+important to notice that CVS IDs ($Cvs\_Uid$) are independent of \unix{} IDs
+($Uid$) and that the \unix{} IDs which are used by CVS are disjoint from
+``normal'' \unix{} user IDs, i.e.\  it is impossible to login to the \unix{}
+system with such a special \unix{} ID\@.  Figure~\ref{fig:ids} should help clarify
+this cumbersome concept.
+\begin{figure}
+    \centering
+    \rotatebox{-90}{\scalebox{1.0}{\includegraphics{pics/ids}}}
+    \caption{Relation between different IDs}
+    \label{fig:ids}
+\end{figure}
+From these distinctness constraints it follows that the \unix{} system
+administrator and the CVS administrator are different (have different user IDs).
+Of course, our security mechanism is bypassed if a user gets \unixcmd{root}
+permissions on the \unix{} system.
+
+These distinctness constraints will show up as critical preconditions of the
+security architecture's safety properties.  Moreover, we require that the group
+table (administrated by the system administrator and nobody else) is compatible
+with $cvs\_perm\_order$, as defined in Section~\ref{sec:basics}.
+\begin{doc}{5}
+  \begin{axdef}
+    cvsperm2uid: Cvs\_Perm \inj Uid \\
+    cvsperm2gid: Cvs\_Perm \inj Gid \\
+    users: \power Uid \\
+    \where
+    root \notin \ran cvsperm2uid \\
+    \ran cvsperm2uid \cap users = \emptyset \\
+    \ran cvsperm2gid \cap \bigcup \{ x : users @ groups(x) \} = \emptyset \\
+    \ran cvsperm2uid \dres groups = \{ x : Cvs\_Perm @ \\
+    \t1 cvsperm2uid~x \mapsto \{c:Cvs\_Perm | (c,x) \in cvs\_perm\_order @
+    cvsperm2gid~c\} \}
+  \end{axdef}
+\end{doc}
+The latter requirement means that for all CVS-related user IDs $u$
+(and hence the ones in $\ran cvsperm2uid$), the function $groups$ is expected to map $u$ to the
+set of group IDs that correspond to the CVS permissions that are equivalent to
+roles below the user's current role.  As a consequence,
+$cvsperm2uid(cvs\_public)$ is in $groups(u)$ for all $u$,
+$cvsperm2gid(cvs\_admin)$ is contained in $groups(u)$ for no $u$ different from
+$cvs\_admin$, and we have
+\[ groups(cvsperm2uid(cvs\_admin)) = \ran cvsperm2gid, \]
+i.e.\ the CVS administrator belongs to all CVS related groups. (For an example
+of an ordering and a setup of groups satisfying all these constraints, see
+Appendix~\ref{cha:textsfs-repos}).
+  
+Now we turn to the model of the repository (the internal data base of the CVS
+server). A distinguished feature of our approach is that the repository is just
+a part of the ordinary filesystem.  Hence, users might have access to that part
+of the filesystem representing the repository via standard \unix{} commands like
+\unixcmd{cd} or \unixcmd{mv}, bypassing the access control of CVS or --- even
+worse --- the integrity of the repository. By accessing the internal files that
+contain the representation of the mapping from CVS user IDs to CVS permissions
+or to the necessary authentication information, users could also corrupt the
+authentication mechanism of the CVS server.
+
+
+\subsection{The CVS Repository}\label{sec:cvs-repository}
+
+The CVS repository is a subtree of the normal filesystem.  The root of this tree
+is denoted by the absolute path $cvs\_rep$ (called \texttt{\$CVS\_ROOT} in the
+implementation).  All paths inside the repository are relative to $cvs\_rep$.
+The administrative files of CVS are stored in the $CVSROOT$ directory, which is
+a subdirectory of $cvs\_rep$, and the file that contains all authentication
+information is called $cvsauth$ and is located inside $CVSROOT$.  Additionally,
+we define functions that convert between the conceptual authentication table
+(defined in section~\ref{sec:basics}) and the actual data associated to files
+containing an authentication table, in particular $cvsauth$.
+\begin{doc}{6}
+  \begin{axdef}
+    cvs\_rep: Path \\
+    CVSROOT: Name \\
+    cvsauth: Name \\
+    auth\_of: Data \pfun AUTH\_TAB\\
+    data\_of: AUTH\_TAB \fun Data\\
+    \where 
+    \ran data\_of \subseteq \dom auth\_of \\
+    \forall x : \dom auth\_of @ data\_of(auth\_of~x) = x \\
+    \forall x : AUTH\_TAB @ auth\_of(data\_of~x) = x \\
+  \end{axdef}
+\end{doc}
+
+
+\subsection{Modeling the CVS Filesystem State}
+
+A major design decision for our specification is to enrich the $FileSystem$
+state specified in the previous section by new state components relevant to CVS,
+or more precisely, the combined client/server process of CVS\@. First, there is
+the concept of a working copy --- a copy of (a local part of) the repository,
+for which the user needs write permissions (w.r.t.\ \unix{} permissions) and at
+least read permissions for the repository (w.r.t.\ the CVS permissions).  A
+working copy can be represented by a table associating CVS attributes to paths
+referring to the file system; in our model, CVS attributes are characterized by
+the CVS user ID $f\_uid$, representing the ``effective role'' or equivalently in our
+model the ``effective permission'' a file possesses, and the path $rep$ where
+the file is located in the repository.\footnote{In the CVS implementation, this
+  working copy related information is stored in \unixcmd{CVS} directories and
+  comprises lists of version numbers, dates, branches, names of controlled files
+  etc. Thus ``original path'' $rep$ is kept in the file
+  ``\unixcmd{Repository}'', the CVS user ID is part of the information kept in
+  ``\unixcmd{Root}''.}
+\begin{zed}
+  CVS\_ATTRIBUTES == [rep: Path; f\_uid: Cvs\_Uid] \\
+  CVS\_ATTR\_TAB == Path \pfun CVS\_ATTRIBUTES \\
+\end{zed}
+
+\noindent The function $repOf$ is simply a projection function needed to
+overcome some shortcomings in the current HOL-Z implementation.
+\begin{axdef}
+  repOf: CVS\_ATTRIBUTES \fun Path \\
+  \where
+  \forall as: CVS\_ATTRIBUTES @ repOf(as) = as.rep \\
+\end{axdef}
+
+\noindent This way, some non-trivial invariants can be stated particularly
+nicely; namely that
+\begin{enumerate}
+\item working copies are just subtrees in the file system, and that
+\item the CVS administrative file containing the authentication information
+  ($cvsauth$) exists in the filesystem.
+\end{enumerate}
+
+Moreover, we introduce a state variable $cvs\_passwd$ into the $Cvs\_FileSystem$
+state, denoting a table that associates the CVS user IDs and their passwords the
+client logged in with.
+
+Summarizing, we have the following central invariant properties of the CVS
+extended filesystem ($Cvs\_FileSystem$):
+\begin{itemize}
+\item Working copies must be subsystems of the file system.
+\item There must be a \texttt{cvsauth} file in the file system, that is a file
+  in the administrative area $cvs\_rep \cat CVSROOT$ (from prefix-closedness it
+  follows, that they exist).
+\item $cvs\_rep \cat CVSROOT$ must be a directory.
+\item The root directory of the repository $cvs\_rep$ must disallow any access
+  for \emph{others}. In particular it must have the permissions $\{ru, wu, xu,
+  xg, sg\}$; the user ID must be $cvs\_admin$, and the group ID $cvs\_public$.
+  For the implementation, it seems to be preferable to postulate these rights
+  for the parent directory of $cvs\_rep$.  In this setting the CVS administrator
+  is free to set the access rights of $cvs\_rep$ to suit his needs.  These
+  settings insure that
+  \begin{itemize}
+  \item only a CVS administrator is able to create new ``top level'' files and
+    directories, and 
+  \item only members of the CVS group hierarchy are able to change into the
+    repository; in particular this prevents \emph{any} attack on the \unix{}
+    file system level by a user not belonging to the CVS group hierarchy.
+  \end{itemize}
+\item General requirements on attributes \emph{within} the repository are:
+  \begin{itemize}
+  \item The owners of files must be \unix{} user IDs that are disjoint from
+    ``regular'' \unix{} user IDs, and the group IDs must be legal w.r.t.\ the
+    CVS role hierarchy.  This guarantees that any \unix{} user with a user ID
+    and group ID that is not a special \unix{} ID in the restricted CVS range
+    has only the rights described by the file attributes for others. Thus, our
+    initial invariant for the $cvs\_rep$ directory implies that such a user
+    cannot do anything, using only \unix{} operations, within the repository.
+  \item All read, write and execute permissions are identical for users and
+    groups.  Together with our group setup this ensures that the initial CVS
+    role (represented by the \unix{} file owner) and all roles with higher
+    precedence have the same access rights on that file.
+  \end{itemize}
+\item General requirements on attributes within the administrative area of the
+  repository are:
+  \begin{itemize}
+  \item The top of the administrative area must belong to the group $cvs\_admin$ and
+    owned by the user $cvs\_admin$ with permissions $\{ru,wu,xu,rg,wg,xg,sg,xo\}$.  This way
+    the CVS administrator has write access to the administrative area.
+  \item The owner user ID of all files within the administrative area must
+    correspond to the CVS permission (role) $cvs\_admin$.
+  \item The owner of all files must be either $cvs\_admin$ or
+    $cvs\_public$. We have to allow this because some files (namely
+    \unixcmd{history} and \unixcmd{modules}) have to be readable, or even
+    writable (e.g. \unixcmd{history}), by any CVS user.
+  \item The file $cvs\_rep \cat CVSROOT \cat cvsauth$ has to be handled
+    sensitively because it contains the most security related data: The
+    CVS-Server user administration. Therefore this directory is owned by the
+    user $cvs\_admin$ with the restrictive attributes $\{ru, wu, xu\}$.  This
+    configuration guarantees that \emph{no one} except the CVS administrator is
+    able to access files in this directory.
+  \item All files must have read permissions for user and group but no write
+    permission at all.  This invariant holds for all files in the repository
+    which are subject to version control by CVS.\footnote{Exceptions are
+      \texttt{\$CVS\_ROOT/CVSROOT/val-tags} and
+      \texttt{\$CVS\_ROOT/CVSROOT/history} which are not subject to revision
+      control, but stored within the repository.}
+  \end{itemize}
+\item General requirements on attributes \emph{outside} the administrative area
+  of the repository are:
+  \begin{itemize}
+  \item On all directories the permissions must be set to
+    $\{ru,wu,xu,rg,wg,xg,sg,xo\}$.  Because our model allows subdirectories to
+    have more rights than their parent directories have (e.g.\ directories that
+    allow only access for $csv\_admin$ can have subdirectories that allow write
+    access for $cvs\_public$), we have to allow anybody to change into
+    directories (thus the $ox$ attribute). Further, the $sg$ attribute ensures
+    that newly created subdirectories inherit the access rights from their
+    parent directories by default.
+  \item All files must have read permissions for user and group, but no write
+    permission.  This is a property of the real CVS implementation for
+    preventing accidental deletion within the repository. This mechanism is in
+    principle superseded by our general setup.
+  \end{itemize}
+\end{itemize}
+
+These requirements are captured in the following predicates.  General
+requirements inside the repository are defined by the predicate
+$attributes\_in\_rep$, requirements on attributes inside the administrative area
+are defined by the predicate $attributes\_in\_root$, and requirements on
+attributes outside the administrative area are captured by the predicate
+$attributes\_outside\_root$.
+
+%%prerel attributes\_in\_rep
+%%prerel attributes\_in\_root
+%%prerel attributes\_outside\_root
+\begin{axdef}
+  attributes\_in\_rep \_: \power FileSystem \\
+\where  
+  \forall fs: FileSystem @ attributes\_in\_rep(fs) \iff \\
+  \t1 (\forall p: \dom fs.files | (cvs\_rep \prefix p) @ \\
+  \t2 (((fs.attributes~p).uid) \in \ran cvsperm2uid \land \\
+  \t2 ((fs.attributes~p).gid) \in groups((fs.attributes~p).uid) \land \\
+  \t2 (ru \in ((fs.attributes~p).perm) \iff rg \in (fs.attributes~p).perm) \land
+  \\ 
+  \t2 (wu \in ((fs.attributes~p).perm) \iff wg \in (fs.attributes~p).perm) \land
+  \\ 
+  \t2 (xu \in ((fs.attributes~p).perm) \iff xg \in (fs.attributes~p).perm))) \\
+\end{axdef}
+\begin{axdef}
+  attributes\_in\_root \_: \power FileSystem \\
+  attributes\_outside\_root \_: \power FileSystem \\
+  \where
+  \forall fs: FileSystem @ attributes\_in\_root(fs) \iff \\
+  (\t1 \forall p: \dom fs.attributes | (cvs\_rep \cat \langle CVSROOT \rangle
+  \prefix p) @ \\ 
+%  the uid must be cvs\_admin
+  \t2 (((fs.attributes~p).uid) = cvsperm2uid(cvs\_admin) \land \\
+%  the group must be either cvs\_admin or cvs\_public
+  \t2 (((fs.attributes~p).gid) = cvsperm2gid(cvs\_admin) \lor \\
+  \t3 ((fs.attributes~p).gid) = cvsperm2gid(cvs\_public)) \land \\
+%     if directory:  
+%     permissions must be set to 770, sgid-bit set
+  \t2 ((p \isdirin fs.files \land ((fs.attributes~p).perm) = \\
+  \t3 \{ru,wu,xu,xg,rg,wg,sg\}) \lor \\  
+%     if regular file:
+%     must have read permissions user and group   
+  \t3 (\lnot(p \isdirin fs.files) \land \{ru,rg\} \subseteq
+  ((fs.attributes~p).perm) \\ 
+%     but not any write permission
+  \t3 \land ((fs.attributes~p).perm) \subseteq \{xu,xg,xo,ru,rg,ro,sg\})))) \\
+
+  \forall fs: FileSystem @ attributes\_outside\_root(fs) \iff \\
+  (\t1 \forall p: \dom fs.attributes; pms : \power Perm | (cvs\_rep\prefix p)
+  \land \\ 
+  \t2 \lnot (cvs\_rep\cat\langle CVSROOT\rangle\prefix p) @ \\
+%     if directory:   
+%     permissions 771, sgit-bit set
+  \t3 (((p \isdirin fs.files \land ((fs.attributes~p).perm) = \\
+  \t4 \{ru,wu,xu,xg,rg,wg,sg,xo\}) \\
+%     if regular file:   
+%     must have read permissions user and group   
+  \t4 \lor ((p \isdirin fs.files) \land \{ru,rg\} \subseteq
+  ((fs.attributes~p).perm) \\ 
+%     but not any write permission
+  \t4 \land ((fs.attributes~p).perm) \subseteq \{xu,xg,xo,ru,rg,ro,sg\})))) \\
+\end{axdef}
+
+These predicates are now used to defined the state invariants of the CVS file
+system state $CvsFileSystem$:
+\begin{doc}{CvsFileSystem}
+  \begin{schema}{Cvs\_FileSystem}
+    FileSystem \\
+    wcs\_attributes: CVS\_ATTR\_TAB \\
+    cvs\_passwd: PASSWD\_TAB \\
+    \where 
+%  working copies must be subsystems of the filesystem
+    \dom wcs\_attributes \subseteq \dom files \\
+%  there must be a cvsauth file in the file system, that is file in the
+%  administrative area (i.e.\ below CVSROOT) and  that
+%  is file in cvs_rep (from prefix-closedness it follows, that they exist)
+%   cvs\_rep \cat \langle CVSROOT, cvsauth \rangle \in \dom files \\
+%  cvs\_rep/CVSROOT must be a directory 
+%   \lnot  (cvs\_rep \cat \langle CVSROOT, cvsauth \rangle \isdirin files) \\
+    (cvs\_rep \cat \langle CVSROOT, cvsauth \rangle \isfilein files) \\
+%  the root of the repository cvs_rep must have the following attributes:
+    attributes(cvs\_rep) = \lblot \< perm == \{ru,wu,xu,xg,sg\}, \\
+    uid  == cvsperm2uid(cvs\_admin), \\
+    gid  == cvsperm2gid(cvs\_public)\rblot \> \\
+%
+%  General requirements on attributes within the repository:
+%  all uids are cvsuids all gids are legal wrt. groups
+    attributes\_in\_rep(\theta FileSystem) \\
+%  General requirements on attributes within administrative area the repository:
+%  The top of the administrative area must have group cvs\_admin
+    ((attributes(cvs\_rep \cat \langle CVSROOT \rangle)).gid) =
+    cvsperm2gid(cvs\_admin) \\ 
+
+    attributes\_in\_root(\theta FileSystem) \\
+%  Properties outside administrative area
+    attributes\_outside\_root(\theta FileSystem) \\
+  \end{schema}
+\end{doc}
+
+% From ``cvs\_rep \cat \langle CVSROOT, cvsauth \rangle \isfilein files''
+% it follows that Cvs_FileSystem implies that files is not empty.
+%%\begin{axdef}
+%%  files\_not\_empty: \nat
+%%  \where
+%%  \forall Cvs\_FileSystem @ files \neq \emptyset \\
+%%\end{axdef}
+
+\subsection{Auxiliary Functions on the CVS Filesystem State}
+
+Before we describe in the next section, the operations of the CVS-Server
+including its internal security architecture (\cvscmd{login}, \cvscmd{add},
+\cvscmd{checkout}, \cvscmd{update}, and \cvscmd{commit}), we need, as a
+prerequisite, to model the access to the CVS authentication table that is part
+of the $cvs\_rep \cat CVSROOT$ directory and underlies the standard access
+discipline of CVS-Server. In particular, the authentication table is only
+modifiable by the CVS administrator, but not by any standard user of the system.
+\begin{doc}{7}
+  \begin{axdef}
+    get\_auth\_tab: FILESYS\_TAB \fun AUTH\_TAB  \\
+    \where
+    \forall fs: FILESYS\_TAB @ \\
+    \t1 get\_auth\_tab(fs) = ( \< \LET p == cvs\_rep \cat \langle
+    CVSROOT,cvsauth \rangle @ \\
+    \LET m == (\mu x: \dom auth\_of | Inl(x) = fs(p)) @ \\
+    \t1 auth\_of(m)) \> \\
+  \end{axdef}
+\end{doc}
+
+
+\subsection{The Operations on CVS-Server}
+
+Now we have an established basis for defining the operations on the combined
+\unix{} and CVS environment. The first operation treats the login w.r.t.\ the
+CVS server and essentially updates the password table $cvs\_passwd$, provided
+that for this combination the server authentication does not fail.
+\begin{doc}{cvslogin}
+  \begin{schema}{cvs\_login}
+    \Delta Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    cvs\_uid?: Cvs\_Uid \\
+    cvs\_pwd?: Cvs\_Passwd \\
+    \where
+    (cvs\_uid?,cvs\_pwd?) \in \dom(get\_auth\_tab~files) \\
+    cvs\_passwd' = cvs\_passwd \oplus \{ cvs\_uid? \mapsto cvs\_pwd? \} \\
+    wcs\_attributes' = wcs\_attributes \\
+    \theta FileSystem = \theta (FileSystem)' \\
+  \end{schema}
+\end{doc}
+
+The \cvscmd{add} operation adds new files or directories in the working copy
+into the repository. \cvscmd{add} owns a mechanism for deducing the permissions
+of an item to be added from its context in the working copy (i.e.\  its father
+directory). For the permissions a valid authorization is required. We restrict
+our concrete model of the CVS \cvscmd{add} operation to argument paths of length
+one --- this restriction is used for simplification reasons without loss of 
+generality and loss of power of our security results.  Further preconditions are:
+\begin{itemize}
+\item The \emph{working directory} must be \emph{valid}, i.e.\ point to a legal
+  directory in the filesystem (this mirrors the reality in \unix: it is, in
+  principle, possible that another client process removes the working directory
+  --- which leads usually to error messages).
+\item We require that the file to be added is fresh, i.e.\ does not yet exist in
+  the repository.
+\item Since CVS implements the attribute table in a collection of files in the
+  $CVS$ subdirectories in the working copies, we require that the working
+  directory is readable and the item to be added is writable provided it is a
+  directory (this mirrors the reality in CVS but does not play any role in our
+  model).
+\end{itemize}
+
+In order to structure the operation specification, we will apply a standard
+technique: we introduce an operation schema with normal behavior and another
+one capturing the exceptional behavior. We employ the schema calculus to
+combine (in this case disjoin) the two schemas and form the operation schema
+$cvs\_add$. This technique will also be applied to the other operations of our
+model.
+\begin{doc}{cvsAdd}
+  \begin{schema}{cvs\_add\_normal}
+    \Delta Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    \where
+% we use wdir, thus we must assure that it exists in files 
+    wdir \isdirin files \\
+% also ensure that the current directory is known to CVS
+    wdir \in \dom wcs\_attributes \\
+% must have read access for the father directory in order
+% to check if CVS - subdirectory is there
+    has\_r\_access(uid, wdir, attributes) \\
+% it must be possible to add the CVS-subdirectory
+% provided the item to be added is a directory
+   (wdir \cat p? \isdirin files) \implies  \\
+   \t1 has\_w\_access(uid, wdir \cat p?, attributes) \\
+% we constrain the length of the path to one, this
+% slightly underspecifies cvs, but simplifies matters
+% conservatively, i.e.\ without compromising security analysis
+    \# p? = 1 \\
+% file to be added must be fresh in the repository
+    cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \notin \dom files \\
+% the role assigned to the father of the added item,
+% i.e.\ the f_uid stored in wdir, will be used to compute
+% a permission, which must have write-access in the repository.
+    has\_w\_access(\LET fu == (wcs\_attributes~wdir).f\_uid @  \\
+    \t1 \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd~fu) @ \\
+    \t2 cvsperm2uid perm, \\
+    \t3 cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p?, attributes) \\ 
+% two cases must be distinguished: either, we add a directory - then
+% the role of the father must be stored. The case for 
+    wcs\_attributes' = wcs\_attributes \\
+    cvs\_passwd' = cvs\_passwd \\
+  \end{schema}
+  \begin{schema}{cvs\_add\_error}
+    \Xi Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\ 
+    \where
+    \lnot wdir \isdirin files \\
+    \t1 \lor \lnot(wdir \in \dom wcs\_attributes) \\
+    \t1 \lor \lnot has\_r\_access(uid, wdir, attributes) \\
+    \t1 \lor \lnot ((wdir \cat p? \isdirin files) \implies \\
+    \t2 has\_w\_access(uid, wdir \cat p?, attributes)) \\
+    \t1 \lor \lnot \# p? = 1 \\
+    \t1 \lor \lnot cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \notin \dom
+    files \\ 
+    \t1 \lor \lnot has\_w\_access(\LET fu == (wcs\_attributes~wdir).f\_uid @ \\
+    \t2 \LET perm == get\_auth\_tab(files)(fu,cvs\_passwd fu) @ \\
+    \t3 cvsperm2uid perm, \\
+    \t4 cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p?, attributes) \\
+  \end{schema}
+  \begin{zed}
+    cvs\_add == cvs\_add\_normal \lor cvs\_add\_error \\
+  \end{zed}
+\end{doc}
+
+% NOTE: \fixme{wcs\_attributes' is not handled adequately - if directory,
+%       the new attributes must be stored \ldots}
+
+The following operation is the most crucial one: the checkout from the
+repository. It requires that the given path $p?$ is actually defined in the
+repository and that the (CVS) client has write permission on the working
+directory.  Then, all files below $p?$ for which the client ($cvs\_uid$) has
+access, will be copied relative to the working directory, where the copy gets
+the \unix{} permissions according to the client's $umask$ and the
+$wcs\_attributes$ in $Cvs\_FileSystem$.
+
+As a prerequisite, we define a function $rep\_access$ that computes the paths
+into the repository to which the client has read-access according to his CVS
+role (which is determined from the CVS user ID and password).\footnote{We do not
+  model here the fact that the working copy may already exist and that CVS roles
+  in it may be available; here, we model that in such cases an existing working
+  copy is simply overwritten, and we (safely) assume that this is the
+  implemented behavior.}
+\begin{axdef}
+  rep\_access: Cvs\_FileSystem \fun Path \fun \power Path \\
+  \where
+  \forall cfs: Cvs\_FileSystem; p: Path @ \\
+  \t1 rep\_access(cfs)(p) = \{ q : Path | p \prefix q \land cvs\_rep \cat q \in
+  \dom cfs.files \\
+  \t2 \land (\exists idpwd: cfs.cvs\_passwd @ idpwd \in
+  \dom (get\_auth\_tab(cfs.files)) \\ 
+  \t2 \land (has\_r\_access(cvsperm2uid(get\_auth\_tab(cfs.files)(idpwd)), \\
+  \t3 cvs\_rep \cat q, cfs.attributes) \\
+  \t3 \lor (has\_x\_access(cvsperm2uid(get\_auth\_tab(cfs.files)(idpwd)), \\
+  \t4 cvs\_rep \cat q, cfs.attributes) \land cvs\_rep \cat q \isdirin
+  cfs.files))) \} \\ 
+\end{axdef}
+
+Additionally, we define a function $choose$ which deduces the CVS user ID for a
+path which was necessary to check out this path, or is necessary for a
+consecutive check in of that path.
+\begin{axdef}
+  choose: (Cvs\_FileSystem \cross Path) \fun Cvs\_Uid \\
+  \where \forall fs: Cvs\_FileSystem; q: Path @ choose(fs,q) = (\mu id: \dom
+  fs.cvs\_passwd | \\
+  \t1 (fs.attributes(cvs\_rep \cat q)).uid = \\
+  \t2 cvsperm2uid(get\_auth\_tab(fs.files)(id,fs.cvs\_passwd(id))) \\
+  \t1 \land (fs.attributes(cvs\_rep \cat q)).gid = \\
+  \t2 cvsperm2gid(get\_auth\_tab(fs.files)(id,fs.cvs\_passwd(id)))) \\
+\end{axdef}
+
+Now we can define the checkout operation.  Additionally, we require that the
+directory we wan to check out must exist in the top-level directory of the
+repository and that we have not checked it out yet.
+\begin{doc}{cvsCheckout}
+  \begin{schema}{cvs\_co} % cvs_checkout 
+    \Delta Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    \where
+  % path must be defined in repository
+    cvs\_rep \cat p? \in \dom files \\
+  % file does not exist in the working copy
+    \forall q:rep\_access(\theta Cvs\_FileSystem)(p?) @ wdir \cat q \notin \dom
+    files \\ 
+  % user must have write access in working copy
+    has\_w\_access(uid,wdir,attributes) \\
+
+    files' = files \oplus \{ q:rep\_access(\theta Cvs\_FileSystem)(p?) @ \\
+    \t1 wdir \cat q \mapsto files(cvs\_rep \cat q) \}  \\ 
+
+    attributes' = attributes  \oplus \{q:rep\_access(\theta Cvs\_FileSystem)(p?)
+    @ \\ 
+    \t1 wdir \cat q \mapsto \lblot perm == \emptyset, uid == uid, gid == gid
+    \rblot \} \\
+    
+    wcs\_attributes' = wcs\_attributes  \oplus \{q:rep\_access(\theta
+    Cvs\_FileSystem)(p?) @ \\ 
+    \t1 wdir \cat q \mapsto \lblot rep == q, f\_uid == choose(\theta
+    Cvs\_FileSystem, q) \rblot \} \\
+    cvs\_passwd' = cvs\_passwd \\
+  \end{schema}
+\end{doc}
+
+The following operations use the current working directory as a default
+parameter, e.g.\ the \cvscmd{checkin} operation tries to check in every file and
+recursively every subdirectory in the working directory ($wdir$) unless we
+restrict it with the input parameter $p?$ to some subdirectory.  These
+operations do not fail if the user only has sufficient permissions for some
+files.  Instead, it ignores all other files and directories and only performs a
+partial update or checkin.
+
+The $cvs\_update$ operation schema, which similar to $cvs\_checkout$ except that 
+the files to be updated can already exist
+in the working copy.  As for the \cvscmd{add} operation, we use
+the schema calculus to model
+normal behavior and exceptional behavior, and then to conjoin these schemas to
+form the $cvs\_up$ operation.
+\enlargethispage{2.7\baselineskip}
+\begin{doc}{cvsUpdate}
+  \begin{schema}{cvsUp}
+    \Delta Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    \where
+  % wdir must be known to CVS
+    wdir \in \dom wcs\_attributes \\
+  % path must be defined in repository
+%    cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \in \dom files \\
+    cvs\_rep \cat repOf(wcs\_attributes~wdir) \cat p? \in \dom files \\
+  % user must have write access in working copy
+    has\_w\_access(uid, wdir \cat p?, attributes) \\
+    
+    files' = files \oplus \{ q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) @ \\ 
+    \t1 wdir \cat cutPath(q, (wcs\_attributes~wdir).rep) \mapsto files(cvs\_rep
+    \cat q) \} \\ 
+    
+    attributes' = attributes \oplus \\
+    \t1 \{ q: rep\_access(\theta Cvs\_FileSystem) ((wcs\_attributes~wdir).rep
+    \cat p?) @ \\
+    \t2 wdir \cat cutPath(q, (wcs\_attributes~wdir).rep) \\
+    \t3 \mapsto \lblot perm == \emptyset, uid == uid, gid == gid \rblot \} \\ 
+    
+    wcs\_attributes' = wcs\_attributes \cup \\
+    \t1 \{ q: rep\_access(\theta Cvs\_FileSystem)((wcs\_attributes~wdir).rep
+    \cat p?) | \\ 
+    \t2 wdir \cat cutPath(q, (wcs\_attributes~wdir).rep) \notin \dom
+    wcs\_attributes @ \\  
+    \t3 wdir \cat cutPath(q, (wcs\_attributes~wdir).rep) \\
+    \t4 \mapsto \lblot \< rep == q, f\_uid == choose(\theta Cvs\_FileSystem, q)
+    \rblot \} \> \\  
+    cvs\_passwd' = cvs\_passwd \\
+  \end{schema}
+  The schema $cvsUpNoAct$ defines the condition that the input file name does not exist in
+  the repository and nothing happens.
+  \begin{schema}{cvsUpNoAct}
+    \Xi Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    \where
+    cvs\_rep \cat repOf(wcs\_attributes~wdir) \cat p? \notin \dom files \\
+  % wdir must be known to CVS
+    wdir \in \dom wcs\_attributes \\
+%    cvs\_rep \cat (wcs\_attributes~wdir).rep \cat p? \notin \dom files \\
+  \end{schema}
+  The schema $cvsUpErr$ defines the behavior when the client does not have sufficient write
+  access in the working copy.  The operation outputs an error message and does
+  nothing else.
+  \begin{schema}{cvsUpErr}
+    \Xi Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    error!: \denotation \\
+    \where
+    \lnot (has\_w\_access(uid, wdir \cat p?, attributes)) \\
+    \t1 \lor \lnot (wdir \in \dom wcs\_attributes) \\
+    error! = \ZD{No write permission!} \\
+  \end{schema}
+  \begin{zed}
+    cvs\_update == cvsUpNoAct  \lor cvsUp \lor cvsUpErr \\
+  \end{zed}
+\end{doc}
+
+The checkin command is modeled by the schema $cvs\_ci$.  Here we require that
+the client has read access for the file or directory in the current working
+directory and sufficient permissions to modify the repository.
+\begin{doc}{cvsCI}
+  \begin{schema}{cvs\_ci}
+    \Delta Cvs\_FileSystem\\
+    \Xi ProcessState \\
+    p?: Path \\
+    \where
+% must have read access
+    has\_r\_access(uid, wdir \cat p?, attributes) \\
+% must be in working copy of the repository
+    wdir \in \dom wcs\_attributes \\
+    
+    files' = files \oplus \{ q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) | \\ 
+    \t1 has\_r\_access(uid, wdir \cat cutPath(q, (wcs\_attributes~wdir).rep),
+    attributes) @ \\ 
+    \t2 cvs\_rep \cat q \mapsto files(wdir \cat cutPath(q,
+    (wcs\_attributes~wdir).rep)) \} \\ 
+
+    attributes' = \\
+    \t1 attributes\oplus\{ q: rep\_access(\theta Cvs\_FileSystem)
+    ((wcs\_attributes~wdir).rep \cat p?) | \\
+    \t1 has\_r\_access(uid, wdir \cat cutPath(q, (wcs\_attributes~wdir).rep),
+    attributes) @ \\ 
+    \t2 cvs\_rep \cat q \mapsto \< \lblot  perm == \{ru,rg\}, \\
+    uid == cvsperm2uid(get\_auth\_tab(files)((wcs\_attributes~q).f\_uid, \\
+    \t3 cvs\_passwd((wcs\_attributes~q).f\_uid))), \\
+    gid == cvsperm2gid(get\_auth\_tab(files)((wcs\_attributes~q).f\_uid, \\
+    \t3 cvs\_passwd((wcs\_attributes~q).f\_uid)))\rblot \} \> \\
+    
+    wcs\_attributes' = wcs\_attributes \land cvs\_passwd' = cvs\_passwd \\ 
+  \end{schema}
+\end{doc}
+
+
+\subsubsection{Operations lifted from the UNIX level}
+
+The following schemas are used to lift the \unix{} filesystem operations (which
+were defined in terms of the $FileSystem$ state) to the $Cvs\_FileSystem$ state.
+This is only done to get a uniform specification.  We can then reason about
+traces of mixed \unix{} and CVS operations over the same state.  All schemas
+follow the same model: they introduce $Cvs\_FileSystem$ and the actual \unix{}
+operation and keep CVS-specific components of $Cvs\_FileSystem$ constant.
+\begin{zedgroup}
+  \begin{doc}{cvscd}
+    \begin{schema}{cvs\_cd}
+      \Delta Cvs\_FileSystem\\
+      cd \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsmkdir}
+    \begin{schema}{cvs\_mkdir}
+      \Delta Cvs\_FileSystem\\
+      mkdir \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsmkfile}
+    \begin{schema}{cvs\_mkfile}
+      \Delta Cvs\_FileSystem\\
+      mkfile \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsaccess}
+    \begin{schema}{cvs\_access}
+      \Delta Cvs\_FileSystem\\
+      access \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvswrite}
+    \begin{schema}{cvs\_write}
+      \Delta Cvs\_FileSystem\\
+      write \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsrm}
+    \begin{schema}{cvs\_rm}
+      \Delta Cvs\_FileSystem\\
+      rm \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsrmdir}
+    \begin{schema}{cvs\_rmdir}
+      \Delta Cvs\_FileSystem\\
+      rmdir \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvsmv}
+    \begin{schema}{cvs\_mv}
+      \Delta Cvs\_FileSystem\\
+      mv \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvschown}
+    \begin{schema}{cvs\_chown}
+      \Delta Cvs\_FileSystem\\
+      chown \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvschmod}
+    \begin{schema}{cvs\_chmod}
+      \Delta Cvs\_FileSystem\\
+      chmod \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+  \begin{doc}{cvssetumask}
+    \begin{schema}{cvs\_setumask}
+      \Delta Cvs\_FileSystem\\
+      setumask \\
+      \where
+      wcs\_attributes' = wcs\_attributes \\
+      cvs\_passwd' = cvs\_passwd \\ 
+    \end{schema}
+  \end{doc}
+\end{zedgroup}
+
+
+%%% Local Variables:
+%%% TeX-master: "arch"
+%%% fill-column:80
+%%% x-symbol-8bits:nil
+%%% End:
+

@@ -1,0 +1,10 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	  ArrayHacks.java Ordered.pizza Option.pizza Enum.pizza Util.pizza \
+	  Aggregate.pizza \
+	  Seq.pizza ArraySeq.pizza BufferSeq.pizza \
+	  Set.pizza HashSet.pizza \
+	  Map.pizza HashMap.pizza \
+	  Fun.pizza MaxStrongComp.pizza
+JAVA_FILES	=
+NODEKIND	= java

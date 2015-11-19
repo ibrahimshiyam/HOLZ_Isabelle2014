@@ -1,0 +1,567 @@
+%!PS-Adobe-2.0
+%%Creator: dot version gviz1.5 (06-14-99)
+%%For: (hiss) Harald Hiss
+%%Title: abs_ci_df
+%%Pages: (atend)
+%%BoundingBox: 168 181 445 612
+%%EndComments
+%%BeginProlog
+save
+/DotDict 200 dict def
+DotDict begin
+
+%%BeginResource: procset
+/coord-font-family /Times-Roman def
+/default-font-family /Times-Roman def
+/coordfont coord-font-family findfont 8 scalefont def
+
+/InvScaleFactor 1.0 def
+/set_scale {
+	dup 1 exch div /InvScaleFactor exch def
+	dup scale
+} bind def
+
+% styles
+/solid { } bind def
+/dashed { [9 InvScaleFactor mul dup ] 0 setdash } bind def
+/dotted { [1 InvScaleFactor mul 6 InvScaleFactor mul] 0 setdash } bind def
+/invis {/fill {newpath} def /stroke {newpath} def /show {pop newpath} def} bind def
+/bold { 2 setlinewidth } bind def
+/filled { } bind def
+/unfilled { } bind def
+/rounded { } bind def
+/diagonals { } bind def
+
+% hooks for setting color 
+/nodecolor { sethsbcolor } bind def
+/edgecolor { sethsbcolor } bind def
+/graphcolor { sethsbcolor } bind def
+/nopcolor {pop pop pop} bind def
+
+/beginpage {	% i j npages
+	/npages exch def
+	/j exch def
+	/i exch def
+	/str 10 string def
+	npages 1 gt {
+		gsave
+			coordfont setfont
+			0 0 moveto
+			(\() show i str cvs show (,) show j str cvs show (\)) show
+		grestore
+	} if
+} bind def
+
+/set_font {
+	findfont exch
+	scalefont setfont
+} def
+
+% draw aligned label in bounding box aligned to current point
+% alignfactor tells what fraction to place on the left.
+% -.5 is centered.
+/alignedtext {			% text labelwidth fontsz alignfactor
+	/alignfactor exch def
+	/fontsz exch def
+	/width exch def
+	/text exch def
+	gsave
+		% even if node or edge is dashed, don't paint text with dashes
+		[] 0 setdash
+		currentpoint newpath moveto
+		text stringwidth pop
+		alignfactor mul fontsz -.3 mul rmoveto
+		text show
+	grestore
+} def
+
+/boxprim {				% xcorner ycorner xsize ysize
+		4 2 roll
+		moveto
+		2 copy
+		exch 0 rlineto
+		0 exch rlineto
+		pop neg 0 rlineto
+		closepath
+} bind def
+
+/ellipse_path {
+	/ry exch def
+	/rx exch def
+	/y exch def
+	/x exch def
+	matrix currentmatrix
+	newpath
+	x y translate
+	rx ry scale
+	0 0 1 0 360 arc
+	setmatrix
+} bind def
+
+/endpage { showpage } bind def
+
+/layercolorseq
+	[	% layer color sequence - darkest to lightest
+		[0 0 0]
+		[.2 .8 .8]
+		[.4 .8 .8]
+		[.6 .8 .8]
+		[.8 .8 .8]
+	]
+def
+
+/setlayer {/maxlayer exch def /curlayer exch def
+	layercolorseq curlayer get
+	aload pop sethsbcolor
+	/nodecolor {nopcolor} def
+	/edgecolor {nopcolor} def
+	/graphcolor {nopcolor} def
+} bind def
+
+/onlayer { curlayer ne {invis} if } def
+
+/onlayers {
+	/myupper exch def
+	/mylower exch def
+	curlayer mylower lt
+	curlayer myupper gt
+	or
+	{invis} if
+} def
+
+/curlayer 0 def
+
+%%EndResource
+14 default-font-family set_font
+1 setmiterlimit
+% /arrowlength 10 def
+% /arrowwidth 5 def
+%%EndProlog
+%%Page: 1 1
+%%PageBoundingBox: 168 181 445 612
+%%PageOrientation: Portrait
+gsave
+167 180 278 432 boxprim clip newpath
+168 181 translate
+0 0 1 beginpage
+0 0 translate 0 rotate
+0.000 0.000 0.000 graphcolor
+14.00 /Times-Roman set_font
+gsave 10 dict begin
+138 9 moveto (mkdir_cc1) 59 14.00 -0.50 alignedtext
+end grestore
+
+%	mkdir_cc1
+gsave 10 dict begin
+40 250 40 18 ellipse_path
+stroke
+gsave 10 dict begin
+40 251 moveto (mkdir_cc1) 59 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1
+gsave 10 dict begin
+151 304 34 18 ellipse_path
+stroke
+gsave 10 dict begin
+151 305 moveto (lemma 1) 48 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> lemma_1
+gsave 10 dict begin
+newpath 67 263 moveto
+82 271 101 280 117 288 curveto
+stroke
+newpath 118 286 moveto
+126 292 lineto
+116 290 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_2
+gsave 10 dict begin
+151 88 34 18 ellipse_path
+stroke
+gsave 10 dict begin
+151 89 moveto (lemma 2) 48 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> lemma_2
+gsave 10 dict begin
+newpath 49 232 moveto
+64 203 95 143 116 112 curveto
+117 111 118 109 119 108 curveto
+stroke
+newpath 118 106 moveto
+127 101 lineto
+121 109 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_3
+gsave 10 dict begin
+151 358 34 18 ellipse_path
+stroke
+gsave 10 dict begin
+151 359 moveto (lemma 3) 48 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> lemma_3
+gsave 10 dict begin
+newpath 55 267 moveto
+71 286 98 316 116 334 curveto
+118 336 121 338 123 340 curveto
+stroke
+newpath 122 336 moveto
+129 344 lineto
+119 341 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	mp
+gsave 10 dict begin
+newpath 276 430 moveto
+222 430 lineto
+222 394 lineto
+276 394 lineto
+closepath
+stroke
+gsave 10 dict begin
+249 413 moveto (Mp) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> mp
+gsave 10 dict begin
+newpath 48 268 moveto
+65 302 101 375 116 388 curveto
+138 405 183 410 215 412 curveto
+stroke
+newpath 212 410 moveto
+222 412 lineto
+212 415 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	subst
+gsave 10 dict begin
+newpath 178 268 moveto
+124 268 lineto
+124 232 lineto
+178 232 lineto
+closepath
+stroke
+gsave 10 dict begin
+151 251 moveto (Subst) 31 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> subst
+gsave 10 dict begin
+newpath 80 250 moveto
+92 250 104 250 115 250 curveto
+stroke
+newpath 114 248 moveto
+124 250 lineto
+114 253 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(1.)
+gsave 10 dict begin
+151 196 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+151 197 moveto (\(1.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> (1.)
+gsave 10 dict begin
+newpath 67 237 moveto
+83 229 104 219 121 211 curveto
+stroke
+newpath 119 209 moveto
+129 207 lineto
+121 214 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(6.)
+gsave 10 dict begin
+151 142 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+151 143 moveto (\(6.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	mkdir_cc1 -> (6.)
+gsave 10 dict begin
+newpath 54 233 moveto
+71 214 98 183 116 166 curveto
+118 164 120 162 123 161 curveto
+stroke
+newpath 122 159 moveto
+131 155 lineto
+125 163 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	bspec
+gsave 10 dict begin
+newpath 276 214 moveto
+222 214 lineto
+222 178 lineto
+276 178 lineto
+closepath
+stroke
+gsave 10 dict begin
+249 197 moveto (Bspec) 34 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1 -> bspec
+gsave 10 dict begin
+newpath 172 290 moveto
+178 287 182 284 186 280 curveto
+201 263 208 240 220 222 curveto
+stroke
+newpath 219 220 moveto
+227 214 lineto
+222 223 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	andel
+gsave 10 dict begin
+newpath 276 322 moveto
+222 322 lineto
+222 286 lineto
+276 286 lineto
+closepath
+stroke
+gsave 10 dict begin
+249 305 moveto (AndEl) 36 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1 -> andel
+gsave 10 dict begin
+newpath 186 304 moveto
+195 304 204 304 212 304 curveto
+stroke
+newpath 212 302 moveto
+222 304 lineto
+212 307 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(2.)
+gsave 10 dict begin
+249 250 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+249 251 moveto (\(2.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1 -> (2.)
+gsave 10 dict begin
+newpath 175 291 moveto
+188 283 205 274 220 266 curveto
+stroke
+newpath 218 264 moveto
+228 262 lineto
+220 269 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(4.)
+gsave 10 dict begin
+249 142 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+249 143 moveto (\(4.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1 -> (4.)
+gsave 10 dict begin
+newpath 173 290 moveto
+179 288 184 285 186 280 curveto
+205 244 206 202 222 166 curveto
+222 166 223 165 226 163 curveto
+stroke
+newpath 224 162 moveto
+233 157 lineto
+227 165 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(5.)
+gsave 10 dict begin
+249 88 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+249 89 moveto (\(5.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_1 -> (5.)
+gsave 10 dict begin
+newpath 175 291 moveto
+180 288 184 285 186 280 curveto
+206 226 205 166 222 112 curveto
+222 111 223 110 223 109 curveto
+stroke
+newpath 222 107 moveto
+230 101 lineto
+225 110 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_2 -> bspec
+gsave 10 dict begin
+newpath 173 102 moveto
+178 105 182 108 186 112 curveto
+202 129 209 152 221 171 curveto
+stroke
+newpath 223 169 moveto
+228 178 lineto
+219 173 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_2 -> andel
+gsave 10 dict begin
+newpath 176 101 moveto
+180 103 184 107 186 112 curveto
+206 164 205 223 221 278 curveto
+stroke
+newpath 223 276 moveto
+226 286 lineto
+219 279 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	(3.)
+gsave 10 dict begin
+249 34 27 18 ellipse_path
+stroke
+gsave 10 dict begin
+249 35 moveto (\(3.\)) 19 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_2 -> (3.)
+gsave 10 dict begin
+newpath 175 75 moveto
+188 67 205 58 220 50 curveto
+stroke
+newpath 218 48 moveto
+228 46 lineto
+220 53 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_2 -> (4.)
+gsave 10 dict begin
+newpath 175 101 moveto
+188 109 205 118 220 126 curveto
+stroke
+newpath 220 123 moveto
+228 130 lineto
+218 128 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_2 -> (5.)
+gsave 10 dict begin
+newpath 186 88 moveto
+195 88 204 88 212 88 curveto
+stroke
+newpath 212 86 moveto
+222 88 lineto
+212 91 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_3 -> mp
+gsave 10 dict begin
+newpath 175 371 moveto
+186 378 200 385 213 392 curveto
+stroke
+newpath 214 390 moveto
+222 397 lineto
+212 394 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	impI
+gsave 10 dict begin
+newpath 276 376 moveto
+222 376 lineto
+222 340 lineto
+276 340 lineto
+closepath
+stroke
+gsave 10 dict begin
+249 359 moveto (ImpI) 27 14.00 -0.50 alignedtext
+end grestore
+end grestore
+
+%	lemma_3 -> impI
+gsave 10 dict begin
+newpath 186 358 moveto
+195 358 204 358 212 358 curveto
+stroke
+newpath 212 356 moveto
+222 358 lineto
+212 361 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+
+%	lemma_3 -> andel
+gsave 10 dict begin
+newpath 175 345 moveto
+186 338 200 331 213 324 curveto
+stroke
+newpath 212 322 moveto
+222 319 lineto
+214 326 lineto
+closepath
+gsave 0 setgray stroke grestore fill
+end grestore
+endpage
+grestore
+%%PageTrailer
+%%EndPage: 1
+%%Trailer
+%%Pages: 1
+end
+restore
+%%EOF

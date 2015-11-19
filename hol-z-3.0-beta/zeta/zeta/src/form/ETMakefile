@@ -1,0 +1,9 @@
+AUTOSUBNODES	= 
+PIZZA_FILES	= \
+	FormState.pizza Form.pizza LiteralForm.pizza \
+	TextForm.pizza StringForm.pizza \
+	FileForm.pizza ListForm.pizza UnitForm.pizza \
+	ContentTypeForm.pizza \
+	CompoundForm.pizza OptionForm.pizza ChoiceForm.pizza SeqForm.pizza \
+	TopLevelForm.pizza 
+NODEKIND	= java

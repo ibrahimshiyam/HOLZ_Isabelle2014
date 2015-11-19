@@ -1,0 +1,92 @@
+package zeta.session;
+
+/**
+ * The type of units.  Units are the means of data representation in the
+ * repository.  The actual content (the data) of a unit can be represented in
+ * different <em>content types</em>, <code>Unit</code> offers methods to
+ * get (<code>query</code>) and <code>define</code> contents in a specified
+ * type.  For Z specifications, a unit is a <em>section</em> of a Z
+ * document, or, for mSZ, a class.
+ *
+ * @version $Id: Unit.pizza,v 1.7 2000/05/12 07:42:56 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ */
+
+import java.util.Date;
+import java.io.Serializable;
+import zeta.util.Name;
+
+public interface Unit {
+
+  /** 
+   * Return the Name of this unit. 
+   */
+  public Name getName();
+
+  /**
+   * Return a string suitable as a base file name derived from this
+   * units name.  
+   */
+  public String getFileName();
+  
+
+  /** 
+   * Query contents of type of this unit. If the
+   * contents is not present or not up-to-date, tool adaptors will be
+   * called to compute it.
+   *
+   * @see Adaptor#tryCompute
+   *
+   * @exception Failures.ComputationFailed
+   *   if, in the chain of adaptors that tried to computed the requested
+   *   content, the computation of one adaptor failed.
+   * @exception Failures.CannotCompute
+   *   if the repository could not compute the the requested content, because
+   *   there is no tool chain that could compute the content.
+   */
+  public Serializable query(ContentType type)
+    throws Failures.ComputationFailed, Failures.CannotCompute;
+
+  /**
+   * Check if contents of given type is present and up-to-date. Return true
+   * if this is the case, false if the content is outdated and
+   * needs to be (re-)computed.
+   */
+  public boolean isUptodate(ContentType type);
+
+  /** 
+   * Explicitely outdate the contents of given type.
+   */
+  public void outdate(ContentType type);
+
+  /**
+   * Define contents of given type.  This method is used by adaptors, to
+   * define a computed content.
+   *
+   * @param type the defined content type.
+   * @param content
+   *   the actual content (must be of class <code>type.type</code>).
+   * @param persistent specify whether the content is to be kept persistent.
+   * @param createdAt time content was created (i.e. creation started).
+   * @param dependencies
+   *   targets, this content depends of (the content has to be recomputed
+   *   if one of the dependencies is changed).
+   * @param adaptor the adaptor that has created the content.
+   */
+  public void define(ContentType type, 
+		     Serializable content,
+		     boolean persistent,
+		     Date createdAt,
+		     Target[] dependencies,
+		     Adaptor adaptor);
+
+  /**
+   * Link content of given type to other type.  Querying the content of the
+   * given type for this unit will be redirected to querying the content
+   * of the other type. The content classes must be compatible (the 
+   * given contents class is assignable from the other contents class).<p>
+   */
+  public void link(ContentType otherType, ContentType type);
+
+   
+}

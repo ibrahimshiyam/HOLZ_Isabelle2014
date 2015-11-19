@@ -1,0 +1,266 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>2. Novice to LATEX -Based Z?</TITLE>
+<META NAME="description" CONTENT="2. Novice to LATEX -Based Z?">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node4.html">
+<LINK REL="previous" HREF="Z-node2.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node4.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html93"
+ HREF="Z-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html89"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html83"
+ HREF="Z-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html91"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html94"
+ HREF="Z-node4.html">3. The Style: Details</A>
+<B> Up:</B> <A NAME="tex2html90"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html84"
+ HREF="Z-node2.html">1. Upgrading?</A>
+ &nbsp <B>  <A NAME="tex2html92"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<H1><A NAME="SECTION00030000000000000000"></A>
+<A NAME="sec:start"></A>
+<BR>
+2. Novice to L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X -Based Z?
+</H1>
+
+<P>
+Say <code>\usepackage{zeta}</code> in the preamble of your L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X 
+document to include the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> style.  There are some style options
+that can be used, e.g., <code>\usepackage[oxsz]{zeta}</code>.  Refer
+to Section&nbsp;<A HREF="Z-node4.html#sec:parameters">3.3</A> for a list of options.
+In a Z document, Z paragraphs can be arbitrarily mixed with
+explanatory text.  Z<SMALL>E</SMALL>T<SMALL>A</SMALL>-Z provides all the environments to
+introduce Z paragraphs as they are known from L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  based
+Z representations.
+Normal schemata are typeset using the <code>schema</code> environment.  Line
+breaks have to be explicitly specified with <code>\\</code>.
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{schema}{S}
+    x, y : \nat \\
+    X : \power \num
+\where
+    x \in X \land 
+    X = \{~z : \num | z \leq y @ 2*z~\}
+\end{schema} 
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="526" HEIGHT="107" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img3.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{schema}{S}
+x, y : \nat \\
+X : \power \num
+\wh...
+...n X \land
+X = \{~z : \num \vert z \leq y @ 2*z~\}
+\end{schema}
+\end{example}}">
+
+<P>
+For generic schemata, the formal generic parameter is written directly
+behind the schema name (this is in contrary to the proposed
+Standard-Z, where generic parameters are written as
+<code>\begin{schema}{G}[X]</code><A NAME="tex2html2"
+ HREF="Z-footnode.html#foot355"><SUP>1</SUP></A>:
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{schema}{G[X]}
+    x : X
+\end{schema}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="397" HEIGHT="43" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img4.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{schema}{G[X]}
+x : X
+\end{schema}\end{example}}">
+
+<P>
+Abbreviations, given and free types are put in <code>zed</code> environments.  In
+Standard-Z, schema expressions are treated as expressions, therefore 
+``<IMG
+ WIDTH="9" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img5.gif"
+ ALT="$\defs$">'' is not needed anymore.  (Nevertheless, it is still supported
+for compatibility.):
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{zed}
+    T == [ a, b : \num | a > b ] \\
+    EVEN == 
+      \{~x : \num | 
+         \exists y : \num @ x=2*y~\} \\
+    [ TYPE ] \\
+    COLOR ::= red | blue | yellow 
+\end{zed}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="525" HEIGHT="123" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img6.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{zed}
+T == [ a, b : \num \vert a &gt; b ] \\
+EVEN...
+...\
+[ TYPE ] \\
+COLOR ::= red \vert blue \vert yellow
+\end{zed}\end{example}}">
+
+<P>
+Axiomatic definitions are written with the <code>axdef</code> environment.
+Formal generic parameters can be specified by an optional environment
+parameter.  For compatibility with Spivey-Z and Standard-Z, generic
+axiomatic definitions can also be typed with the <code>gendef</code>
+environment.
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}
+    limit : \nat
+\where
+    limit \geq 4711
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="388" HEIGHT="75" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img7.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}
+limit : \nat
+\where
+limit \geq 4711
+\end{axdef}\end{example}}">
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}[X]
+    f : X \rel \nat
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="388" HEIGHT="43" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img8.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}[X]
+f : X \rel \nat
+\end{axdef}\end{example}}">
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{gendef}[X]
+    f : X \rel \nat
+\end{gendef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="388" HEIGHT="46" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img9.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{gendef}[X]
+f : X \rel \nat
+\end{gendef}\end{example}}">
+
+<P>
+For a listing of the full Z syntax and Z symbols in L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X , see
+Appendix&nbsp;<A HREF="Z-node7.html#sec:z-syntax">A</A> and Appendix&nbsp;<A HREF="Z-node8.html#sec:z-symbols">B</A>.
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html93"
+ HREF="Z-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html89"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html83"
+ HREF="Z-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html91"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html94"
+ HREF="Z-node4.html">3. The Style: Details</A>
+<B> Up:</B> <A NAME="tex2html90"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html84"
+ HREF="Z-node2.html">1. Upgrading?</A>
+ &nbsp <B>  <A NAME="tex2html92"
+ HREF="Z-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

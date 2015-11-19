@@ -1,0 +1,25 @@
+package zeta.session;
+
+/** 
+ * Debug messages of tool operation.
+ *
+ * @version $Id: DebugMessage.pizza,v 1.1 1998/09/06 15:26:32 wg Exp $ 
+ *
+ */
+
+import zeta.format.*;
+
+
+public class DebugMessage extends Message {
+
+  /**
+   * @param message  a format describing the message
+   */
+  public case DebugMessage(final Format message);
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    return message;
+  }
+
+}

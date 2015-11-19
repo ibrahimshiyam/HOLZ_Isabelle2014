@@ -1,0 +1,71 @@
+\documentclass[a4paper,11pt,bibtotoc,idxtotoc]{scrartcl}
+
+\usepackage[latin1]{inputenc} 
+\usepackage[index]{zeta}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{makeidx}
+\usepackage[bookmarks=true,hyperindex=true,backref=section,%
+bookmarksnumbered=true]{hyperref}
+
+\newcommand{\note}[1]{\begin{quote} \textbf{Note: }#1\end{quote}}
+\newcommand{\design}[1]{\begin{quote} \textbf{Design: }#1\end{quote}}
+\newcommand{\fix}[1]{\footnote{FIX: #1}}
+\newcommand{\utctl}{<}
+\newcommand{\utctg}{>}
+\newcommand{\utcte}{=}
+\newcommand{\utctp}{+}
+\newcommand{\utctge}{\geq}
+\newcommand{\emptyseq}{\langle \rangle}
+\newcommand{\zcomment}[1]{#1}
+\newcommand{\mcomment}[1]{\mbox{[#1]}}
+\newcommand{\todo}[1]{\marginpar{#1}}
+\newcommand{\corbasec}{CORBAsec}
+\newcommand{\corba}{CORBA}
+\newcommand{\fsa}{\emph{fsa.com}}
+\newcommand{\rbaci}{$RBAC_1$}
+
+\setcounter{tocdepth}{5}
+
+\makeindex
+
+%\pagestyle{fancy}
+
+
+\hypersetup{%
+  pdftitle={A Z-Model Of CORBA And The Security Service},
+  pdfsubject={Formal Specification of CORBAsec},
+  pdfauthor={Frank Rittinger <frittinger@acm.org>},
+  pdfkeywords={CORBA,security,architecture,formal methods},
+  pdfpagemode={UseOutlines}
+  }
+
+
+\title{A Z-Model Of CORBA And The Security Service}
+\author{Frank Rittinger}
+
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\sloppy
+
+\include{introduction}
+\include{oo-in-z}
+\include{specification}
+\include{rbac}
+\include{concrete}
+\include{analysis}
+
+
+% Bibliography
+\bibliographystyle{alpha}
+\bibliography{corba}
+
+\printindex
+
+\end{document}
+
+

@@ -1,0 +1,206 @@
+
+package zeta.agl.bench;
+
+import zeta.agl.*;
+import java.util.*;
+import net.sf.pizzacompiler.lang.*;
+import net.sf.pizzacompiler.util.*;
+
+public class Benchmarks{
+
+  public static void main(String[] argv){
+    String[] testdata = new String[10000];
+    for (int i = 0; i < testdata.length; i++){
+      testdata[i] = "" + i;
+    }
+    {
+      System.out.println("-------- BufferSeq vs Java/Pizza Vector -------");
+      System.out.println("java vector:");
+      Pair<int,long> res1 = 
+	Bench.bench(fun()->int { return AppendJavaVector.run(testdata); });
+      System.out.println("yields " + res1.fst + " in " + res1.snd + "ms"); 
+      System.gc();
+      System.out.println("pizza vector:");
+      Pair<int,long> res2 = 
+	Bench.bench(fun()->int { return AppendPizzaVector.run(testdata); });
+      System.out.println("yields " + res2.fst + " in " + res2.snd + "ms"); 
+      System.gc();
+      System.out.println("bufseq:");
+      Pair<int,long> res3 = 
+	Bench.bench(fun()->int { return AppendBufferSeq.run(testdata); });
+      System.out.println("yields " + res3.fst + " in " + res3.snd + "ms"); 
+    }
+    {
+      System.out.println("-------- HashSet vs mutable Pizza Set -------");
+      System.out.println("net.sf.pizzacompiler.util.Set:");
+      Pair<int,long> res1 = 
+	Bench.bench(fun()->int { return IncludePizzaSet.run(testdata); });
+      System.out.println("yields " + res1.fst + " in " + res1.snd + "ms"); 
+      System.gc();
+      System.out.println("HashSet:");
+      Pair<int,long> res2 = 
+	Bench.bench(fun()->int { return IncludeHashSet.run(testdata); });
+      System.out.println("yields " + res2.fst + " in " + res2.snd + "ms"); 
+      System.gc();
+    }
+    {
+      System.out.println("-------- HashMap vs Java/Pizza Hashtable -----");
+      System.out.println("java.util.Hashtable:");
+      Pair<int,long> res1 = 
+	Bench.bench(fun()->int { return DefineJavaHashtable.run(testdata); });
+      System.out.println("yields " + res1.fst + " in " + res1.snd + "ms"); 
+      System.gc();
+      System.out.println("net.sf.pizzacompiler.util.Hashtable:");
+      Pair<int,long> res2 = 
+	Bench.bench(fun()->int { return DefinePizzaHashtable.run(testdata); });
+      System.out.println("yields " + res2.fst + " in " + res2.snd + "ms"); 
+      System.gc();
+      System.out.println("HashMap:");
+      Pair<int,long> res3 = 
+	Bench.bench(fun()->int { return DefineHashMap.run(testdata); });
+      System.out.println("yields " + res3.fst + " in " + res3.snd + "ms"); 
+      System.gc();
+    }
+  }
+}
+
+class Bench{
+  public static Pair<int,long> bench(()->int op){
+    int res = -1; long time = 0;
+    for (int i = 0; i < 10; i++){
+      long start = System.currentTimeMillis();
+      res = op();
+      time += System.currentTimeMillis()-start;
+    }
+    return new Pair(res, time / 10);
+  }
+}
+
+
+class AppendBufferSeq{
+
+  static int run(String[] data){
+    Seq<String> s = new BufferSeq(0,1000,1000);
+    for (int i = 0; i < data.length; i++){
+      s = s.append(data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (s.at(i) == data[i]) n++;
+    //    }
+    // System.out.println(s.toString());
+    return n;
+  }
+}
+
+
+class AppendJavaVector{
+  static int run(String[] data){
+    java.util.Vector v = new java.util.Vector(1000,1000);
+    for (int i = 0; i < data.length; i++){
+      v.addElement(data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (v.elementAt(i) == data[i]) n++;
+    //    }
+    return n;
+  }
+}
+
+class AppendPizzaVector{
+  static int run(String[] data){
+    net.sf.pizzacompiler.util.Vector<String> v = 
+      new net.sf.pizzacompiler.util.Vector(1000,1000,
+			    fun (int size)->String[]{ 
+	                      return new String[size]; },
+			    "");
+    for (int i = 0; i < data.length; i++){
+      v.addElement(data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (v.elementAt(i) == data[i]) n++;
+    //    }
+    return n;
+  }
+}
+
+class IncludeHashSet{
+
+  static int run(String[] data){
+    zeta.agl.Set<String> s = new HashSet(101,0.75f);
+    for (int i = 0; i < data.length; i++){
+      s = s.include(data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (s.contains(data[i])) n++;
+    //    }
+    // System.out.println(s.toString());
+    return n;
+  }
+}
+
+class IncludePizzaSet{
+
+  static int run(String[] data){
+    net.sf.pizzacompiler.util.Set<String> s = new pizza.util.Set(101,0.75f);
+    for (int i = 0; i < data.length; i++){
+      s.put(data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (s.contains(data[i])) n++;
+    //    }
+    return n;
+  }
+}
+
+
+class DefineHashMap{
+
+  static int run(String[] data){
+    zeta.agl.Map<String,String> m = new HashMap(101,0.75f);
+    for (int i = 0; i < data.length; i++){
+      m = m.define(data[i],data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (m.defines(data[i]) && m.get(data[i]) == data[i]) n++;
+    //    }
+    // System.out.println(m.toString());
+    return n;
+  }
+}
+
+class DefinePizzaHashtable{
+
+  static int run(String[] data){
+    net.sf.pizzacompiler.util.Hashtable<String,String> m = new pizza.util.Hashtable(101,0.75f);
+    for (int i = 0; i < data.length; i++){
+      m.put(data[i],data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (m.containsKey(data[i]) && m.get(data[i]) == data[i]) n++;
+    //    }
+    return n;
+  }
+}
+
+class DefineJavaHashtable{
+
+  static int run(String[] data){
+    java.util.Hashtable m = new java.util.Hashtable(101,0.75f);
+    for (int i = 0; i < data.length; i++){
+      m.put(data[i],data[i]);
+    }
+    int n = 0;
+    //    for (int i = 0; i < data.length; i++){
+    //      if (m.containsKey(data[i]) && (String)m.get(data[i]) == data[i]) n++;
+    //    }
+    return n;
+  }
+}
+    

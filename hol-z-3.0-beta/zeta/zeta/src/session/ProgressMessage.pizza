@@ -1,0 +1,25 @@
+package zeta.session;
+
+/** 
+ * Progress messages of tool operation.
+ *
+ * @version $Id: ProgressMessage.pizza,v 1.1 1998/09/06 15:26:36 wg Exp $ 
+ *
+ */
+
+import zeta.format.*;
+
+
+public class ProgressMessage extends Message {
+
+  /**
+   * @param message  a format describing the message
+   */
+  public case ProgressMessage(final Format message);
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    return message;
+  }
+
+}

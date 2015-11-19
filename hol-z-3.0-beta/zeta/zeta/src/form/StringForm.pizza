@@ -1,0 +1,72 @@
+package zeta.form;
+
+/**
+ * The class of string forms, an instance of text forms for
+ * inputting arbitrary strings. <p>
+ *
+ * @version $Id: StringForm.pizza,v 1.4 1998/11/23 00:05:23 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.Session;
+import zeta.session.Locator;
+import zeta.session.Failures;
+
+
+public class StringForm extends TextForm {
+
+
+  /** The class of string form states. */
+  public static class State extends TextForm.State {
+    public case State(String string);
+
+    /**
+     * Return the text in the string state.
+     */
+    public String getText(Session session){
+      if (string == null)
+	return "";
+      else
+	return string;
+    }
+
+    /*
+     * Set the draft text.
+     */
+    public boolean setDraftText(Session session, String text){
+      string = text;
+      return true;
+    }
+
+    /*
+     * Confirm the given text.
+     */
+    public void confirmText(Session session, Locator locator, Object source)
+    throws Failures.FormFailed{
+      addToHistory(string);
+      super.confirmText(session, locator, source);
+    }
+
+    /**
+     * Return true if this text state provides a history. 
+     */
+    public boolean hasHistory(Session s){
+      return true;
+    }
+
+  }
+ 
+  /** 
+   * Construct a string form from a state.
+   */
+  public StringForm(State state){
+    super(state);
+  }
+
+  /**
+   * Get syntax description
+   */
+  public String getSyntax(){
+    return "<STRING>";
+  }
+
+}

@@ -1,0 +1,39 @@
+package zeta.tools.sh;
+
+/** 
+ * Evaluation finished messages, indicating that a form evaluation has been
+ * finished.
+ *
+ * @version $Id: FinishedMessage.pizza,v 1.2 2000/05/08 07:07:43 wg Exp $ 
+ *
+ */
+
+import zeta.session.*;
+import zeta.format.*;
+
+
+public class FinishedMessage extends Message {
+
+  /**
+   * The finished message, containg the locator and the sequence of words
+   * finished evaluation.
+   */
+  public case FinishedMessage(final Locator locator, final String[] words);
+
+  /** */
+  public Format toFormat(FormatInfo info){
+    StringBuffer buf = new StringBuffer();
+    for (int i = 0; i < words.length; i++){
+      if (i > 0) buf.append(" ");
+      String word = words[i].replace('\n', ' ');
+      word = word.replace('\r', ' ');
+      if (word.indexOf(" ") >= 0){ // FIXME: more cases for quote
+	buf.append("\"");
+	buf.append(word);
+	buf.append("\"");
+      } else 
+	buf.append(word);
+    }
+    return Format.literal(buf.toString());
+  }
+}

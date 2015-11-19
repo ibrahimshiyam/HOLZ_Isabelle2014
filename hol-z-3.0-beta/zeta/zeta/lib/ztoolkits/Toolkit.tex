@@ -1,0 +1,1013 @@
+% $Id: Toolkit.tex 6805 2007-08-17 14:48:19Z brucker $
+% ZETA Z toolkit 
+% compatible with the ZRM
+% based on work of Mike Spivey, Copyright (C) J.M. Spivey 1989, 1991 
+
+\documentclass{article}
+
+\parindent0pt
+\parskip3pt
+\usepackage{a4wide,zeta}
+
+\begin{document}
+\title{The \Zeta{} Toolkit}
+\author{Wolfgang Grieskamp\thanks{Based on work of Mike Spivey, Copyright (C) J.M. Spivey 1989, 1991}}
+\maketitle 
+
+Note: this is \emph{not} a documentation of the toolkit.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Parents}
+
+This toolkit has no toolkit as implicit parent:
+
+\begin{verbatim}
+%%toolkit
+\end{verbatim}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Layout}
+
+\begin{verbatim}
+%%macro \also 0 \\
+%%macro \Also 0 \\
+%%macro \ALSO 0 \\
+%%macro ~ 0
+%%macro & 0
+%%macro \t 1
+%%macro \< 0
+%%macro \> 0
+%%macro \quad 0
+%%macro \qquad 0
+%%macro \; 0
+%%macro \, 0
+%%macro \! 0
+\end{verbatim}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Assumed Function}
+
+\zgeneric{1 (\assumed \_)}
+
+\begin{verbatim}
+%%zap given (\assumed\_)
+%%macro \assert 1 [|#1]
+\end{verbatim}
+
+\begin{axdef}[X]
+  \assumed \_ : \power X
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Tracing}
+
+\begin{verbatim}
+%%zap native NATIVEtrace(?,?)
+\end{verbatim}
+
+\begin{axdef}[X,Y]
+  NATIVEtrace : \assumed X \cross Y \fun Y
+\end{axdef}
+
+\begin{axdef}[X]
+  \TRACE == \lambda x: \assumed X @ NATIVEtrace(x,x)
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \PRINT == \lambda x: \assumed X; y: \assumed Y @ NATIVEtrace(x,y)
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Forcing}
+
+\begin{verbatim}
+%%zap native NATIVEdeepForce(!)
+%%zap native NATIVEforce(!)
+%%zap native NATIVEwaitfor(!,?)
+\end{verbatim}
+
+\begin{axdef}[X]
+  NATIVEdeepForce : \assumed X \fun X
+\end{axdef}
+
+\begin{axdef}[X]
+  NATIVEforce : \assumed X \fun X
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  NATIVEwaitfor : \assumed X \cross Y \fun Y
+\end{axdef}
+
+
+
+\begin{axdef}[X]
+  \DEEPFORCE == \lambda x: \assumed X @ NATIVEdeepForce(x)
+\end{axdef}
+
+\begin{axdef}[X]
+  \FORCE == \lambda x: \assumed X @ NATIVEforce(x)
+\end{axdef}
+
+\zfunction{2 (\_ \whenbound \_)}
+
+\begin{axdef}[X,Y]
+  \_ \whenbound \_ == \lambda x: \assumed X; y: \assumed Y @ NATIVEwaitfor(x,y)
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Memoization}
+
+\begin{verbatim}
+%%zap native NATIVEmemoize(!,!)
+\end{verbatim}
+
+\begin{axdef}[X]
+  NATIVEmemoize : \assumed \num \cross \power X \fun \power X
+\end{axdef}
+
+\begin{axdef}[X]
+  \MEMOIZE == \lambda x: \assumed \power X @ NATIVEmemoize(16, x)
+\end{axdef}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Sequentialization}
+
+\begin{axdef}
+  \BEGINSEQ, \ENDSEQ : \power []
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Wrapper of a Native Homomorphism}
+
+\begin{zed}
+  [NATIVEhomT] % pseudo type used for HOM constants
+\end{zed}
+
+% the wrapper function
+\begin{axdef}[X,Y]
+  NATIVEhom: \assumed NATIVEhomT \cross \power X \pfun Y
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Equality}
+
+A definition for equality is provided for the case that equality is
+used without args (with args it is transformed to a builtin): we use
+in the definition below):
+
+\begin{verbatim}
+%%inrel = \neq
+\end{verbatim}
+
+\begin{axdef}[X]
+  \_ = \_ : \assumed \power (X \cross X)
+\where
+  (\_ = \_) \in \{\{x1,x2:X|x1=x2\}\} 
+\end{axdef}
+
+\begin{axdef}[X]
+  \_ \neq \_ == \{x1,x2:\assumed X|\lnot x1=x2\} 
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Booleans}
+
+\begin{verbatim}
+%%zap given \zbool
+\end{verbatim}
+
+\begin{zed}
+  \zbool == \power []
+\end{zed}
+
+\begin{zed}
+  \zfalse == \emptyset[[]] \\
+  \ztrue == \{\lbind\rbind\}
+\end{zed}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Product}
+
+\begin{verbatim}
+%%inop \mapsto 1
+\end{verbatim}
+
+\begin{axdef}[X,Y]
+   first == \lambda x:\assumed X;y:\assumed Y  @ x
+\end{axdef}
+\begin{axdef}[X,Y]
+   second == \lambda x:\assumed X;y:\assumed Y @ y
+\end{axdef}
+\begin{axdef}[X,Y]
+   \_ \mapsto \_ == \lambda x:\assumed X; y: \assumed Y @ (x,y)
+\end{axdef}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Sets}
+
+% Set Constructors
+
+\begin{axdef}
+  NATIVEempty, NATIVEnotempty, NATIVEext,\\
+  NATIVEpower, NATIVEbigcap, NATIVEcard : NATIVEhomT
+\end{axdef}
+
+\begin{verbatim}
+%%pregen \power_1 \finset \finset_1 
+\end{verbatim}
+
+\zfunction{90 (\EXT \_)}
+
+\zfunction{90 (\efinset \_)}
+
+
+\begin{axdef}[X]
+  \EXT \_ == \lambda S:\power X @ NATIVEhom[X,\power X](NATIVEext,S)
+\end{axdef}
+
+\begin{axdef}[X]
+  \power_1 \_ == 
+     \{S: \assumed \power X | 
+          NATIVEhom[X,\zbool](NATIVEnotempty, S) = \ztrue\}
+\end{axdef}
+
+\begin{axdef}[X]
+  \finset \_ == \power X
+\end{axdef}
+
+\begin{axdef}[X]
+  \efinset \_ == \lambda S:\power X @ 
+         NATIVEhom[X,\power (\power X)](NATIVEpower,S)
+\end{axdef}
+
+
+% Empty Set
+
+\begin{axdef}[X]
+  \emptyset: \power X
+\end{axdef}
+
+
+% Membership and Subset
+
+\begin{verbatim}
+%%inrel \in \notin \subseteq \subset
+\end{verbatim}
+
+\begin{axdef}[X]
+   \_ \in \_ : \assumed \power(X \cross \power X)
+\where
+  (\_ \in \_) = \{x: \assumed X; S: \assumed \power X | x \in S\}
+\end{axdef}
+\begin{axdef}[X]
+   \_ \notin \_ == \{x: \assumed X; S:\assumed \power X | \lnot x \in S\}
+\end{axdef}
+\begin{axdef}[X]
+   \_ \subseteq \_ : \assumed \power(\power X \cross \power X)
+\where
+   (\_ \subseteq \_) = \{S,T: \assumed \power X | S \subseteq T\}
+\end{axdef}
+\begin{axdef}[X]
+   \_ \subset \_ == \{S,T: \assumed \power X | S \subseteq T \land 
+                         (\exists x: \assumed T | x \in T @ \lnot x \in S)\}
+\end{axdef}
+
+
+% Set Operations
+
+%%inop \cup \setminus 3
+%%inop \cap 4
+
+\begin{axdef}[X]
+   \_ \cup \_ : \assumed \power X \cross \power X \fun \power X
+\where
+   (\_  \cup \_)  = \lambda S1,S2: \assumed \power X @ S1 \cup S2 
+\end{axdef}
+\begin{axdef}[X]
+   \_ \cap \_ : \assumed \power X \cross \power X \fun \power X
+\where
+   (\_  \cap \_)  = \lambda S1,S2: \assumed \power X @ S1 \cap S2 \\
+\end{axdef}
+\begin{axdef}[X]
+   \_  \setminus \_  == \lambda S1,S2: \assumed \power X @ 
+                           S1 \cap \{x: \assumed X|\lnot x \in S2\} \\
+\end{axdef}
+\begin{axdef}[X]
+   \bigcup == \lambda S: \assumed \power(\power X) @ 
+               \{s:\assumed \power X; x: \assumed X | s \in S; x \in s @ x\}
+\end{axdef}
+\begin{axdef}[X]
+   \bigcap == \lambda S: \assumed \power(\power X) @ 
+                       NATIVEhom[\power X,\power X](NATIVEbigcap, S)
+\end{axdef}
+
+% Set reduce (FIXME: put onto ZAM level)
+
+\begin{axdef}[X,Y]
+  setreduce == \lambda f: \assumed X \cross Y \pfun Y; y: \assumed Y;
+                    S: \assumed \power X @ \\\t1
+              AUXreduce(f,y,NATIVEhom[X,\power X](NATIVEext, S))
+\end{axdef}
+
+
+
+\begin{verbatim}
+%%zap native NATIVEextIsEmpty(!)
+%%zap native NATIVEextSplit(!)
+\end{verbatim}
+
+\begin{axdef}[X]
+  NATIVEextIsEmpty: \assumed \power X
+\end{axdef}
+
+\begin{axdef}[X]
+  NATIVEextSplit: \assumed \power X \fun X \cross \power X
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  AUXreduce : \assumed (X \cross Y \pfun Y) \cross Y \cross \power X
+                    \pfun Y
+\where
+  AUXreduce = \lambda f: \assumed X \cross Y \pfun Y; y: \assumed Y;
+                    S: \assumed \power X @ \\\t1
+     \IF S \in NATIVEextIsEmpty \THEN y \\\t1
+     \ELSE \mu x:\assumed X; S': \assumed \power X | 
+                                         (x,S') = NATIVEextSplit(S) \\\t3
+           @ AUXreduce(f, f(x,y), S')
+\end{axdef}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Relations and Functions}
+
+
+% domain and range
+
+\begin{axdef}[X,Y]
+   \dom == \lambda R: \assumed X \rel Y @ 
+               \{x:\assumed X; y:\assumed Y | (x,y) \in R @ x\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+   \ran == \lambda R: \assumed (X \rel Y) @ 
+               \{x:\assumed X; y:\assumed Y | (x,y) \in R @ y\}
+\end{axdef}
+
+% inversion
+
+%%postop \inv
+
+\begin{axdef}[X,Y]
+   \_ \inv == \lambda R: \assumed (X \rel Y) @ 
+               \{x:\assumed X; y:\assumed Y | (x,y) \in R @ (y,x) \}
+\end{axdef}
+
+% image
+
+\zfunction{95 (\_ \limg \_ \rimg)}
+
+\begin{axdef}[X,Y]
+   \_ \limg \_ \rimg == 
+      \lambda R: \assumed X \rel Y; S: \assumed \power X @ \\\t1
+        \{y: \assumed Y |
+               \exists x: \assumed X @ x \in S \land (x,y) \in R\}
+\end{axdef}
+
+
+% identity
+
+%%pregen \id
+
+\begin{axdef}[X]
+   \id \_ == \{x: \assumed X | x \in X @ (x,x)\}
+\end{axdef}
+
+
+% composition
+
+\begin{verbatim}
+%%inop \circ \comp 4
+\end{verbatim}
+
+\begin{axdef}[X,Y,Z]
+   \_ \comp \_ == 
+     \lambda R1: \assumed (X \rel Y); R2: \assumed (Y \rel Z) @ \\\t1
+       \{x: \assumed X; y: \assumed Y; z: \assumed Z |
+            (x,y) \in R1; (y,z) \in R2 @ (x,z)\}
+\end{axdef}
+
+\begin{axdef}[X,Y,Z]
+   \_ \circ \_ ==
+     \lambda R1: \assumed (Y \rel Z); R2: \assumed (X \rel Y) @
+       R2 \comp R1
+\end{axdef}
+
+% iteration
+
+\begin{axdef}[X]
+  iter : \assumed \nat \fun (X \rel X) \fun (X \rel X) 
+\where
+  iter = \lambda n: \assumed \nat | n \in \nat @
+           \lambda R: \assumed X \rel X @ \\\t1
+               \IF n = 0 \THEN \id (\dom R \cup \ran R) \\\t1
+               \ELSE R \comp iter(n-1)(R)
+\end{axdef}
+
+\zfunction{95 (\_ \bsup \_ \esup)} 
+
+\begin{axdef}[X]
+  \_ \bsup \_ \esup == \lambda R: \assumed X \rel X; n: \assumed \nat @ 
+        iter n R
+\end{axdef}
+
+\begin{verbatim}
+%%postop \plus
+\end{verbatim}
+
+\begin{axdef}[X]
+ \_\plus : \assumed (X \rel X) \fun (X \rel X)
+\where
+  (\_\plus) = \lambda R: \assumed X \rel X @ 
+     R \cup
+     \{ x,z: \assumed X | \exists y: \assumed X @
+                            (x,y) \in R \land (y,z) \in R\plus \}
+\end{axdef}
+
+\begin{verbatim}
+%%postop \star
+\end{verbatim}
+
+\begin{axdef}[X]
+ \_\star == 
+   \lambda R: \assumed X \rel X @ \id (\dom R \cup \ran R) \cup R\plus 
+\end{axdef}
+
+
+% arrows
+
+\begin{verbatim}
+%%ingen \rel \pfun \fun \pinj \inj \psurj \surj \bij \ffun \finj
+\end{verbatim}
+
+\begin{axdef}[X,Y]
+  \_ \rel \_ == \power \{x: X; y: Y\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \pfun \_ ==  \\\t1
+    \{R: \assumed X \rel Y | 
+         \forall x:X | x \in \dom R @ \exists_1 y:Y @ (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \fun \_ == \\\t1
+    \{R: \assumed X \rel Y | 
+         \forall x: \assumed X | x \in X @ \exists_1 y: \assumed Y | y \in Y
+          @ (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \pinj \_ == \\\t1
+    \{R: \assumed X \rel Y | 
+         \forall y: \assumed Y | y \in \ran R @ 
+                \exists_1 x: \assumed X | x \in X @ (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \psurj \_ == \\\t1
+    \{R: \assumed X \rel Y | 
+         \forall y: \assumed Y | y \in Y @ 
+                \exists_1 x: \assumed X | x \in X @ (x,y) \in R\}
+\end{axdef}
+
+\begin{zed}
+  X \surj Y == (X \psurj Y) \cap (X \fun Y) \\
+  X \inj  Y == (X \pinj Y) \cap (X \fun Y) \\
+  X \bij  Y == (X \inj Y) \cap (X \surj Y) \\
+  X \ffun Y == (X \pfun Y) \cap \finset(X \cross Y) \\
+  X \finj Y == (X \pinj Y) \cap (X \ffun Y)
+\end{zed}
+
+
+% Operations
+
+\begin{verbatim}
+%%inop \oplus 5
+%%inop \dres \rres \ndres \nrres \wplus 6
+%%prerel \disjoint 
+%%inrel \partition 
+\end{verbatim}
+
+\begin{axdef}[X,Y]
+  \_ \dres \_ == 
+      \lambda S: \assumed \power X; R: \assumed (X \rel Y) @ \\\t1
+        \{x: \assumed X; y: \assumed Y| x \in S \land (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \ndres \_ == 
+      \lambda S: \assumed \power X; R: \assumed (X \rel Y) @ \\\t1
+        \{x: \assumed X; y: \assumed Y| \lnot x \in S; (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \rres \_ == 
+      \lambda R: \assumed (X \rel Y); S: \assumed \power Y @ \\\t1
+        \{x: \assumed X; y: \assumed Y | y \in S \land (x,y) \in R\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \nrres \_ == 
+      \lambda R: \assumed (X \rel Y); S: \assumed \power Y @ \\\t1
+        \{x: \assumed X; y: \assumed Y | (x,y) \in R; \lnot y \in S\}
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  \_ \oplus \_ == 
+      \lambda R1: \assumed X \rel Y; R2: \assumed X \rel Y @ \\\t1
+        (\dom R2 \ndres R1) \cup R2
+\end{axdef}
+
+\begin{axdef}[X,Y]
+   \disjoint \_: \power (X \pfun \power Y) 
+\where
+   (\disjoint \_) =
+     \{F: \assumed X \pfun \power Y |
+        \forall x1,x2: X | x1 \in \dom F; x2 \in \dom F; x1 \neq x2 @ \\\t9
+           F~x1 \cap F~x2 = \emptyset\}
+\end{axdef}
+           
+\begin{axdef}[X,Y]
+   \_ \partition \_: (X \pfun \power Y) \rel \power Y
+\where
+   (\_ \partition \_) =
+     \{F: \assumed X \pfun \power Y; S: \power Y |
+        \disjoint F; \bigcup (\ran F) = S\}
+\end{axdef}
+           
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Numbers}
+
+\begin{verbatim}
+%%inop \upto 2
+%%inop + -   3
+%%inop * \div \mod  4
+%%inrel < \leq \geq > 
+\end{verbatim}
+
+\zfunction{90 (- \_)}
+
+
+\begin{verbatim}
+%%zap native NATIVEmakeNumber(!) 
+%%zap native NATIVEnumAdd(!,!) 
+%%zap native NATIVEnumSub(!,!) 
+%%zap native NATIVEnumMul(!,!) 
+%%zap native NATIVEnumDiv(!,!) 
+%%zap native NATIVEnumMod(!,!) 
+%%zap native NATIVEnumLess(!,!)
+%%zap native NATIVEnumLessEq(!,!)
+\end{verbatim}
+
+%%zap given \num \baseNum 
+\begin{zed}
+  [\baseNum] \\
+  \num == \baseNum
+\end{zed}
+
+% declaration of natives
+\begin{axdef}
+  NATIVEnumAdd,NATIVEnumMul, NATIVEnumSub, \\
+  NATIVEnumDiv, NATIVEnumMod
+                    : \assumed \power((\num \cross \num) \cross \num) \\
+  NATIVEnumLess,NATIVEnumLessEq : \assumed \power(\num \cross \num)
+\end{axdef}
+
+\begin{axdef}
+   \nat == \{ x:\num | (0,x) \in NATIVEnumLessEq\}
+\end{axdef}
+
+\begin{axdef}
+   \nat_1 == \{ x:\num | (0,x) \in NATIVEnumLess\}
+\end{axdef}
+
+\begin{axdef}
+  - \_ == \lambda x:\num @ NATIVEnumSub(0,x)
+\end{axdef}
+
+\begin{axdef}
+  \_ + \_ == \lambda x,y: \num @ NATIVEnumAdd(x,y)
+\end{axdef}
+
+\begin{axdef}
+  \_ - \_ == \lambda x,y: \num @ NATIVEnumSub(x,y)
+\end{axdef}
+
+\begin{axdef}
+  \_ * \_ == \lambda x,y: \num @ NATIVEnumMul(x,y) 
+\end{axdef}
+
+\begin{axdef}
+  \_ \div \_ == \lambda x,y: \num @ NATIVEnumDiv(x,y) 
+\end{axdef}
+
+\begin{axdef}
+  \_ \mod \_ == \lambda x,y: \num @ NATIVEnumMod(x,y) 
+\end{axdef}
+
+\begin{axdef}
+  \_ < \_ == \{x,y: \num | (x,y) \in NATIVEnumLess \}
+\end{axdef}
+
+\begin{axdef}
+  \_ \leq \_ == \{x,y: \num | (x,y) \in NATIVEnumLessEq \}
+\end{axdef}
+
+\begin{axdef}
+  \_ > \_ == \{x,y: \num | (y,x) \in NATIVEnumLess \}
+\end{axdef}
+
+\begin{axdef}
+  \_ \geq \_ == \{x,y: \num | (y,x) \in NATIVEnumLessEq \}
+\end{axdef}
+
+\begin{axdef}
+  succ == \lambda x:\num @ x+1
+\end{axdef}
+
+\begin{axdef}
+  \_ \upto \_ : \assumed \num \cross \num \fun \power \num
+\where
+  (\_ \upto \_) = \lambda l,u: \num @ 
+     \IF l \leq u \THEN \{l\} \cup ( (l+1) \upto u )
+                  \ELSE \emptyset
+\end{axdef}
+
+\begin{axdef}
+  min == \lambda S:\power \num @ 
+             \LET S' == \EXT S @
+             (\mu x:\num | x \in S' \land
+                           (\forall x':\num | x' \in S' @ x \leq x'))
+\end{axdef}
+
+\begin{axdef}
+  max == \lambda S:\power \num @ 
+             \LET S' == \EXT S @
+              (\mu x:\num | x \in S' \land
+                            (\forall x':\num | x' \in S' @ x \geq x'))
+\end{axdef}
+
+\begin{axdef}
+  \abs == \lambda x:\num @ \IF x < 0 \THEN -x \ELSE x 
+\end{axdef}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Sequences}
+
+\begin{verbatim}
+%%pregen \seq \seq_1 \iseq
+%%inop \zscons 3
+%%inop \cat 3
+%%inop \filter \extract 4
+%%inrel \prefix \suffix
+\end{verbatim}
+
+\zfunction{9999 (\langle ,, \rangle)}
+
+
+% homomorphisms
+
+\begin{axdef}
+  NATIVEisSeq,NATIVEisNonEmptySeq,NATIVEasSeq,NATIVEsquash : NATIVEhomT
+\end{axdef}
+
+% primivites
+
+\begin{verbatim}
+%%zap native NATIVEisSeqRepr(?)
+%%zap native NATIVEcons(?,?)
+%%zap native NATIVEhead(!)
+%%zap native NATIVEtail(!)
+%%zap native NATIVEseqCard(?)
+\end{verbatim}
+
+\begin{axdef}[X]
+  NATIVEisSeqRepr : \assumed \power X \\
+  NATIVEcons : \assumed X \cross \seq X \fun \seq X \\
+  NATIVEhead : \assumed \seq X \pfun X \\
+  NATIVEtail : \assumed \seq X \pfun \seq X \\
+  NATIVEseqCard : \assumed \power X \pfun \nat
+\end{axdef}
+
+
+% auxiliary to ensure a sequence representation
+
+\begin{axdef}[X]
+  AUXasSeq == 
+    \lambda S: \assumed \seq X @ \\\t1
+      \IF S \in NATIVEisSeqRepr \THEN S
+      \ELSE NATIVEhom[\nat \cross X,\power(\nat \cross X)](NATIVEasSeq, S)
+\end{axdef}
+
+% types
+
+\begin{axdef}[X]
+  \seq \_ : \power (\num \fun X)
+\where
+  (\seq \_) = 
+    \{S: \assumed(\nat \ffun X) | \\\t3
+       S \in NATIVEisSeqRepr \lor
+                NATIVEhom[\num \cross X,\zbool](NATIVEisSeq, S) = \ztrue \}
+\end{axdef}
+
+\begin{zed}
+  \seq_1 X == 
+    \{S: \assumed \seq X |  \\\t3
+        NATIVEhom[\num \cross X,\zbool](NATIVEisNonEmptySeq, S) = \ztrue \}
+\end{zed}
+
+\begin{zed}
+  \iseq X == \{s: \seq X| s \in \seq X; \# (\ran s) = \# s \}
+\end{zed}
+
+
+% denotation
+
+\begin{axdef}[X]
+  \langle ,, \rangle == AUXasSeq[X]
+\end{axdef}
+
+% concatentation
+
+
+\begin{axdef}[X]
+  \_ \zscons \_ == 
+    \lambda x: \assumed X; xs: \assumed \seq X @ NATIVEcons(x,xs)
+\end{axdef}
+
+
+\begin{axdef}[X]
+   \_ \cat \_ : \assumed \seq X \cross \seq X \fun \seq X
+\where
+   (\_\cat\_) = \\\t1
+     \{ ys,ys': \assumed \seq X | ys' = AUXasSeq(ys) 
+                                @ ((\emptyset, ys'),ys') \} \cup \\\t1
+     \{ 
+        x: \assumed X; xs,xs',ys,zs,zs': \assumed \seq X | \\\t1 ~ ~
+        xs = NATIVEcons(x,xs'); ((xs',ys),zs) \in (\_\cat\_) \\
+        zs' = NATIVEcons(x,zs) @
+        ((xs,ys),zs')
+     \}
+\end{axdef}
+
+
+% squash
+
+\begin{axdef}[X]
+  squash == 
+    \lambda F: \assumed \nat \ffun X @ \\\t1
+      \IF F \in NATIVEisSeqRepr \THEN F
+      \ELSE NATIVEhom[\nat \cross X,\power(\nat \cross X)](NATIVEsquash, F)
+\end{axdef}
+      
+% head, tail, last, front
+
+\begin{axdef}[X]
+  head == \{S,S': \assumed \seq X; x: \assumed X |
+              S = NATIVEcons(x, S') @ (S,x)\}
+\end{axdef}
+
+\begin{axdef}[X]
+  tail == \{S,S': \assumed \seq X; x: \assumed X |
+              S = NATIVEcons(x, S') @ (S,S')\}
+\end{axdef}
+
+\begin{axdef}[X]
+  rev : \assumed \seq X \fun \seq X
+\where
+  rev = \lambda S: \assumed \seq X @
+             \IF S = \emptyset \THEN \emptyset
+             \ELSE rev(tail(S)) \cat \langle head S \rangle
+\end{axdef}
+
+   % FIXME: efficiency
+\begin{axdef}[X]
+  last == \lambda S: \assumed \seq X @ head(rev S)
+\end{axdef}
+
+   % FIXME: efficiency
+\begin{axdef}[X]
+  front == \lambda S: \assumed \seq X @ rev(tail(rev S))
+\end{axdef}
+
+% fold
+
+\begin{axdef}[X,Y]
+  foldr : \assumed (X \cross Y \pfun Y) \cross Y  \fun \seq X \pfun Y
+\where
+  foldr = \lambda F: \assumed X \cross Y \pfun Y; y: Y @ \\\t1
+           \lambda xs: \seq X @ INTERNfoldr(F, y, AUXasSeq(\DEEPFORCE(xs)))
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  foldl : \assumed Y \cross (Y \cross X \pfun Y)  \fun \seq X \pfun Y
+\where
+  foldl = \lambda y: Y; F: \assumed Y \cross X \pfun Y @ \\\t1
+           \lambda xs: \seq X @ INTERNfoldl(y, F, AUXasSeq(\DEEPFORCE~xs))
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  INTERNfoldr : \assumed (X \cross Y \pfun Y) \cross Y \cross \seq X \pfun Y
+\where
+  INTERNfoldr =
+    \lambda F: \assumed X \cross Y \pfun Y; y: Y; xs: \assumed \seq X @ \\\t1
+      \IF xs = \emptyset \THEN y
+                         \ELSE F(head~xs,INTERNfoldr(F,y,tail~xs))
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  INTERNfoldl : \assumed Y \cross (Y \cross X \pfun Y) \cross \seq X \pfun Y
+\where
+  INTERNfoldl =
+    \lambda y: Y; F: \assumed Y \cross X \pfun Y; xs: \assumed \seq X @ \\\t1
+      \IF xs = \emptyset \THEN y
+                         \ELSE INTERNfoldl(F(y,head~xs),F,tail~xs)
+\end{axdef}
+
+\begin{axdef}[X]
+  fold : \assumed (X \cross X \pfun X) \fun \seq X \pfun X
+\where
+  fold =
+    \lambda F: \assumed X \cross X \pfun X @
+    \lambda xs: \assumed \seq X @ \\\t1
+      INTERNfoldl(head~xs,F,tail~xs)
+\end{axdef}
+
+
+% filter and extract
+
+\begin{axdef}[X]
+   \_ \filter \_ : \assumed \seq X \cross \power X \fun \seq X 
+\where
+   (\_ \filter \_) = \lambda S: \assumed \seq X; R: \assumed \power X @
+     squash (S \rres R)
+\end{axdef}
+   
+\begin{axdef}[X]
+   \_ \extract \_ == 
+      \lambda D: \assumed \power \nat; S: \assumed \seq X @
+        squash (D \dres S)
+\end{axdef}
+
+\begin{axdef}[X]
+   \_ \prefix \_ : \assumed \seq X \rel \seq X
+\where
+  (\_ \prefix \_) = \\\t1
+     \{ S2: \assumed \seq X @ (\emptyset, S2) \} \cup \\\t1
+     \{ S1,S2: \assumed \seq X; x: \assumed X | \\\t2
+         S1 \prefix S2 @ (NATIVEcons(x,S1),NATIVEcons(x, S2)) \}
+\end{axdef}
+
+\begin{axdef}[X]
+   \_ \suffix \_ : \assumed \seq X \rel \seq X
+\where
+  (\_ \suffix \_) = \\\t1
+     \{ S2: \assumed \seq X @ (\emptyset, S2) \} \cup \\\t1
+     \{ S1,S1',S2,S2': \assumed \seq X; x: \assumed X | \\\t2
+         ((S1',\langle x \rangle),S1) \in (\_ \cat \_); 
+         ((S2',\langle x \rangle),S2) \in (\_ \cat \_); 
+         S1' \suffix S2' @
+        (S1, S2) \}
+\end{axdef}
+
+\begin{axdef}[X]
+   \dcat: \assumed \seq (\seq X) \fun \seq X 
+\where
+   \dcat = \lambda SS: \assumed \seq(\seq X) @
+            foldr((\_\cat\_),\emptyset)(SS)
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Cardinality (optimized for sequences)}
+
+\begin{axdef}[X]
+   \# == \lambda S: \assumed \finset X @ \\\t1
+             \IF S \in NATIVEisSeqRepr \THEN NATIVEseqCard S \\\t1
+             \ELSE NATIVEhom[X,\baseNum](NATIVEcard, S)
+\end{axdef}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Denotations}
+
+\begin{verbatim}
+%%zap native NATIVEencode(!) 
+%%zap native NATIVEdecode(!) 
+%%zap given \denotation
+\end{verbatim}
+
+\begin{zed}
+  [\denotation]
+\end{zed}
+
+% declaration of natives
+
+\begin{axdef}
+  NATIVEencode: \assumed \seq \nat \pfun \denotation \\
+  NATIVEdecode: \assumed \denotation \fun \seq \nat
+\end{axdef}
+
+% decode/encode
+
+\begin{axdef}
+  \ddec == \lambda x: \assumed \denotation @ NATIVEdecode(x)
+\end{axdef}
+
+\begin{axdef}
+  \denc == 
+    \lambda x: \assumed \seq \nat @ NATIVEencode(AUXasSeq~x)
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Reflection}
+
+\begin{zed}
+  TYPEINFO[A] ::= TypeInfo \ldata \denotation \rdata \\
+  GIVENTYPEINFO[A] ::= GivenTypeInfo \ldata \denotation \rdata
+\end{zed}
+
+\zgeneric{10 (\typeinfo \_)}
+\zgeneric{10 (\giventypeinfo \_)}
+
+\begin{axdef}[A]
+  \typeinfo \_ : TYPEINFO[A] \\
+\end{axdef}
+
+\begin{axdef}[A]
+  \giventypeinfo \_ : GIVENTYPEINFO[A]
+\end{axdef}
+
+\begin{verbatim}
+%%zap native NATIVEgiventypeinfo(!,!) 
+\end{verbatim}
+
+\begin{axdef}
+  NATIVEgiventypeinfo: \assumed \denotation \cross \denotation \fun \denotation
+\end{axdef}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Data Input}
+
+
+\begin{verbatim}
+%%zap native NATIVEfromFile(!,!) 
+%%zap native NATIVEfromDeno(!,!) 
+\end{verbatim}
+
+\begin{axdef}[A]
+  NATIVEfromFile: \assumed TYPEINFO[A] \cross \denotation \fun \seq A
+\end{axdef}
+
+\begin{axdef}[A]
+  NATIVEfromDeno: \assumed TYPEINFO[A] \cross \denotation \fun \seq A
+\end{axdef}
+
+\zfunction{9 (\_ \fromfile \_)}
+\zfunction{9 (\_ \fromdeno \_)}
+
+\begin{axdef}[A]
+  \_ \fromfile \_ == \lambda i: TYPEINFO[A]; f: \denotation @ NATIVEfromFile(i,f)
+\end{axdef}
+
+\begin{axdef}[A]
+  \_ \fromdeno \_ == \lambda i: TYPEINFO[A]; f: \denotation @ NATIVEfromDeno(i,f)
+\end{axdef}
+
+
+\end{document}
+
+%%% Local Variables: 
+%%% mode: latex 
+%%% TeX-master: t
+%%% End: 

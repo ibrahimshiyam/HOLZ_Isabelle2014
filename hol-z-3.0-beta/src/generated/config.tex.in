@@ -1,0 +1,3 @@
+\newcommand{\holoclversion}{<VER_MAIJOR>.<VER_MINOR>.<VER_MICRO><VER_TAG>}
+\newcommand{\universetype}{<UNIVERSE>}
+\newcommand{\collectiontype}{<COLLECTIONTYPE>}

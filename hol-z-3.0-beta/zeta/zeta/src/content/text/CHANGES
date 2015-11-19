@@ -1,0 +1,22 @@
+Changes ESPRESS-TEXT --> ZETA-TEXT
+==================================
+
+- Two new markups ZedSection and ZedClass 
+
+- ZedMarkupKind.Class removed -- its now represented by 
+  a custom ZedClass.
+
+  The reason for this is that information about the name of
+  a class, it formal parameters, and it parents needs to be
+  evaluated already on scanning level (in order to realize
+  merging of different class boxes with the same name).
+
+- ZedFixity and ZedMacro are own markups -- again, this has to
+  be done to allow evaluation already on scanning level
+
+- From the Config class, information about fixities and macros
+  have been removed -- these are now found in zirp.UnitEnv.
+  Reason: this information is in Standard Z part of the abstract
+  language, not only the concrete language.
+
+- The class LatexConfig is now found in tools/latex!

@@ -1,0 +1,1456 @@
+%
+\begin{isabellebody}%
+\def\isabellecontext{ZPure}%
+%
+\isamarkupheader{Definitions of Syntax and Core-Combinators of Z%
+}
+\isamarkuptrue%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{theory}\isamarkupfalse%
+\ \ ZPure\isanewline
+\isakeyword{imports}\ {\isachardoublequoteopen}contrib{\isacharslash}ProdContrib{\isachardoublequoteclose}\isanewline
+\isakeyword{uses}\ \ \ {\isachardoublequoteopen}ZPrelude{\isachardot}sml{\isachardoublequoteclose}\ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ {\isachardoublequoteopen}ZAbsy{\isachardot}sml{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ {\isachardoublequoteopen}ZEnv{\isachardot}sml{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ \ {\isachardoublequoteopen}ZTheory{\isachardot}sml{\isachardoublequoteclose}\ \ \ \ \ \ \isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}ZEncoder{\isachardot}sml{\isachardoublequoteclose}{\isacharparenright}\ \ \ \ \isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}ZConversion{\isachardot}sml{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}ZProofUtil{\isachardot}sml{\isachardoublequoteclose}{\isacharparenright}\ \ \ \isanewline
+\ \ \ \ \ \ \ \ \isanewline
+\isakeyword{begin}%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+%
+\isamarkupsection{Initialize Z-Environment, provide Access%
+}
+\isamarkuptrue%
+%
+\isadelimML
+\ \ \ %
+\endisadelimML
+%
+\isatagML
+\isacommand{setup}\isamarkupfalse%
+\ {\isachardoublequoteopen}ZTheory{\isachardot}ZEnv{\isacharunderscore}setup{\isachardoublequoteclose}\ \ \isanewline
+\isanewline
+\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\ ZTheory{\isachardot}print{\isacharunderscore}TC\ {\isacharparenleft}the{\isacharunderscore}context{\isacharparenleft}{\isacharparenright}{\isacharparenright}\ {\isacharverbatimclose}\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\ print{\isacharunderscore}ss\ empty{\isacharunderscore}ss\ {\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{ML{\isacharunderscore}setup}\isamarkupfalse%
+\ {\isacharverbatimopen}\isanewline
+local\isanewline
+\ \ \ \ fun\ change{\isacharunderscore}global\ f\ {\isacharparenleft}thy{\isacharcomma}\ th{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}f\ {\isacharbrackleft}th{\isacharbrackright}\ thy{\isacharcomma}\ th{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ val\ tc{\isacharunderscore}simp{\isacharunderscore}attr\ {\isacharequal}\ {\isacharparenleft}Attrib{\isachardot}add{\isacharunderscore}del{\isacharunderscore}args\ {\isacharparenleft}change{\isacharunderscore}global\ ZTheory{\isachardot}Add{\isacharunderscore}TC{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}change{\isacharunderscore}global\ ZTheory{\isachardot}Del{\isacharunderscore}TC{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Attrib{\isachardot}add{\isacharunderscore}del{\isacharunderscore}args\ {\isacharparenleft}fn\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error\ {\isacharparenleft}{\isachardoublequote}no\ local\ tc{\isacharprime}s{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}fn\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ error\ {\isacharparenleft}{\isachardoublequote}no\ local\ tc{\isacharprime}s{\isacharbang}{\isachardoublequote}{\isacharparenright}{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+in\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ Context{\isachardot}add{\isacharunderscore}setup\isanewline
+\ \ \ \ \ \ \ \ \ \ \ {\isacharbrackleft}Attrib{\isachardot}add{\isacharunderscore}attributes\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbrackleft}{\isacharparenleft}{\isachardoublequote}tc{\isacharunderscore}simp{\isachardoublequote}{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ tc{\isacharunderscore}simp{\isacharunderscore}attr{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}declaration\ of\ type\ checking\ simplification\ rule{\isachardoublequote}{\isacharparenright}{\isacharbrackright}{\isacharbrackright}\isanewline
+\isanewline
+end{\isacharsemicolon}\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isanewline
+\isacommand{setup}\isamarkupfalse%
+\ {\isachardoublequoteopen}Context{\isachardot}setup\ {\isacharparenleft}{\isacharparenright}{\isachardoublequoteclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isamarkupsection{Syntax%
+}
+\isamarkuptrue%
+\isacommand{types}\isamarkupfalse%
+\ Zschema\ {\isacharequal}\ bool\ \ \ \ \ \ \ \ \isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\ \isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\isanewline
+\ \ \isanewline
+\ \ SSTROKE\ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ idt{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharprime}{\isacharbackquote}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}IN{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ idt{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharquery}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}OUT{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ idt{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharbang}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ SSTROKE\ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ logic{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharprime}{\isacharbackquote}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}IN{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ logic{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharquery}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}OUT{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ logic{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharbang}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Delta{\isachardoublequoteclose}\ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharpercent}Delta\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Xi{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharpercent}Xi\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}theta{\isachardoublequoteclose}\ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharpercent}theta\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\isanewline
+\isanewline
+\ \isacommand{syntax}\isamarkupfalse%
+\ {\isacharparenleft}xsymbols{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Delta{\isachardoublequoteclose}\ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isasymDelta}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Xi{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}idt\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isasymXi}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}theta{\isachardoublequoteclose}\ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isasymtheta}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{0}}{\isadigit{0}}{\isacharbrackright}{\isadigit{5}}{\isacharparenright}\isanewline
+\isanewline
+\ \isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{nonterminals}\isamarkupfalse%
+\isanewline
+\ \ rnm\isanewline
+\ \ rnms\isanewline
+\isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}rnm{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}idt\ {\isacharcomma}\ idt{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ rnm{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharunderscore}\ {\isacharprime}{\isacharslash}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}rnm\ {\isacharequal}{\isachargreater}\ rnms{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}rnms{\isachardoublequoteclose}\ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}rnm{\isacharcomma}\ rnms{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ rnms{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharcomma}{\isacharslash}\ {\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\ \ \isanewline
+\ {\isachardoublequoteopen}{\isacharpercent}not{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}Zschema\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharpercent}not\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{4}}{\isadigit{0}}{\isacharbrackright}{\isadigit{4}}{\isadigit{0}}{\isacharparenright}\ \ \ \ \ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharbackslash}{\isacharprime}{\isacharslash}{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixl}\ {\isadigit{3}}{\isadigit{0}}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharprime}{\isacharslash}{\isacharbackslash}{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixl}\ {\isadigit{3}}{\isadigit{5}}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharequal}{\isacharplus}{\isacharequal}{\isachargreater}{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixr}\ {\isadigit{2}}{\isadigit{5}}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharless}{\isacharequal}{\isacharplus}{\isacharequal}{\isachargreater}{\isachardoublequoteclose}\ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixr}\ {\isadigit{2}}{\isadigit{5}}{\isacharparenright}\ \isanewline
+\ \ pre\ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}Zschema\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharpercent}E\ {\isacharparenleft}{\isadigit{2}}{\isacharunderscore}{\isacharparenright}\ {\isacharat}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E{\isadigit{1}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharpercent}E{\isadigit{1}}\ {\isacharparenleft}{\isadigit{3}}{\isacharunderscore}{\isacharparenright}\ {\isacharat}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}A{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharpercent}A\ {\isacharparenleft}{\isadigit{2}}{\isacharunderscore}{\isacharparenright}\ {\isacharat}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}hiding{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ args{\isacharbrackright}\ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbackslash}{\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{8}}{\isadigit{0}}{\isacharcomma}{\isadigit{8}}{\isadigit{1}}{\isacharbrackright}{\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}geninst{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}idt{\isacharcomma}\ args{\isacharbrackright}\ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharbrackleft}{\isadigit{8}}{\isadigit{0}}{\isacharcomma}{\isadigit{8}}{\isadigit{1}}{\isacharbrackright}{\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}rename{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}idt{\isacharcomma}\ rnms{\isacharbrackright}\ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbackslash}{\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{8}}{\isadigit{0}}{\isacharcomma}{\isadigit{8}}{\isadigit{1}}{\isacharbrackright}{\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}schset{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}idt{\isacharcomma}\ {\isacharprime}a{\isacharbrackright}\ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isacharprime}b\ set{\isachardoublequoteclose}\ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isadigit{1}}{\isacharbraceleft}{\isachardot}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}\ {\isacharat}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardot}{\isacharbraceright}{\isacharparenright}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}select{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a{\isacharcomma}idt{\isacharbrackright}\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isacharprime}c{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isachardot}{\isacharunderscore}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{2}}{\isadigit{0}}{\isadigit{0}}{\isacharcomma}{\isadigit{2}}{\isadigit{0}}{\isadigit{1}}{\isacharbrackright}{\isadigit{2}}{\isadigit{0}}{\isadigit{0}}{\isacharparenright}\ \ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharbar}{\isacharbackslash}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixl}\ {\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}{\isacharpercent}{\isacharsemicolon}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixl}\ {\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isachargreater}{\isachargreater}{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}\isakeyword{infixl}\ {\isadigit{8}}{\isadigit{0}}{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\ {\isacharparenleft}xsymbols{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isasymSexists}\ {\isacharparenleft}{\isadigit{2}}{\isacharunderscore}{\isacharparenright}\ {\isasymspot}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E{\isadigit{1}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isasymSexistsone}\ {\isacharparenleft}{\isadigit{3}}{\isacharunderscore}{\isacharparenright}\ {\isasymspot}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}A{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}Zschema{\isacharcomma}\ Zschema{\isacharbrackright}\ \ \ \ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isasymSforall}\ {\isacharparenleft}{\isadigit{2}}{\isacharunderscore}{\isacharparenright}\ {\isasymspot}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ {\isacharbrackleft}{\isadigit{3}}{\isadigit{0}}{\isacharcomma}{\isadigit{3}}{\isadigit{1}}{\isacharbrackright}{\isadigit{3}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}not\ P{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}{\isachartilde}\ P{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}A\ {\isacharbackslash}{\isacharslash}\ B{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}A\ {\isacharbar}\ B{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}A\ {\isacharslash}{\isacharbackslash}\ B{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}A\ {\isacharampersand}\ B{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}A\ {\isacharequal}{\isacharplus}{\isacharequal}{\isachargreater}\ B{\isachardoublequoteclose}\ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}A\ {\isacharminus}{\isacharminus}{\isachargreater}\ B{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}A\ {\isacharless}{\isacharequal}{\isacharplus}{\isacharequal}{\isachargreater}\ B{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}A\ {\isacharequal}\ B{\isachardoublequoteclose}\ \isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isanewline
+\ \isanewline
+\isanewline
+\isacommand{types}\isamarkupfalse%
+\ \ \ Predicate\ {\isacharequal}\ bool\isanewline
+\ \ \ \ \ \ \ \ DeclPart\ \ {\isacharequal}\ bool\isanewline
+\ \ \ \ \ \ \ \ \isanewline
+\isacommand{nonterminals}\isamarkupfalse%
+\isanewline
+\ \ \ \ \ \ \ \ DeclParts\ \ \isanewline
+\ \ \ \ \ \ \ \ SchemaName\ \isanewline
+\ \isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}DeclPart\ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ DeclParts{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}combdecls{\isachardoublequoteclose}\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}DeclPart{\isacharcomma}\ DeclParts{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ DeclParts{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharsemicolon}{\isacharslash}\ {\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\ \ \isanewline
+\ \ \isanewline
+\isacommand{consts}\isamarkupfalse%
+\isanewline
+\ \ SCHEMA\ \ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ \ {\isachardoublequoteopen}{\isacharbrackleft}bool{\isacharcomma}\ bool{\isacharbrackright}\ \ \ \ \ \ \ \ \ {\isacharequal}{\isachargreater}\ Zschema\ {\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}combdecls\ D\ D{\isadigit{1}}{\isachardoublequoteclose}\ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}D\ {\isacharampersand}\ D{\isadigit{1}}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{0}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ \ {\isachardoublequoteopen}Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isachardot}{\isachardot}\ {\isacharslash}{\isacharslash}{\isacharminus}{\isachardot}{\isachardot}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{1}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}DeclParts\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isachardot}{\isachardot}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isachardot}{\isachardot}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{2}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}Predicate\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isachardot}{\isachardot}\ {\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}\ {\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isachardot}{\isachardot}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{3}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}DeclParts{\isacharcomma}\ Predicate{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isachardot}{\isachardot}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isachardot}{\isachardot}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{0}}{\isachardoublequoteclose}\ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SCHEMA\ True\ True{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{1}}\ D{\isachardoublequoteclose}\ \ \ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SCHEMA\ D\ True\ {\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{2}}\ P{\isachardoublequoteclose}\ \ \ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SCHEMA\ True\ P{\isachardoublequoteclose}\ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}AXIOM{\isadigit{3}}\ D\ P{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SCHEMA\ D\ P{\isachardoublequoteclose}\isanewline
+\ \ \ \ \ \ \ \ \isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\isanewline
+\ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{0}}{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}args\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharequal}{\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}\ {\isacharequal}{\isacharequal}{\isacharequal}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharequal}{\isacharequal}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{1}}{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}args{\isacharcomma}\ DeclParts{\isacharbrackright}{\isacharequal}{\isachargreater}\ Zschema\ {\isachardoublequoteclose}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharequal}{\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}\ {\isacharequal}{\isacharequal}{\isacharequal}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}\ {\isacharslash}{\isacharslash}{\isacharminus}{\isacharequal}{\isacharequal}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{2}}{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}args{\isacharcomma}\ Predicate{\isacharbrackright}{\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharequal}{\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}\ {\isacharequal}{\isacharequal}{\isacharequal}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharequal}{\isacharequal}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{3}}{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}args{\isacharcomma}\ DeclParts{\isacharcomma}\ Predicate{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharequal}{\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharbrackright}\ {\isacharequal}{\isacharequal}{\isacharequal}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharequal}{\isacharequal}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{0}}\ M{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}{\isacharpercent}M{\isachardot}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{0}}{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{1}}\ M\ D{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}{\isacharpercent}M{\isachardot}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{1}}\ D{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{2}}\ M\ P{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}{\isacharpercent}M{\isachardot}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{2}}\ P{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}GEN{\isadigit{3}}\ M\ D\ P{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}{\isacharpercent}M{\isachardot}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{3}}\ D\ P{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{0}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}SchemaName\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharminus}{\isacharminus}{\isacharminus}\ {\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}\ {\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{1}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ args{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharbrackleft}{\isacharunderscore}{\isacharbrackright}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{2}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ DeclParts{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{3}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ Predicate{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema\ {\isachardoublequoteclose}\ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}\ {\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{4}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ args{\isacharcomma}\ DeclPart{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharbrackleft}{\isacharunderscore}{\isacharbrackright}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{5}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ args{\isacharcomma}\ Predicate{\isacharbrackright}{\isacharequal}{\isachargreater}\ Zschema{\isachardoublequoteclose}\ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharbrackleft}{\isacharunderscore}{\isacharbrackright}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{6}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ DeclParts{\isacharcomma}Predicate{\isacharbrackright}{\isacharequal}{\isachargreater}Zschema{\isachardoublequoteclose}{\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{7}}{\isachardoublequoteclose}{\isacharcolon}{\isacharcolon}{\isachardoublequoteopen}{\isacharbrackleft}SchemaName{\isacharcomma}\ args{\isacharcomma}\ DeclParts{\isacharcomma}\ Predicate{\isacharbrackright}{\isacharequal}{\isachargreater}Zschema{\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharplus}{\isacharminus}{\isacharminus}\ {\isacharunderscore}\ {\isacharbrackleft}{\isacharunderscore}{\isacharbrackright}\ {\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharbar}{\isacharminus}{\isacharminus}{\isacharslash}{\isacharslash}{\isacharparenleft}{\isadigit{2}}\ {\isacharunderscore}{\isacharparenright}{\isacharslash}{\isacharslash}{\isacharminus}{\isacharminus}{\isacharminus}{\isachardoublequoteclose}{\isacharparenright}\ \isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{0}}\ N{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharunderscore}AXIOM{\isadigit{0}}{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{1}}\ N\ M{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}GEN{\isadigit{0}}\ M{\isacharparenright}{\isachardoublequoteclose}\ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{2}}\ N\ D{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{1}}\ D{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{3}}\ N\ P{\isachardoublequoteclose}\ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{2}}\ P{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{4}}\ N\ M\ D{\isachardoublequoteclose}\ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}GEN{\isadigit{1}}\ M\ D{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{5}}\ N\ M\ P{\isachardoublequoteclose}\ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}GEN{\isadigit{2}}\ M\ P{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{6}}\ N\ D\ P{\isachardoublequoteclose}\ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}AXIOM{\isadigit{3}}\ D\ P{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SCHEME{\isadigit{7}}\ N\ M\ D\ P{\isachardoublequoteclose}\ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isachardoublequoteopen}prop{\isachardoublequoteclose}{\isacharparenright}\ {\isachardoublequoteopen}N\ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharunderscore}GEN{\isadigit{3}}\ M\ D\ P{\isacharparenright}{\isachardoublequoteclose}%
+\isamarkupsection{Semantic Representation%
+}
+\isamarkuptrue%
+\isacommand{consts}\isamarkupfalse%
+\isanewline
+\isanewline
+\ \ SNAME{\isadigit{0}}\ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharprime}a\ \ {\isacharequal}{\isachargreater}\ {\isacharprime}a{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \isanewline
+\ \ SNAME\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a{\isacharequal}{\isachargreater}{\isacharprime}b{\isacharcomma}{\isacharprime}a{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharprime}b{\isachardoublequoteclose}\ \isanewline
+\ \ SBinder{\isadigit{0}}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a{\isacharcomma}\ {\isacharprime}b\ {\isacharequal}{\isachargreater}\ {\isacharprime}d{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharparenleft}{\isacharprime}b\ {\isacharequal}{\isachargreater}\ {\isacharprime}d{\isacharparenright}{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \isanewline
+\ \ SBinder\ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a{\isacharcomma}{\isacharbrackleft}{\isacharprime}b{\isacharcomma}{\isacharprime}c{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharprime}d{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharparenleft}{\isacharparenleft}{\isacharprime}b{\isacharasterisk}{\isacharprime}c{\isacharparenright}{\isacharequal}{\isachargreater}{\isacharprime}d{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+\ \ \isanewline
+\ \ \ \isanewline
+\ \ asSet\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharprime}a\ set{\isachardoublequoteclose}\ \isanewline
+\ \ asPred\ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ set{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\ \isanewline
+\ \ turnstyle\ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharparenright}\ \ {\isacharequal}{\isachargreater}\ bool\ {\isachardoublequoteclose}\ {\isacharparenleft}{\isachardoublequoteopen}{\isacharbar}{\isacharminus}\ {\isacharparenleft}{\isadigit{3}}{\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharparenright}\ \isanewline
+\ \ theta\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}string{\isacharcomma}{\isacharprime}a{\isacharbrackright}\ \ \ {\isacharequal}{\isachargreater}\ {\isacharprime}a{\isachardoublequoteclose}\isanewline
+\ \ DELTA\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}bool{\isacharcomma}bool{\isacharbrackright}\ \ \ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ XI\ \ \ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}bool{\isacharcomma}{\isacharprime}a{\isacharcomma}{\isacharprime}a{\isacharbrackright}\ \ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ PROJ\ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a{\isacharcomma}{\isacharprime}a{\isacharequal}{\isachargreater}{\isacharprime}b{\isacharcomma}{\isacharprime}c{\isacharbrackright}{\isacharequal}{\isachargreater}{\isacharprime}b{\isachardoublequoteclose}\isanewline
+\ \ DECL\ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}bool{\isacharcomma}bool{\isacharbrackright}\ \ \ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isadigit{0}}{\isacharunderscore}{\isacharslash}\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharslash}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isacharbrackleft}{\isadigit{1}}{\isadigit{5}}{\isacharcomma}{\isadigit{1}}{\isadigit{4}}{\isacharbrackright}{\isadigit{1}}{\isadigit{4}}{\isacharparenright}\isanewline
+\ \ PRE\ \ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharbrackright}\ \ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ SBall\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ set{\isacharcomma}\ {\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ SBex\ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ set{\isacharcomma}\ {\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ SBex{\isadigit{1}}\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ set{\isacharcomma}\ {\isacharprime}a\ {\isacharequal}{\isachargreater}\ bool{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ bool{\isachardoublequoteclose}\isanewline
+\ \ SSet\ \ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ set{\isacharcomma}\ {\isacharprime}a\ {\isacharequal}{\isachargreater}\ {\isacharprime}b{\isacharbrackright}\ \ \ {\isacharequal}{\isachargreater}\ {\isacharprime}b\ set{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{defs}\isamarkupfalse%
+\isanewline
+\ \ SNAME{\isadigit{0}}{\isacharunderscore}def{\isacharcolon}\ \ \ {\isachardoublequoteopen}SNAME{\isadigit{0}}\ x\ {\isacharequal}{\isacharequal}\ x{\isachardoublequoteclose}\isanewline
+\ \ SNAME{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}SNAME\ f\ args\ \ {\isacharequal}{\isacharequal}\ f\ args{\isachardoublequoteclose}\isanewline
+\ \ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharcolon}\ {\isachardoublequoteopen}SBinder{\isadigit{0}}\ An\ P\ {\isacharequal}{\isacharequal}\ P{\isachardoublequoteclose}\isanewline
+\ \ SBinder{\isacharunderscore}def{\isacharcolon}\ \ {\isachardoublequoteopen}SBinder\ An\ P\ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharpercent}\ {\isacharparenleft}x{\isacharcomma}y{\isacharparenright}{\isachardot}\ {\isacharparenleft}P\ x\ y{\isacharparenright}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ asSet{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}asSet\ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ Collect{\isachardoublequoteclose}\isanewline
+\ \ asPred{\isacharunderscore}def{\isacharcolon}\ \ \ {\isachardoublequoteopen}asPred\ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharparenleft}{\isacharpercent}X{\isachardot}\ {\isacharpercent}x{\isachardot}\ x\ {\isacharcolon}\ X{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ turnstyle{\isacharunderscore}def{\isacharcolon}{\isachardoublequoteopen}{\isacharbar}{\isacharminus}\ P\ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ All\ P{\isachardoublequoteclose}\ \isanewline
+\ \ PROJ{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ {\isachardoublequoteopen}PROJ\ X\ F\ ide\ \ {\isacharequal}{\isacharequal}\ F\ X{\isachardoublequoteclose}\ \isanewline
+\ \ DELTA{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}DELTA\ s\ t\ \ \ \ \ {\isacharequal}{\isacharequal}\ s\ {\isacharampersand}\ t{\isachardoublequoteclose}\ \ \ \ \ \isanewline
+\ \ XI{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ \ \ {\isachardoublequoteopen}XI\ s\ t\ t{\isacharprime}\ \ \ \ \ {\isacharequal}{\isacharequal}\ s\ {\isacharampersand}\ t{\isacharequal}t{\isacharprime}{\isachardoublequoteclose}\ \ \ \ \ \isanewline
+\ \ theta{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}theta\ s\ t\ \ \ \ \ {\isacharequal}{\isacharequal}\ t{\isachardoublequoteclose}\ \ \ \ \ \isanewline
+\ \ DECL{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ {\isachardoublequoteopen}DECL\ P\ Q\ \ \ \ \ \ {\isacharequal}{\isacharequal}\ P\ {\isacharampersand}\ Q{\isachardoublequoteclose}\isanewline
+\ \ PRE{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ \ {\isachardoublequoteopen}PRE\ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ Ex{\isachardoublequoteclose}\isanewline
+\ \ SBall{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}SBall\ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ Ball{\isachardoublequoteclose}\isanewline
+\ \ SBex{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ {\isachardoublequoteopen}SBex\ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ Bex{\isachardoublequoteclose}\isanewline
+\ \ SBex{\isadigit{1}}{\isacharunderscore}def{\isacharcolon}\ \ \ \ {\isachardoublequoteopen}SBex{\isadigit{1}}\ A\ P\ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isacharquery}{\isacharbang}\ x{\isachardot}\ x\ {\isacharcolon}\ A\ {\isacharampersand}\ P\ x{\isachardoublequoteclose}\isanewline
+\ \ SSet{\isacharunderscore}def{\isacharcolon}\ \ \ \ \ {\isachardoublequoteopen}SSet\ A\ f\ \ \ \ \ \ {\isacharequal}{\isacharequal}\ f\ {\isacharbackquote}\ A{\isachardoublequoteclose}\isanewline
+\ \ \isanewline
+\isanewline
+\isanewline
+\isacommand{nonterminals}\isamarkupfalse%
+\isanewline
+\ \ sbind\isanewline
+\ \ sbinds\isanewline
+\isanewline
+\isacommand{syntax}\isamarkupfalse%
+\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}sbind{\isachardoublequoteclose}\ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}{\isacharprime}a\ {\isacharcomma}\ {\isacharprime}b{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ sbind{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isadigit{2}}{\isacharunderscore}\ {\isachartilde}{\isachartilde}{\isachargreater}\ {\isacharunderscore}{\isacharparenright}{\isachardoublequoteclose}\ {\isadigit{1}}{\isadigit{0}}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isachardoublequoteclose}\ \ \ \ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}sbind\ {\isacharequal}{\isachargreater}\ sbinds{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}sbinds{\isachardoublequoteclose}\ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}sbind{\isacharcomma}\ sbinds{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ sbinds{\isachardoublequoteclose}\ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharunderscore}{\isacharcomma}{\isacharslash}\ {\isacharunderscore}{\isachardoublequoteclose}{\isacharparenright}\ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SB{\isachardoublequoteclose}\ \ \ \ \ {\isacharcolon}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbrackleft}sbinds{\isacharcomma}{\isacharprime}a{\isacharbrackright}\ {\isacharequal}{\isachargreater}\ {\isacharprime}a{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequoteopen}{\isacharparenleft}{\isadigit{4}}SB\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isachardot}\ {\isacharparenleft}{\isacharunderscore}{\isacharparenright}{\isacharparenright}{\isachardoublequoteclose}\ {\isadigit{1}}{\isadigit{0}}{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+\isacommand{translations}\isamarkupfalse%
+\isanewline
+\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Delta\ S{\isachardoublequoteclose}\ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}DELTA\ S\ {\isacharparenleft}SSTROKE\ S{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Delta\ S{\isachardoublequoteclose}\ \ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}DELTA\ S\ T{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Xi\ \ \ \ S{\isachardoublequoteclose}\ \ {\isacharequal}{\isachargreater}\ {\isachardoublequoteopen}XI\ {\isacharparenleft}{\isacharpercent}Delta\ S{\isacharparenright}\ {\isacharparenleft}{\isacharpercent}theta\ S{\isacharparenright}\ {\isacharparenleft}{\isacharpercent}theta\ {\isacharparenleft}SSTROKE\ S{\isacharparenright}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}Xi\ \ \ \ S{\isachardoublequoteclose}\ \ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}XI\ {\isacharparenleft}{\isacharpercent}Delta\ S{\isacharparenright}\ {\isacharparenleft}T{\isacharparenright}\ {\isacharparenleft}U{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\isanewline
+\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SB\ {\isacharparenleft}{\isacharunderscore}sbinds\ {\isacharparenleft}{\isacharunderscore}sbind\ x\ y{\isacharparenright}\ sbds{\isacharparenright}\ e{\isachardoublequoteclose}\ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SBinder\ x\ {\isacharparenleft}{\isacharpercent}y{\isachardot}\ {\isacharunderscore}SB\ sbds\ e{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharunderscore}SB\ {\isacharparenleft}{\isacharunderscore}sbind\ x\ y{\isacharparenright}\ e{\isachardoublequoteclose}\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharequal}{\isacharequal}\ {\isachardoublequoteopen}SBinder{\isadigit{0}}\ x\ {\isacharparenleft}{\isacharpercent}y{\isachardot}\ e{\isacharparenright}{\isachardoublequoteclose}\isanewline
+\isanewline
+\isanewline
+\ \ {\isachardoublequoteopen}pre\ S{\isachardoublequoteclose}\ \ \ \ \ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}PRE\ S{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E\ S\ {\isacharat}\ T{\isachardoublequoteclose}\ \ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}SBex\ \ S\ T{\isachardoublequoteclose}\ \ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}E{\isadigit{1}}\ S\ {\isacharat}\ T{\isachardoublequoteclose}\ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}SBex{\isadigit{1}}\ S\ T{\isachardoublequoteclose}\isanewline
+\ \ {\isachardoublequoteopen}{\isacharpercent}A\ S\ {\isacharat}\ T{\isachardoublequoteclose}\ \ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}SBall\ S\ T{\isachardoublequoteclose}\ \isanewline
+\ \ {\isachardoublequoteopen}{\isacharbraceleft}{\isachardot}S\ {\isacharat}\ T{\isachardot}{\isacharbraceright}{\isachardoublequoteclose}\ {\isacharless}{\isacharequal}\ {\isachardoublequoteopen}SSet\ \ S\ T{\isachardoublequoteclose}%
+\isamarkupsection{Syntax: The parse-translation setup%
+}
+\isamarkuptrue%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isatagML
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+val\ show{\isacharunderscore}full{\isacharunderscore}sem\ {\isacharequal}\ ref\ false{\isacharsemicolon}\ \isanewline
+val\ SAVE\ {\isacharequal}\ ref{\isacharparenleft}{\isacharbrackleft}{\isacharbrackright}{\isacharcolon}term\ list{\isacharparenright}\isanewline
+\isanewline
+{\isacharparenleft}{\isacharasterisk}\ switch\ to\ shut\ off\ the\ pretty\ printing\ to\ email\ format\ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+local\isanewline
+\isanewline
+local\ open\ Ast\ ZPrelude\ ZEnv\ in\isanewline
+\isanewline
+{\isacharparenleft}{\isacharasterisk}\ {\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}\ {\isacharasterisk}{\isacharparenright}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ absolute\ pre{\isacharminus}parsing\ {\isachardot}{\isachardot}{\isachardot}\ runs\ before\ ZEncoder{\isachardot}schema{\isacharunderscore}conv\ {\isacharbang}{\isacharbang}{\isacharbang}\ {\isacharasterisk}{\isacharparenright}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ {\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}\ {\isacharasterisk}{\isacharparenright}\isanewline
+fun\ parse{\isacharunderscore}SSTROKE\ {\isacharbrackleft}Free{\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharbrackright}\ {\isacharequal}\ \ Free{\isacharparenleft}stroke\ {\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}parse{\isacharunderscore}SSTROKE\ {\isacharbrackleft}Const{\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharbrackright}{\isacharequal}\ \ Const{\isacharparenleft}stroke{\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}parse{\isacharunderscore}SSTROKE\ {\isacharunderscore}\ {\isacharequal}\ error\ {\isacharparenleft}{\isachardoublequote}Illegal\ STROKE{\isacharminus}Term{\isacharcolon}\ must\ be\ identifier{\isachardot}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+fun\ parse{\isacharunderscore}IN\ {\isacharbrackleft}Free{\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharbrackright}\ {\isacharequal}\ \ Free{\isacharparenleft}x{\isacharcircum}ZPrelude{\isachardot}in{\isacharunderscore}sym{\isacharcomma}t{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}parse{\isacharunderscore}IN\ {\isacharunderscore}\ {\isacharequal}\ error\ {\isacharparenleft}{\isachardoublequote}Illegal\ IN{\isacharminus}Term{\isacharcolon}\ must\ be\ identifier{\isachardot}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+fun\ parse{\isacharunderscore}OUT\ {\isacharbrackleft}Free{\isacharparenleft}x{\isacharcomma}t{\isacharparenright}{\isacharbrackright}\ {\isacharequal}\ \ Free{\isacharparenleft}x{\isacharcircum}ZPrelude{\isachardot}out{\isacharunderscore}sym{\isacharcomma}t{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}parse{\isacharunderscore}OUT\ {\isacharunderscore}\ {\isacharequal}\ error\ {\isacharparenleft}{\isachardoublequote}Illegal\ OUT{\isacharminus}Term{\isacharcolon}\ must\ be\ identifier{\isachardot}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+fun\ parse{\isacharunderscore}SCHEMA\ {\isacharbrackleft}decl{\isacharcomma}pred{\isacharbrackright}\ {\isacharequal}\ Const{\isacharparenleft}{\isachardoublequote}DECL{\isachardoublequote}{\isacharcomma}dummyT{\isacharparenright}\ {\isachardollar}\ decl\ {\isachardollar}\ pred\isanewline
+\ \ \ {\isacharbar}parse{\isacharunderscore}SCHEMA\ {\isacharunderscore}\ {\isacharequal}\ error\ {\isacharparenleft}{\isachardoublequote}Illegal\ Schema\ Term{\isachardot}{\isachardoublequote}{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ {\isacharparenleft}{\isacharasterisk}\ why\ as\ parse\ translation\ {\isacharquery}{\isacharquery}{\isacharquery}\ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+{\isacharparenleft}{\isacharasterisk}\ {\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}\ {\isacharasterisk}{\isacharparenright}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ pretty{\isacharminus}printing\ {\isacharasterisk}{\isacharparenright}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ {\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}{\isacharasterisk}\ {\isacharasterisk}{\isacharparenright}\isanewline
+\isanewline
+\isanewline
+fun\ print{\isacharunderscore}decls\ {\isacharparenleft}Const\ {\isacharparenleft}{\isachardoublequote}op\ {\isacharampersand}{\isachardoublequote}{\isacharcomma}t{\isacharparenright}\ {\isachardollar}\ T\ {\isachardollar}\ T{\isacharprime}{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Const\ {\isacharparenleft}{\isachardoublequote}{\isacharunderscore}combdecls{\isachardoublequote}{\isacharcomma}t{\isacharparenright}\ {\isachardollar}\ T\ {\isachardollar}\ {\isacharparenleft}print{\isacharunderscore}decls\ T{\isacharprime}{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}decls\ T\ {\isacharequal}\ T{\isacharsemicolon}\isanewline
+\isanewline
+fun\ print{\isacharunderscore}Proto\ {\isacharbrackleft}decl{\isacharcomma}\ preds{\isacharbrackright}\ {\isacharequal}\ \isanewline
+{\isacharparenleft}{\isacharasterisk}\ Introduces\ the\ root{\isacharminus}symbol\ for\ pretty{\isacharminus}printing\ schemata\ in\ Zproto\ {\isacharasterisk}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ else\ Const{\isacharparenleft}{\isachardoublequote}SCHEMA{\isachardoublequote}{\isacharcomma}dummyT{\isacharparenright}\ {\isachardollar}\ {\isacharparenleft}print{\isacharunderscore}decls\ decl{\isacharparenright}\ {\isachardollar}\ preds\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}Proto\ {\isacharunderscore}\ \ {\isacharequal}\ raise\ Match{\isacharsemicolon}\isanewline
+\isanewline
+fun\ TR\ s\ h\ {\isacharequal}\ {\isacharparenleft}writeln\ s{\isacharsemicolon}\ h{\isacharparenright}\isanewline
+\isanewline
+fun\ print{\isacharunderscore}SB{\isadigit{0}}\ {\isacharbrackleft}anno{\isacharcomma}\ Abs{\isacharparenleft}{\isacharunderscore}{\isacharcomma}t{\isacharcomma}body{\isacharparenright}{\isacharbrackright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ {\isacharparenleft}raise\ Match{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ else\ {\isacharparenleft}subst{\isacharunderscore}bounds{\isacharparenleft}{\isacharbrackleft}Free{\isacharparenleft}dest{\isacharunderscore}string\ anno{\isacharcomma}t{\isacharparenright}{\isacharbrackright}{\isacharcomma}body{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}SB{\isadigit{0}}\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+\isanewline
+fun\ print{\isacharunderscore}SB\ {\isacharparenleft}anno{\isacharcolon}{\isacharcolon}\ Abs{\isacharparenleft}{\isacharunderscore}{\isacharcomma}t{\isacharcomma}body{\isacharparenright}{\isacharcolon}{\isacharcolon}R{\isacharparenright}\ \ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\isanewline
+\ \ \ \ \ \ else\ {\isacharparenleft}list{\isacharunderscore}comb{\isacharparenleft}subst{\isacharunderscore}bounds\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharbrackleft}Free{\isacharparenleft}dest{\isacharunderscore}string\ anno{\isacharcomma}t{\isacharparenright}{\isacharbrackright}{\isacharcomma}body{\isacharparenright}{\isacharcomma}R{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}SB\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match\isanewline
+\isanewline
+fun\ print{\isacharunderscore}SCH{\isacharunderscore}name{\isadigit{0}}\ {\isacharbrackleft}x{\isacharbrackright}\ {\isacharequal}\isanewline
+\ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\ else\ x\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}SCH{\isacharunderscore}name{\isadigit{0}}\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match\isanewline
+\isanewline
+\isanewline
+fun\ print{\isacharunderscore}SCH{\isacharunderscore}name\ {\isacharbrackleft}f\ as\ Const{\isacharparenleft}s{\isacharcomma}{\isacharunderscore}{\isacharparenright}{\isacharcomma}arg{\isacharbrackright}\ {\isacharequal}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ delifting\ all\ applications\ marked\ as\ a\ schema{\isacharminus}names\ applied\ to\ argument\isanewline
+\ \ \ tuple{\isachardot}\ It\ is\ checked\ that\ {\isadigit{1}}{\isachardot}\ arg\ forms\ a\ tuple{\isacharcomma}\ {\isadigit{2}}{\isachardot}\ components\ of\ arg\isanewline
+\ \ \ are\ just\ Free{\isacharprime}s{\isacharcomma}\ {\isadigit{3}}{\isachardot}\ all\ names\ in\ the\ free{\isacharprime}s\ match\ to\ the\ signature\ sign\isanewline
+\ \ \ of\ s\ modulo\ a\ unique\ number\ d\ of\ strokes\ {\isacharprime}{\isachardot}\ \ \isanewline
+\ \ \ \isanewline
+\ \ \ USES\ ZENV\ FROM\ ENCODER\ {\isacharparenleft}parser\ {\isachardot}\ {\isachardot}\ {\isachardot}{\isacharparenright}\isanewline
+\ \ \ {\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\ \isanewline
+\ \ \ \ \ \ else\ {\isacharparenleft}let\ val\ {\isacharunderscore}\ {\isacharequal}\ {\isacharparenleft}SAVE{\isacharcolon}{\isacharequal}{\isacharbrackleft}f{\isacharcomma}arg{\isacharbrackright}{\isacharat}{\isacharparenleft}{\isacharbang}SAVE{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ fun\ \ stripFree\ {\isacharparenleft}Free{\isacharparenleft}s{\isacharcomma}t{\isacharparenright}\ {\isacharcolon}{\isacharcolon}\ R{\isacharparenright}\ {\isacharequal}\ s\ {\isacharcolon}{\isacharcolon}\ {\isacharparenleft}stripFree\ R{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ stripFree{\isacharparenleft}{\isacharparenleft}Const{\isacharparenleft}{\isachardoublequote}{\isacharunderscore}bound{\isachardoublequote}{\isacharcomma}{\isacharunderscore}{\isacharparenright}\ {\isachardollar}\ Free{\isacharparenleft}s{\isacharcomma}t{\isacharparenright}{\isacharparenright}{\isacharcolon}{\isacharcolon}R{\isacharparenright}\ {\isacharequal}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ s\ {\isacharcolon}{\isacharcolon}\ {\isacharparenleft}stripFree\ R{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ this\ case\ captures\ variables\ bound\ by\ other\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ quantifiers\ than\ just\ schema\ quantifiers\ {\isachardot}{\isachardot}{\isachardot}{\isacharasterisk}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ stripFree\ {\isacharparenleft}{\isacharunderscore}\ {\isacharcolon}{\isacharcolon}\ R{\isacharparenright}\ {\isacharequal}\ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}\ stripFree\ {\isacharbrackleft}{\isacharbrackright}\ \ \ \ \ {\isacharequal}\ {\isacharbrackleft}{\isacharbrackright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ val\ x{\isacharcolon}{\isacharcolon}R\ {\isacharequal}\ stripFree\ {\isacharparenleft}strip{\isacharunderscore}tuple\ arg{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ val\ sign\ {\isacharequal}\ {\isacharparenleft}case\ lookup\ {\isacharparenleft}schemas{\isacharunderscore}of{\isacharparenleft}{\isacharbang}ZEnv{\isachardot}ZENV{\isacharparenright}{\isacharcomma}s{\isacharparenright}\ of\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ NONE\ {\isacharequal}{\isachargreater}\ raise\ Match\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}SOME\ n\ {\isacharequal}{\isachargreater}\ map\ fst\ {\isacharparenleft}schemasig{\isacharunderscore}of\ n{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ val\ y\ \ \ \ {\isacharequal}\ case\ sign\ of\ a{\isacharcolon}{\isacharcolon}{\isacharunderscore}\ {\isacharequal}{\isachargreater}\ a\ {\isacharbar}\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ raise\ Match{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ val\ d\ \ \ \ {\isacharequal}\ {\isacharparenleft}size\ x{\isacharparenright}\ {\isacharminus}\ {\isacharparenleft}size\ y{\isacharparenright}{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ fun\ cm\ {\isacharbrackleft}{\isacharbrackright}\ {\isacharbrackleft}{\isacharbrackright}\ {\isacharequal}\ true\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}cm\ {\isacharparenleft}a{\isacharcolon}{\isacharcolon}r{\isacharparenright}{\isacharparenleft}a{\isacharprime}{\isacharcolon}{\isacharcolon}r{\isacharprime}{\isacharparenright}\ {\isacharequal}\ if\ {\isacharparenleft}size\ a{\isacharparenright}\ {\isacharplus}\ d\ {\isacharequal}\ size\ a{\isacharprime}\ andalso\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ a\ {\isacharequal}\ {\isacharparenleft}substring{\isacharparenleft}a{\isacharprime}{\isacharcomma}{\isadigit{0}}{\isacharcomma}size\ a{\isacharprime}\ {\isacharminus}\ d{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ cm\ r\ r{\isacharprime}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbar}cm\ {\isacharunderscore}\ {\isacharunderscore}\ {\isacharequal}\ \ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ \ \ \ in\ \ if\ d\ {\isachargreater}{\isacharequal}\ {\isadigit{0}}\ andalso\ cm\ sign\ {\isacharparenleft}x{\isacharcolon}{\isacharcolon}R{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ genstrokeN\ d\ f\ \ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ \ \ \ end{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}SCH{\isacharunderscore}name\ {\isacharunderscore}\ {\isacharequal}\ {\isacharparenleft}raise\ Match{\isacharparenright}{\isacharsemicolon}\ \ \isanewline
+\ \ \ \ \isanewline
+fun\ print{\isacharunderscore}theta\ {\isacharbrackleft}s{\isacharcomma}e{\isacharbrackright}\ {\isacharequal}\isanewline
+\ \ \ \ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\ \isanewline
+\ \ \ \ \ \ \ \ \ else\ let\ val\ t\ {\isacharequal}\ dest{\isacharunderscore}string\ s{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ val\ n\ {\isacharequal}\ strokes\ t{\isacharsemicolon}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ in\ \ \ Const{\isacharparenleft}{\isachardoublequote}{\isacharpercent}theta{\isachardoublequote}{\isacharcomma}dummyT{\isacharparenright}{\isachardollar}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}genstrokeN\ n\ {\isacharparenleft}Free{\isacharparenleft}destroke\ t{\isacharcomma}dummyT{\isacharparenright}{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ end\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}theta\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match\isanewline
+\ \ \ \ \isanewline
+fun\ print{\isacharunderscore}asSet\ {\isacharbrackleft}a{\isacharbrackright}\ {\isacharequal}\ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\ else\ a\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}asSet\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match{\isacharsemicolon}\isanewline
+\isanewline
+fun\ print{\isacharunderscore}asPred\ {\isacharbrackleft}a{\isacharbrackright}\ {\isacharequal}\ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\ else\ a\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}asPred\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match\isanewline
+\isanewline
+fun\ print{\isacharunderscore}PROJ\ {\isacharbrackleft}X{\isacharcomma}F{\isacharcomma}str{\isacharbrackright}\ {\isacharequal}\isanewline
+\ \ \ \ \ \ \ \ \ if\ {\isacharbang}show{\isacharunderscore}full{\isacharunderscore}sem\ then\ raise\ Match\isanewline
+\ \ \ \ \ \ \ \ \ else\ Const{\isacharparenleft}{\isachardoublequote}{\isacharunderscore}select{\isachardoublequote}{\isacharcomma}dummyT{\isacharparenright}{\isachardollar}\ X\ {\isachardollar}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ Const{\isacharparenleft}dest{\isacharunderscore}string\ str{\isacharcomma}dummyT{\isacharparenright}\isanewline
+\ \ \ {\isacharbar}print{\isacharunderscore}PROJ\ {\isacharunderscore}\ {\isacharequal}\ raise\ Match\isanewline
+\ \ \isanewline
+end\ {\isacharparenleft}{\isacharasterisk}\ local\ open\ {\isacharasterisk}{\isacharparenright}\ \isanewline
+\isanewline
+in\isanewline
+\isanewline
+val\ parse{\isacharunderscore}translation\ {\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isachardoublequote}SSTROKE{\isachardoublequote}{\isacharcomma}\ parse{\isacharunderscore}SSTROKE{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}{\isacharunderscore}IN{\isachardoublequote}{\isacharcomma}\ parse{\isacharunderscore}IN{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}{\isacharunderscore}OUT{\isachardoublequote}{\isacharcomma}\ parse{\isacharunderscore}OUT{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}SCHEMA{\isachardoublequote}{\isacharcomma}\ parse{\isacharunderscore}SCHEMA{\isacharparenright}{\isacharbrackright}{\isacharsemicolon}\isanewline
+val\ print{\isacharunderscore}translation\ {\isacharequal}\ {\isacharbrackleft}{\isacharparenleft}{\isachardoublequote}SBinder{\isadigit{0}}{\isachardoublequote}{\isacharcomma}\ print{\isacharunderscore}SB{\isadigit{0}}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}SBinder{\isachardoublequote}{\isacharcomma}\ print{\isacharunderscore}SB{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}DECL{\isachardoublequote}{\isacharcomma}\ print{\isacharunderscore}Proto{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}SNAME{\isadigit{0}}{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}SCH{\isacharunderscore}name{\isadigit{0}}{\isacharparenright}{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}SNAME{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}SCH{\isacharunderscore}name{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}theta{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}theta{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}asSet{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}asSet{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}asPred{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}asPred{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isachardoublequote}PROJ{\isachardoublequote}{\isacharcomma}print{\isacharunderscore}PROJ{\isacharparenright}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharbrackright}{\isacharsemicolon}\isanewline
+\ \isanewline
+end\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{parse{\isacharunderscore}translation}\isamarkupfalse%
+\ {\isacharverbatimopen}\ parse{\isacharunderscore}translation\ {\isacharverbatimclose}\isanewline
+\isacommand{print{\isacharunderscore}translation}\isamarkupfalse%
+\ {\isacharverbatimopen}\ print{\isacharunderscore}translation\ {\isacharverbatimclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isamarkupsection{Derived Rules%
+}
+\isamarkuptrue%
+%
+\isamarkupsubsection{Schema Binders%
+}
+\isamarkuptrue%
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isadigit{0}}{\isacharunderscore}ext{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x\ {\isacharequal}\ g\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder{\isadigit{0}}\ a\ f\ {\isacharequal}\ SBinder{\isadigit{0}}\ b\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}rule\ ext{\isacharcomma}\ simp\ add{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isacharunderscore}ext{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x\ {\isacharequal}\ g\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder\ a\ f\ {\isacharequal}\ SBinder\ b\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ conv{\isacharunderscore}sname{\isadigit{0}}\ {\isacharcolon}\ {\isachardoublequoteopen}f{\isasymequiv}g\ {\isasymLongrightarrow}\ SNAME{\isadigit{0}}\ f\ {\isacharequal}\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SNAME{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ conv{\isacharunderscore}sname\ {\isacharcolon}\ \ {\isachardoublequoteopen}f{\isasymequiv}g\ {\isasymLongrightarrow}\ SNAME\ f\ args\ {\isacharequal}\ g\ args{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SNAME{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ turnstyle{\isacharunderscore}SB{\isadigit{0}}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharbar}{\isacharminus}\ SBinder{\isadigit{0}}\ a\ f{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def\ turnstyle{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ turnstyle{\isacharunderscore}SB{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ {\isacharbar}{\isacharminus}\ f\ x{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharbar}{\isacharminus}\ SBinder\ a\ f{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def\ turnstyle{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isadigit{0}}{\isacharunderscore}ext{\isacharunderscore}id{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x\ {\isacharequal}\ g\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder{\isadigit{0}}\ a\ f\ {\isacharequal}\ SBinder{\isadigit{0}}\ a\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}rule\ ext{\isacharcomma}\ simp\ add{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isacharunderscore}ext{\isacharunderscore}id{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x\ {\isacharequal}\ g\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder\ a\ f\ {\isacharequal}\ SBinder\ a\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isadigit{0}}{\isacharunderscore}extL{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ f\ x\ {\isacharequal}\ g\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder{\isadigit{0}}\ a\ f\ {\isacharequal}\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}rule\ ext{\isacharcomma}\ simp\ add{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isacharunderscore}extL{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x\ y{\isachardot}\ f\ x\ y\ {\isacharequal}\ g\ {\isacharparenleft}x{\isacharcomma}\ y{\isacharparenright}{\isacharparenright}\ {\isasymLongrightarrow}\ SBinder\ a\ f\ {\isacharequal}\ g{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def\ split{\isacharunderscore}eta{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{lemmas}\isamarkupfalse%
+\ Zexts\ {\isacharequal}\ ext\ SB{\isadigit{0}}{\isacharunderscore}ext\ SB{\isacharunderscore}ext\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isadigit{0}}{\isacharunderscore}eq{\isacharcolon}\ {\isachardoublequoteopen}SBinder{\isadigit{0}}\ a\ P\ x\ {\isacharequal}\ P\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isacharunderscore}eq{\isacharcolon}\ {\isachardoublequoteopen}SBinder\ a\ P\ z\ {\isacharequal}\ {\isacharparenleft}P\ {\isacharparenleft}fst\ z{\isacharparenright}\ {\isacharparenleft}snd\ z{\isacharparenright}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{apply}\isamarkupfalse%
+{\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def{\isacharparenright}\isanewline
+\isacommand{apply}\isamarkupfalse%
+\ {\isacharparenleft}rule\ \ surjective{\isacharunderscore}pairing\ {\isacharbrackleft}THEN\ ssubst{\isacharbrackright}{\isacharparenright}\isanewline
+\isacommand{apply}\isamarkupfalse%
+\ {\isacharparenleft}safe{\isacharplus}{\isacharcomma}\ simp{\isacharparenright}\isanewline
+\isacommand{done}\isamarkupfalse%
+%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SB{\isacharunderscore}pair{\isacharunderscore}eq{\isacharcolon}\ {\isachardoublequoteopen}SBinder\ a\ P\ {\isacharparenleft}x{\isacharcomma}y{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}P\ x\ y{\isacharparenright}{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ EX{\isacharunderscore}SBinder{\isadigit{0}}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymexists}\ x{\isachardot}\ {\isacharparenleft}SBinder{\isadigit{0}}\ a\ P{\isacharparenright}\ x{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}{\isasymexists}\ x{\isachardot}\ P\ x{\isacharparenright}{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ EX{\isacharunderscore}SBinder{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymexists}\ x{\isachardot}\ {\isacharparenleft}SBinder\ a\ P{\isacharparenright}\ x{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}{\isasymexists}\ x\ y{\isachardot}\ P\ x\ y{\isacharparenright}{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}simp\ add{\isacharcolon}\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{declare}\isamarkupfalse%
+\ SB{\isadigit{0}}{\isacharunderscore}eq\ SB{\isacharunderscore}eq\ EX{\isacharunderscore}SBinder{\isadigit{0}}\ EX{\isacharunderscore}SBinder{\isacharbrackleft}simp{\isacharbrackright}%
+\isamarkupsubsection{DECL%
+}
+\isamarkuptrue%
+\isacommand{lemma}\isamarkupfalse%
+\ DECL{\isacharunderscore}I\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}A{\isacharsemicolon}\ A\ {\isasymLongrightarrow}\ B{\isasymrbrakk}\ {\isasymLongrightarrow}\ A\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ B{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}auto\ simp{\isacharcolon}\ DECL{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ DECL{\isacharunderscore}D{\isadigit{1}}\ {\isacharcolon}\ {\isachardoublequoteopen}A\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ B\ {\isasymLongrightarrow}\ A{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}auto\ simp{\isacharcolon}\ DECL{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ DECL{\isacharunderscore}D{\isadigit{2}}\ {\isacharcolon}\ {\isachardoublequoteopen}A\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ B\ {\isasymLongrightarrow}\ B{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}auto\ simp{\isacharcolon}\ DECL{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ DECL{\isacharunderscore}E{\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}P\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ Q{\isacharsemicolon}\ {\isasymlbrakk}P{\isacharsemicolon}\ Q{\isasymrbrakk}\ {\isasymLongrightarrow}\ R{\isasymrbrakk}\ {\isasymLongrightarrow}\ R{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}auto\ simp{\isacharcolon}\ DECL{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ DECL{\isacharunderscore}cong{\isacharcolon}\isanewline
+{\isachardoublequoteopen}{\isasymlbrakk}P\ {\isacharequal}\ P{\isacharprime}{\isacharsemicolon}\ P{\isacharprime}\ {\isasymLongrightarrow}\ Q\ {\isacharequal}\ Q{\isacharprime}{\isasymrbrakk}\ {\isasymLongrightarrow}\ {\isacharparenleft}P\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ Q{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}P{\isacharprime}\ {\isacharbar}{\isacharminus}{\isacharminus}{\isacharminus}{\isacharminus}\ Q{\isacharprime}{\isacharparenright}{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+\ {\isacharparenleft}auto\ simp{\isacharcolon}\ DECL{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{declare}\isamarkupfalse%
+\ DECL{\isacharunderscore}I\ {\isacharbrackleft}intro{\isacharbang}{\isacharbrackright}\isanewline
+\isacommand{declare}\isamarkupfalse%
+\ DECL{\isacharunderscore}E\ {\isacharbrackleft}elim{\isacharbang}{\isacharbrackright}\isanewline
+\isacommand{declare}\isamarkupfalse%
+\ DECL{\isacharunderscore}cong\ {\isacharbrackleft}cong{\isacharbrackright}%
+\begin{isamarkuptext}%
+Tests:%
+\end{isamarkuptext}%
+\isamarkuptrue%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isatagML
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ Syntax{\isacharminus}Checks{\isachardot}{\isachardot}{\isachardot}\ {\isacharasterisk}{\isacharparenright}\isanewline
+goalw\ {\isacharparenleft}the{\isacharunderscore}context{\isacharparenleft}{\isacharparenright}{\isacharparenright}\ {\isacharbrackleft}{\isacharbrackright}\ {\isachardoublequote}{\isacharparenleft}SB\ x\ \ {\isachartilde}{\isachartilde}{\isachargreater}\ y{\isacharcomma}\ a\ \ {\isachartilde}{\isachartilde}{\isachargreater}\ b{\isachardot}\ DECL\ A\ B\ {\isacharparenright}\ {\isacharequal}\ {\isacharquery}X{\isachardoublequote}{\isacharsemicolon}\isanewline
+goalw\ {\isacharparenleft}the{\isacharunderscore}context{\isacharparenleft}{\isacharparenright}{\isacharparenright}\ {\isacharbrackleft}{\isacharbrackright}\ {\isachardoublequote}fgh{\isacharprime}{\isacharprime}\ {\isacharequal}\ {\isacharquery}X\ {\isachardoublequote}\isanewline
+{\isacharverbatimclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBall{\isacharunderscore}I\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ x\ {\isasymin}\ A\ {\isasymLongrightarrow}\ P\ x{\isacharparenright}\ {\isasymLongrightarrow}\ SBall\ A\ P{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBall{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBall{\isacharunderscore}I{\isadigit{2}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}x{\isachardot}\ A\ x\ {\isacharequal}{\isacharequal}{\isachargreater}\ P\ x{\isacharparenright}\ {\isacharequal}{\isacharequal}{\isachargreater}\ SBall\ {\isacharparenleft}asSet\ A{\isacharparenright}\ P{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ asSet{\isacharunderscore}def\ SBall{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ bla\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}z\ y\ {\isachardot}\ x{\isacharequal}{\isacharparenleft}y{\isacharcomma}z{\isacharparenright}\ {\isasymLongrightarrow}\ f\ y\ z{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharparenleft}SBinder\ a\ f{\isacharparenright}\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ bla{\isadigit{0}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymAnd}y{\isachardot}\ x{\isacharequal}y\ {\isasymLongrightarrow}\ f\ y{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharparenleft}SBinder{\isadigit{0}}\ a\ f{\isacharparenright}\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ bla{\isacharprime}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}SBinder\ a\ f{\isacharparenright}\ x\ {\isasymLongrightarrow}\ \ {\isacharparenleft}{\isasymexists}\ y\ z{\isachardot}\ f\ y\ z{\isacharparenright}{\isachardoublequoteclose}\ \isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ bla{\isadigit{0}}{\isacharprime}{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}SBinder{\isadigit{0}}\ a\ f{\isacharparenright}\ x\ {\isasymLongrightarrow}\ f\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ blaE\ {\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}{\isasymexists}\ y\ z{\isachardot}\ f\ y\ z\ {\isasymand}\ x{\isacharequal}{\isacharparenleft}y{\isacharcomma}z{\isacharparenright}{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharparenleft}SBinder\ a\ f{\isacharparenright}\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ bla{\isadigit{0}}E{\isacharcolon}\ {\isachardoublequoteopen}{\isacharparenleft}f\ x{\isacharparenright}\ {\isasymLongrightarrow}\ {\isacharparenleft}SBinder{\isadigit{0}}\ a\ f{\isacharparenright}\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ split{\isacharunderscore}def\ SBinder{\isadigit{0}}{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\ \ \isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ PRE{\isacharunderscore}I\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ P\ x\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ PRE\ P{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ PRE{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ PRE{\isacharunderscore}E\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ PRE\ P{\isacharsemicolon}\ {\isasymAnd}\ x{\isachardot}\ \ P\ x\ {\isasymLongrightarrow}\ Q\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ Q{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ PRE{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBex{\isacharunderscore}E{\isadigit{1}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ SBex\ A\ P{\isacharsemicolon}\ {\isasymAnd}x{\isachardot}\ {\isasymlbrakk}\ x\ {\isacharcolon}\ A{\isacharsemicolon}\ P\ x\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ Q\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ Q{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBex{\isacharunderscore}def\ asSet{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBex{\isacharunderscore}E{\isadigit{2}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ SBex\ {\isacharparenleft}asSet\ A{\isacharparenright}\ P{\isacharsemicolon}\ {\isasymAnd}x{\isachardot}\ {\isasymlbrakk}\ A\ x{\isacharsemicolon}\ P\ x\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ Q\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ Q{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBex{\isacharunderscore}def\ asSet{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBex{\isacharunderscore}I{\isadigit{1}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ P\ x{\isacharsemicolon}\ x\ {\isacharcolon}\ A\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ SBex\ A\ P{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBex{\isacharunderscore}def\ asSet{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBex{\isacharunderscore}I{\isadigit{2}}\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ P\ x{\isacharsemicolon}\ A\ x\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ SBex\ {\isacharparenleft}asSet\ A{\isacharparenright}\ P{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBex{\isacharunderscore}def\ asSet{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ turnstyle{\isacharunderscore}E{\isacharcolon}\ {\isachardoublequoteopen}{\isacharbar}{\isacharminus}\ P\ \ {\isasymLongrightarrow}\ P\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ turnstyle{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+\isanewline
+%
+\endisadelimproof
+\isanewline
+\isacommand{lemma}\isamarkupfalse%
+\ SBall{\isacharunderscore}E\ {\isacharcolon}\ {\isachardoublequoteopen}{\isasymlbrakk}\ SBall\ A\ P{\isacharsemicolon}\ x\ {\isacharcolon}\ A\ {\isasymrbrakk}\ {\isasymLongrightarrow}\ P\ x{\isachardoublequoteclose}\isanewline
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isatagproof
+\isacommand{by}\isamarkupfalse%
+{\isacharparenleft}auto\ simp{\isacharcolon}\ SBall{\isacharunderscore}def{\isacharparenright}%
+\endisatagproof
+{\isafoldproof}%
+%
+\isadelimproof
+%
+\endisadelimproof
+%
+\isamarkupsection{Proof Support: Z-tactics%
+}
+\isamarkuptrue%
+\isacommand{lemmas}\isamarkupfalse%
+\ Z{\isadigit{2}}HOL\ {\isacharequal}\ SNAME{\isadigit{0}}{\isacharunderscore}def\ SNAME{\isacharunderscore}def\ SBinder{\isadigit{0}}{\isacharunderscore}def\ SBinder{\isacharunderscore}def\ turnstyle{\isacharunderscore}def\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ asSet{\isacharunderscore}def\ asPred{\isacharunderscore}def\ DECL{\isacharunderscore}def\ theta{\isacharunderscore}def\ PROJ{\isacharunderscore}def\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ DELTA{\isacharunderscore}def\ XI{\isacharunderscore}def\ PRE{\isacharunderscore}def\ SBall{\isacharunderscore}def\ SBex{\isacharunderscore}def\ SBex{\isadigit{1}}{\isacharunderscore}def\isanewline
+\isanewline
+\isanewline
+\isanewline
+\isacommand{lemmas}\isamarkupfalse%
+\ set{\isacharunderscore}simps\ {\isacharequal}\ insert{\isacharunderscore}subset\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ insert{\isacharunderscore}not{\isacharunderscore}empty\ empty{\isacharunderscore}not{\isacharunderscore}insert\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Int{\isacharunderscore}absorb\ Int{\isacharunderscore}empty{\isacharunderscore}left\ Int{\isacharunderscore}empty{\isacharunderscore}right\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Un{\isacharunderscore}absorb\ Un{\isacharunderscore}empty{\isacharunderscore}left\ Un{\isacharunderscore}empty{\isacharunderscore}right\ Un{\isacharunderscore}empty\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ UN{\isacharunderscore}empty\ UN{\isacharunderscore}insert\ image{\isacharunderscore}empty\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Compl{\isacharunderscore}disjoint\ double{\isacharunderscore}complement\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Union{\isacharunderscore}empty\ Union{\isacharunderscore}insert\ empty{\isacharunderscore}subsetI\ subset{\isacharunderscore}refl\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ Diff{\isacharunderscore}cancel\ empty{\isacharunderscore}Diff\ Diff{\isacharunderscore}empty\ Diff{\isacharunderscore}disjoint\isanewline
+\isanewline
+\isacommand{lemmas}\isamarkupfalse%
+\ prod{\isacharunderscore}simps\ {\isacharequal}\ fst{\isacharunderscore}conv\ snd{\isacharunderscore}conv\ split\ Pair{\isacharunderscore}eq%
+\isamarkupsubsection{ML Code%
+}
+\isamarkuptrue%
+%
+\isadelimML
+%
+\endisadelimML
+%
+\isatagML
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+{\isacharparenleft}{\isacharasterisk}\ compatibility{\isacharcolon}\ {\isacharasterisk}{\isacharparenright}\isanewline
+structure\ ZPure\ {\isacharequal}\ \isanewline
+struct\ \isanewline
+\ \ \ val\ thy\ {\isacharequal}\ the{\isacharunderscore}context{\isacharparenleft}{\isacharparenright}\isanewline
+end\isanewline
+\isanewline
+\isanewline
+val\ SB{\isadigit{0}}{\isacharunderscore}def\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBinder{\isadigit{0}}{\isacharunderscore}def{\isachardoublequote}\ \ val\ SB{\isacharunderscore}def\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBinder{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ SNAME{\isadigit{0}}{\isacharunderscore}def\ \ \ {\isacharequal}\ thm{\isachardoublequote}SNAME{\isadigit{0}}{\isacharunderscore}def{\isachardoublequote}\ \ \ \ val\ SNAME{\isacharunderscore}def\ \ \ {\isacharequal}\ thm{\isachardoublequote}SNAME{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ SBall{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBall{\isacharunderscore}def{\isachardoublequote}\ \ \ \ \ val\ SBex{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBex{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ SBex{\isadigit{1}}{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBex{\isadigit{1}}{\isacharunderscore}def{\isachardoublequote}\ \ \ \ \ val\ asSet{\isacharunderscore}def\ \ \ {\isacharequal}\ thm{\isachardoublequote}asSet{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ PRE{\isacharunderscore}def\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}PRE{\isacharunderscore}def{\isachardoublequote}\ \ \ \ \ \ \ val\ DECL{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ theta{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}theta{\isacharunderscore}def{\isachardoublequote}\ \ \ \ \ val\ asPred{\isacharunderscore}def\ \ {\isacharequal}\ thm{\isachardoublequote}asPred{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ turnstyle{\isacharunderscore}def{\isacharequal}\ thm{\isachardoublequote}turnstyle{\isacharunderscore}def{\isachardoublequote}\ val\ PROJ{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}PROJ{\isacharunderscore}def{\isachardoublequote}\isanewline
+val\ DELTA{\isacharunderscore}def\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DELTA{\isacharunderscore}def{\isachardoublequote}\ \ \ \ \ val\ XI{\isacharunderscore}def\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}XI{\isacharunderscore}def{\isachardoublequote}\isanewline
+\isanewline
+val\ empty{\isacharunderscore}not{\isacharunderscore}insert\ {\isacharequal}\ thm\ {\isachardoublequote}empty{\isacharunderscore}not{\isacharunderscore}insert{\isachardoublequote}{\isacharsemicolon}\isanewline
+\isanewline
+val\ SB{\isadigit{0}}{\isacharunderscore}ext\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isadigit{0}}{\isacharunderscore}ext{\isachardoublequote}\ \ \ \ \ \ val\ SB{\isacharunderscore}ext\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isacharunderscore}ext{\isachardoublequote}\isanewline
+val\ turnstyle{\isacharunderscore}SB{\isadigit{0}}{\isacharequal}\ thm{\isachardoublequote}turnstyle{\isacharunderscore}SB{\isadigit{0}}{\isachardoublequote}val\ turnstyle{\isacharunderscore}SB\ {\isacharequal}\ thm{\isachardoublequote}turnstyle{\isacharunderscore}SB{\isachardoublequote}\isanewline
+val\ SB{\isadigit{0}}{\isacharunderscore}ext{\isacharunderscore}id\ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isadigit{0}}{\isacharunderscore}ext{\isacharunderscore}id{\isachardoublequote}\ \ \ val\ SB{\isacharunderscore}ext{\isacharunderscore}id\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isacharunderscore}ext{\isacharunderscore}id{\isachardoublequote}\isanewline
+val\ SB{\isadigit{0}}{\isacharunderscore}extL\ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isadigit{0}}{\isacharunderscore}extL{\isachardoublequote}\ \ \ \ \ val\ SB{\isacharunderscore}extL\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isacharunderscore}extL{\isachardoublequote}\isanewline
+val\ SB{\isadigit{0}}{\isacharunderscore}eq\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isadigit{0}}{\isacharunderscore}eq{\isachardoublequote}\ \ \ \ \ \ \ val\ SB{\isacharunderscore}eq\ \ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isacharunderscore}eq{\isachardoublequote}\isanewline
+val\ SB{\isacharunderscore}pair{\isacharunderscore}eq\ \ \ {\isacharequal}\ thm{\isachardoublequote}SB{\isacharunderscore}pair{\isacharunderscore}eq{\isachardoublequote}\ \ \ val\ EX{\isacharunderscore}SBinder{\isadigit{0}}\ \ {\isacharequal}\ thm{\isachardoublequote}EX{\isacharunderscore}SBinder{\isadigit{0}}{\isachardoublequote}\isanewline
+val\ EX{\isacharunderscore}SBinder\ \ \ {\isacharequal}\ thm{\isachardoublequote}EX{\isacharunderscore}SBinder{\isachardoublequote}\ \ \ val\ DECL{\isacharunderscore}I\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}I{\isachardoublequote}\isanewline
+val\ DECL{\isacharunderscore}D{\isadigit{1}}\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}D{\isadigit{1}}{\isachardoublequote}\ \ \ \ \ \ val\ DECL{\isacharunderscore}D{\isadigit{2}}\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}D{\isadigit{2}}{\isachardoublequote}\isanewline
+val\ DECL{\isacharunderscore}E\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}E{\isachardoublequote}\ \ \ \ \ \ \ val\ DECL{\isacharunderscore}cong\ \ \ \ {\isacharequal}\ thm{\isachardoublequote}DECL{\isacharunderscore}cong{\isachardoublequote}\isanewline
+\isanewline
+val\ conv{\isacharunderscore}sname{\isadigit{0}}\ \ {\isacharequal}\ thm{\isachardoublequote}conv{\isacharunderscore}sname{\isadigit{0}}{\isachardoublequote}\ \ val\ conv{\isacharunderscore}sname\ \ \ {\isacharequal}\ thm{\isachardoublequote}conv{\isacharunderscore}sname{\isachardoublequote}\isanewline
+val\ SBall{\isacharunderscore}I\ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBall{\isacharunderscore}I{\isachardoublequote}\ \ \ \ \ \ val\ SBall{\isacharunderscore}I{\isadigit{2}}\ {\isacharequal}\ thm{\isachardoublequote}SBall{\isacharunderscore}I{\isadigit{2}}{\isachardoublequote}\ \isanewline
+val\ SBallE\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBall{\isacharunderscore}E{\isachardoublequote}\isanewline
+\isanewline
+val\ sbexE{\isadigit{1}}\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBex{\isacharunderscore}E{\isadigit{1}}{\isachardoublequote}\ \ \ \ \ \ val\ sbexE{\isadigit{2}}\ \ \ {\isacharequal}thm{\isachardoublequote}SBex{\isacharunderscore}E{\isadigit{2}}{\isachardoublequote}\ \isanewline
+val\ sbexI{\isadigit{1}}\ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}SBex{\isacharunderscore}I{\isadigit{1}}{\isachardoublequote}\ \ \ \ \ \ val\ sbexI{\isadigit{2}}\ \ \ {\isacharequal}thm{\isachardoublequote}SBex{\isacharunderscore}I{\isadigit{2}}{\isachardoublequote}\isanewline
+val\ preI\ \ \ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}PRE{\isacharunderscore}I{\isachardoublequote}\ \ \ \ \ \ \ \ val\ preE\ {\isacharequal}\ thm{\isachardoublequote}PRE{\isacharunderscore}E{\isachardoublequote}\ \isanewline
+val\ bla\ \ \ \ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}bla{\isachardoublequote}\ \ \ \ \ \ \ \ \ \ val\ bla{\isadigit{0}}\ {\isacharequal}\ thm{\isachardoublequote}bla{\isadigit{0}}{\isachardoublequote}\isanewline
+val\ bla{\isacharprime}\ \ \ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}bla{\isacharprime}{\isachardoublequote}\ \ \ \ \ \ \ \ \ val\ bla{\isadigit{0}}{\isacharprime}{\isacharequal}\ thm{\isachardoublequote}bla{\isadigit{0}}{\isacharprime}{\isachardoublequote}\isanewline
+val\ blaE\ \ \ \ \ \ \ \ \ {\isacharequal}\ thm{\isachardoublequote}blaE{\isachardoublequote}\ \ \ \ \ \ \ \ \ val\ bla{\isadigit{0}}E{\isacharequal}thm{\isachardoublequote}bla{\isadigit{0}}E{\isachardoublequote}\isanewline
+val\ turnstyleE\ \ \ {\isacharequal}\ thm{\isachardoublequote}turnstyle{\isacharunderscore}E{\isachardoublequote}\ \isanewline
+\isanewline
+val\ set{\isacharunderscore}ss\ {\isacharequal}\isanewline
+\ \ HOL{\isacharunderscore}ss\ addsimps\ mem{\isacharunderscore}simps\isanewline
+\ \ \ \ \ \ \ \ \ addcongs\ {\isacharbrackleft}ball{\isacharunderscore}cong{\isacharcomma}bex{\isacharunderscore}cong{\isacharbrackright}\isanewline
+\ \ \ \ \ \ \ \ \ setmksimps\ {\isacharparenleft}mksimps\ mksimps{\isacharunderscore}pairs{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+val\ set{\isacharunderscore}ss\ {\isacharequal}\ set{\isacharunderscore}ss\ addsimps\isanewline
+\ \ {\isacharbrackleft}insert{\isacharunderscore}subset{\isacharcomma}\isanewline
+\ \ \ insert{\isacharunderscore}not{\isacharunderscore}empty{\isacharcomma}empty{\isacharunderscore}not{\isacharunderscore}insert{\isacharcomma}\isanewline
+\ \ \ Int{\isacharunderscore}absorb{\isacharcomma}Int{\isacharunderscore}empty{\isacharunderscore}left{\isacharcomma}Int{\isacharunderscore}empty{\isacharunderscore}right{\isacharcomma}\isanewline
+\ \ \ Un{\isacharunderscore}absorb{\isacharcomma}Un{\isacharunderscore}empty{\isacharunderscore}left{\isacharcomma}Un{\isacharunderscore}empty{\isacharunderscore}right{\isacharcomma}Un{\isacharunderscore}empty{\isacharcomma}\isanewline
+\ \ \ UN{\isacharunderscore}empty{\isacharcomma}\ UN{\isacharunderscore}insert{\isacharcomma}image{\isacharunderscore}empty{\isacharcomma}\isanewline
+\ \ \ Compl{\isacharunderscore}disjoint{\isacharcomma}double{\isacharunderscore}complement{\isacharcomma}\isanewline
+\ \ \ Union{\isacharunderscore}empty{\isacharcomma}Union{\isacharunderscore}insert{\isacharcomma}empty{\isacharunderscore}subsetI{\isacharcomma}subset{\isacharunderscore}refl{\isacharcomma}\isanewline
+\ \ \ Diff{\isacharunderscore}cancel{\isacharcomma}empty{\isacharunderscore}Diff{\isacharcomma}Diff{\isacharunderscore}empty{\isacharcomma}Diff{\isacharunderscore}disjoint{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+val\ prod{\isacharunderscore}ss\ {\isacharequal}\ set{\isacharunderscore}ss\ addsimps\ {\isacharbrackleft}fst{\isacharunderscore}conv{\isacharcomma}\ snd{\isacharunderscore}conv{\isacharcomma}\ split{\isacharcomma}\ Pair{\isacharunderscore}eq{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+fun\ prover\ s\ {\isacharequal}\ prove{\isacharunderscore}goal\ HOL{\isachardot}thy\ s\ {\isacharparenleft}fn\ {\isacharunderscore}\ {\isacharequal}{\isachargreater}\ {\isacharbrackleft}fast{\isacharunderscore}tac\ HOL{\isacharunderscore}cs\ {\isadigit{1}}{\isacharbrackright}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+use\ {\isachardoublequote}ZEncoder{\isachardot}sml{\isachardoublequote}{\isacharsemicolon}\isanewline
+use\ {\isachardoublequote}ZConversion{\isachardot}sml{\isachardoublequote}{\isacharsemicolon}\isanewline
+\isanewline
+use\ {\isachardoublequote}ZProofUtil{\isachardot}sml{\isachardoublequote}{\isacharsemicolon}\ \ \ \ \ \ \ \ \isanewline
+open\ ZProofUtil{\isacharsemicolon}\isanewline
+\isanewline
+{\isacharparenleft}{\isacharasterisk}\ Test\ {\isacharasterisk}{\isacharparenright}\isanewline
+ZProofUtil{\isachardot}lift\ conj{\isacharunderscore}commute\ {\isadigit{5}}{\isacharsemicolon}\ \isanewline
+{\isacharparenleft}{\isacharasterisk}val\ it\ {\isacharequal}\ \ {\isachardoublequote}{\isacharparenleft}SB\ {\isacharquery}A\ {\isachartilde}{\isachartilde}{\isachargreater}\ x{\isacharcomma}\ {\isacharquery}A{\isadigit{1}}\ x\ {\isachartilde}{\isachartilde}{\isachargreater}\ xa{\isacharcomma}\ {\isacharquery}A{\isadigit{2}}\ x\ xa\ {\isachartilde}{\isachartilde}{\isachargreater}\ xb{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharquery}A{\isadigit{3}}\ x\ xa\ xb\ {\isachartilde}{\isachartilde}{\isachargreater}\ xc{\isacharcomma}\ {\isacharquery}A{\isadigit{4}}\ x\ xa\ xb\ xc\ {\isachartilde}{\isachartilde}{\isachargreater}\ xd{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharquery}P{\isadigit{5}}\ x\ xa\ xb\ xc\ xd\ {\isacharslash}{\isacharbackslash}{\isacharbackslash}{\isacharbackslash}{\isacharbackslash}\ {\isacharquery}Q{\isadigit{5}}\ x\ xa\ xb\ xc\ xd{\isacharparenright}\ {\isacharequal}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}SB\ {\isacharquery}A\ {\isachartilde}{\isachartilde}{\isachargreater}\ x{\isacharcomma}\ {\isacharquery}A{\isadigit{1}}\ x\ {\isachartilde}{\isachartilde}{\isachargreater}\ xa{\isacharcomma}\ {\isacharquery}A{\isadigit{2}}\ x\ xa\ {\isachartilde}{\isachartilde}{\isachargreater}\ xb{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharquery}A{\isadigit{3}}\ x\ xa\ xb\ {\isachartilde}{\isachartilde}{\isachargreater}\ xc{\isacharcomma}\ \ {\isacharquery}A{\isadigit{4}}\ x\ xa\ xb\ xc\ {\isachartilde}{\isachartilde}{\isachargreater}\ xd{\isachardot}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharquery}Q{\isadigit{5}}\ x\ xa\ xb\ xc\ xd\ {\isacharslash}{\isacharbackslash}{\isacharbackslash}{\isacharbackslash}{\isacharbackslash}\ {\isacharquery}P{\isadigit{5}}\ x\ xa\ xb\ xc\ xd{\isacharparenright}{\isachardoublequote}\ {\isacharasterisk}{\isacharparenright}\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{ML{\isacharunderscore}setup}\isamarkupfalse%
+{\isacharverbatimopen}\ \isanewline
+\isanewline
+fun\ nat{\isacharunderscore}arg\ f\ {\isacharequal}\ {\isacharparenleft}f{\isacharparenright}\ oo\isanewline
+\ {\isacharparenleft}{\isacharhash}{\isadigit{2}}\ oo\ Method{\isachardot}syntax{\isacharparenleft}Scan{\isachardot}lift\ {\isacharparenleft}Scan{\isachardot}optional\ {\isacharparenleft}Args{\isachardot}parens\ Args{\isachardot}nat{\isacharparenright}\ {\isadigit{1}}{\isacharparenright}{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+fun\ nat{\isacharunderscore}thms{\isacharunderscore}args\ f\ {\isacharequal}\ uncurry\ f\ oo\isanewline
+\ \ {\isacharparenleft}{\isacharhash}{\isadigit{2}}\ oo\ Method{\isachardot}syntax\ {\isacharparenleft}Scan{\isachardot}lift\ {\isacharparenleft}Scan{\isachardot}optional\ {\isacharparenleft}Args{\isachardot}parens\ Args{\isachardot}nat{\isacharparenright}\ {\isadigit{1}}{\isacharparenright}\ {\isacharminus}{\isacharminus}\ Attrib{\isachardot}local{\isacharunderscore}thmss{\isacharparenright}{\isacharparenright}{\isacharsemicolon}\isanewline
+\isanewline
+\isanewline
+fun\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ tac\ n\ {\isacharequal}\ Method{\isachardot}SIMPLE{\isacharunderscore}METHOD\ {\isacharparenleft}tac\ n{\isacharparenright}{\isacharsemicolon}\isanewline
+fun\ tac{\isadigit{2}}meth{\isacharunderscore}binary\ tac\ thmS\ n\ {\isacharequal}\ Method{\isachardot}SIMPLE{\isacharunderscore}METHOD\ {\isacharparenleft}tac\ thmS\ n{\isacharparenright}{\isacharsemicolon}\isanewline
+fun\ tac{\isadigit{2}}meth\ tac\ n\ ths\ {\isacharequal}\ let\ fun\ multitac\ tac\ thms\ n\ {\isacharequal}\ FIRST{\isacharparenleft}map\ {\isacharparenleft}fn\ thm\ {\isacharequal}{\isachargreater}\ tac\ thm\ n{\isacharparenright}\ thms{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ in\ \ Method{\isachardot}SIMPLE{\isacharunderscore}METHOD\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}CHANGED{\isacharunderscore}PROP\ {\isacharparenleft}multitac\ tac\ ths\ n{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ end{\isacharsemicolon}\isanewline
+\isanewline
+val\ zsubst{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth\ zstac{\isacharsemicolon}\isanewline
+val\ zrule{\isacharunderscore}meth\ \ \ {\isacharequal}\ tac{\isadigit{2}}meth\ zrtac{\isacharsemicolon}\isanewline
+val\ zdrule{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth\ zdtac{\isacharsemicolon}\isanewline
+val\ zerule{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth\ zetac{\isacharsemicolon}\isanewline
+val\ zfrule{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth\ zftac{\isacharsemicolon}\isanewline
+val\ tc{\isacharunderscore}meth\ \ \ \ \ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ tc{\isacharunderscore}tac{\isacharsemicolon}\isanewline
+val\ zstrip{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ stripS{\isacharunderscore}tac{\isacharsemicolon}\isanewline
+val\ zunfold{\isacharunderscore}meth\ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}binary\ {\isacharparenleft}fn\ x\ {\isacharequal}{\isachargreater}\ fn\ y\ {\isacharequal}{\isachargreater}\ if\ x\ {\isacharequal}\ {\isadigit{0}}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ then\ expand{\isacharunderscore}schema{\isacharunderscore}tac\ y\ {\isadigit{1}}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ else\ full{\isacharunderscore}expand{\isacharunderscore}schema{\isacharunderscore}tac\ y\ {\isadigit{1}}{\isacharparenright}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}{\isacharasterisk}\ {\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}{\isacharcircum}\ HACK\ {\isacharasterisk}{\isacharparenright}\ \isanewline
+\isanewline
+val\ zintro{\isacharunderscore}schema{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ intro{\isacharunderscore}schema{\isacharunderscore}tac{\isacharsemicolon}\isanewline
+val\ zintro{\isacharunderscore}sch{\isacharunderscore}all{\isacharunderscore}meth\ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ intro{\isacharunderscore}sch{\isacharunderscore}all{\isacharunderscore}tac\isanewline
+val\ zintro{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}meth\ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ intro{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}tac\isanewline
+val\ zintro{\isacharunderscore}pre{\isacharunderscore}meth\ \ \ \ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}binary\ {\isacharparenleft}fn\ x\ {\isacharequal}{\isachargreater}\ fn\ y\ {\isacharequal}{\isachargreater}\ intro{\isacharunderscore}pre{\isacharunderscore}tac\ y\ x{\isacharparenright}\ \isanewline
+val\ zintro{\isacharunderscore}sch{\isacharunderscore}ex{\isadigit{1}}{\isacharunderscore}meth\ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ intro{\isacharunderscore}sch{\isacharunderscore}ex{\isadigit{1}}{\isacharunderscore}tac\isanewline
+val\ zelim{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}meth\ \ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ elim{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}tac\isanewline
+val\ zelim{\isacharunderscore}pre{\isacharunderscore}meth\ \ \ \ \ \ {\isacharequal}\ tac{\isadigit{2}}meth{\isacharunderscore}unary\ \ elim{\isacharunderscore}pre{\isacharunderscore}tac\isanewline
+\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\isanewline
+\isanewline
+val\ zmethods\ {\isacharequal}\ {\isacharbrackleft}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zsubst{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zsubst{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ as\ rewrite\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zrule{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zrule{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ in\ resolution\ manner\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zerule{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zerule{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ in\ elimination\ manner\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zdrule{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zdrule{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ in\ destruction\ resolution\ manner\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zfrule{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zfrule{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ in\ forward\ resolution\ manner\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zintro{\isacharunderscore}pre{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zintro{\isacharunderscore}pre{\isacharunderscore}meth\ {\isacharparenleft}{\isacharasterisk}zfrule{\isacharunderscore}meth\ should\ be{\isacharcolon}\ \ zintro{\isacharunderscore}pre{\isacharunderscore}meth\ {\isacharasterisk}{\isacharparenright}{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ Z{\isacharminus}rule\ in\ resolution\ manner\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}tc{\isachardoublequote}{\isacharcomma}\ \ \ \ \ nat{\isacharunderscore}arg\ tc{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}apply\ solver\ for\ typing\ conditions\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zstrip{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}arg\ zstrip{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}strip\ schema\ calculus\ operators\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zunfold{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}thms{\isacharunderscore}args\ zunfold{\isacharunderscore}meth{\isacharcomma}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}unfold\ schema\ definition\ {\isacharparenleft}improper{\isacharparenright}{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zintro{\isacharunderscore}schema{\isachardoublequote}{\isacharcomma}\ nat{\isacharunderscore}arg\ zintro{\isacharunderscore}schema{\isacharunderscore}meth{\isacharcomma}{\isachardoublequote}intro\ schema\ expression{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zintro{\isacharunderscore}sch{\isacharunderscore}all{\isachardoublequote}{\isacharcomma}nat{\isacharunderscore}arg\ zintro{\isacharunderscore}sch{\isacharunderscore}all{\isacharunderscore}meth{\isacharcomma}{\isachardoublequote}intro\ schema\ all\ quantifier{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zintro{\isacharunderscore}sch{\isacharunderscore}ex{\isachardoublequote}{\isacharcomma}nat{\isacharunderscore}arg\ zintro{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}meth{\isacharcomma}{\isachardoublequote}intro\ schema\ ex\ quantifier{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zintro{\isacharunderscore}sch{\isacharunderscore}ex{\isadigit{1}}{\isachardoublequote}{\isacharcomma}nat{\isacharunderscore}arg\ {\isacharparenleft}tac{\isadigit{2}}meth{\isacharunderscore}unary\ intro{\isacharunderscore}sch{\isacharunderscore}ex{\isadigit{1}}{\isacharunderscore}tac{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isachardoublequote}intro\ schema\ ex{\isadigit{1}}\ quantifier{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zelim{\isacharunderscore}sch{\isacharunderscore}ex{\isachardoublequote}{\isacharcomma}nat{\isacharunderscore}arg\ zelim{\isacharunderscore}sch{\isacharunderscore}ex{\isacharunderscore}meth{\isacharcomma}{\isachardoublequote}eliminate\ schema\ ex\ quantifier{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ {\isacharparenleft}{\isachardoublequote}zelim{\isacharunderscore}pre{\isachardoublequote}{\isacharcomma}nat{\isacharunderscore}arg\ zelim{\isacharunderscore}pre{\isacharunderscore}meth{\isacharcomma}{\isachardoublequote}eliminate\ schema\ pre{\isachardoublequote}{\isacharparenright}\ \isanewline
+\isanewline
+\ {\isacharbrackright}\isanewline
+\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ Context{\isachardot}add{\isacharunderscore}setup\ {\isacharbrackleft}Method{\isachardot}add{\isacharunderscore}methods\ zmethods{\isacharbrackright}{\isacharsemicolon}\isanewline
+\isanewline
+\ \ \ {\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{ML}\isamarkupfalse%
+{\isacharverbatimopen}\ \isanewline
+\isanewline
+local\isanewline
+fun\ gen{\isacharunderscore}GET\ thmP\ comb\ {\isacharequal}\ \isanewline
+\ \ \ \ let\ fun\ apply\ f\ B\ {\isacharparenleft}x{\isacharcomma}\ A{\isacharparenright}\ {\isacharequal}\ {\isacharparenleft}x{\isacharcomma}\ f{\isacharparenleft}A{\isacharcomma}B{\isacharparenright}{\isacharparenright}\ \isanewline
+\ \ \ \ in\ Attrib{\isachardot}syntax\ {\isacharparenleft}\ Scan{\isachardot}lift\ {\isacharparenleft}Scan{\isachardot}optional\ {\isacharparenleft}Args{\isachardot}bracks\ Args{\isachardot}nat{\isacharparenright}\ {\isadigit{1}}{\isacharparenright}\ {\isachargreater}{\isachargreater}\ \isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ {\isacharparenleft}apply\ {\isacharparenleft}uncurry\ comb{\isacharparenright}{\isacharparenright}{\isacharparenright}\isanewline
+\ \ \ \ end{\isacharsemicolon}\isanewline
+val\ GET{\isacharunderscore}global\ {\isacharequal}\ gen{\isacharunderscore}GET\ Attrib{\isachardot}global{\isacharunderscore}thm\ {\isacharparenleft}get{\isacharunderscore}decl{\isadigit{2}}{\isacharparenright}{\isacharsemicolon}\isanewline
+val\ GET{\isacharunderscore}local\ \ {\isacharequal}\ gen{\isacharunderscore}GET\ Attrib{\isachardot}local{\isacharunderscore}thm{\isacharsemicolon}\isanewline
+fun\ zstrip\ x\ {\isacharequal}\ Attrib{\isachardot}no{\isacharunderscore}args\ {\isacharparenleft}Drule{\isachardot}rule{\isacharunderscore}attribute\ {\isacharparenleft}K\ {\isacharparenleft}stripS{\isacharparenright}{\isacharparenright}{\isacharparenright}\ x{\isacharsemicolon}\isanewline
+\isanewline
+in\isanewline
+\isanewline
+val\ {\isacharunderscore}\ {\isacharequal}\ \isanewline
+let\ val\ z{\isacharunderscore}attributes\ {\isacharequal}\ \isanewline
+\ \ \ \ {\isacharbrackleft}{\isacharparenleft}{\isachardoublequote}zstrip{\isachardoublequote}{\isacharcomma}\ \ {\isacharparenleft}zstrip{\isacharcomma}zstrip{\isacharparenright}{\isacharcomma}{\isachardoublequote}strip\ schema\ operators{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ {\isacharparenleft}{\isachardoublequote}zdecl{\isachardoublequote}{\isacharcomma}{\isacharparenleft}gen{\isacharunderscore}GET\ Attrib{\isachardot}global{\isacharunderscore}thm\ get{\isacharunderscore}decl{\isadigit{2}}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ gen{\isacharunderscore}GET\ Attrib{\isachardot}local{\isacharunderscore}thm\ get{\isacharunderscore}decl{\isadigit{2}}{\isacharparenright}{\isacharcomma}{\isachardoublequote}get\ conjunct\ from\ declaration\ part{\isachardoublequote}{\isacharparenright}{\isacharcomma}\isanewline
+\ \ \ \ \ {\isacharparenleft}{\isachardoublequote}zpred{\isachardoublequote}{\isacharcomma}{\isacharparenleft}gen{\isacharunderscore}GET\ Attrib{\isachardot}global{\isacharunderscore}thm\ get{\isacharunderscore}conj{\isadigit{2}}{\isacharcomma}\isanewline
+\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ gen{\isacharunderscore}GET\ Attrib{\isachardot}local{\isacharunderscore}thm\ get{\isacharunderscore}conj{\isadigit{2}}{\isacharparenright}{\isacharcomma}{\isachardoublequote}get\ conjunct\ from\ predicative\ part{\isachardoublequote}{\isacharparenright}{\isacharbrackright}\isanewline
+in\ Context{\isachardot}add{\isacharunderscore}setup\ {\isacharbrackleft}Attrib{\isachardot}add{\isacharunderscore}attributes\ z{\isacharunderscore}attributes{\isacharbrackright}\ end{\isacharsemicolon}\isanewline
+\isanewline
+end{\isacharsemicolon}\isanewline
+{\isacharverbatimclose}\isanewline
+\isanewline
+\isacommand{setup}\isamarkupfalse%
+\ {\isachardoublequoteopen}Context{\isachardot}setup\ {\isacharparenleft}{\isacharparenright}{\isachardoublequoteclose}%
+\endisatagML
+{\isafoldML}%
+%
+\isadelimML
+%
+\endisadelimML
+\isanewline
+%
+\isadelimtheory
+\isanewline
+%
+\endisadelimtheory
+%
+\isatagtheory
+\isacommand{end}\isamarkupfalse%
+%
+\endisatagtheory
+{\isafoldtheory}%
+%
+\isadelimtheory
+%
+\endisadelimtheory
+\isanewline
+\ \isanewline
+\end{isabellebody}%
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: "root"
+%%% End:

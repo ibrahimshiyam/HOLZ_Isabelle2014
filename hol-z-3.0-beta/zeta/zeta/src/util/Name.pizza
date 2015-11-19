@@ -1,0 +1,312 @@
+package zeta.util;
+
+/** A Name is a wrapper around an interned String, with special
+  * methods for handling Z style decoration. Decoration is implemented for
+  * reasons of efficiency literally on the level of the string
+  * representation. 
+  *
+  * In order to build a decorated name,
+  * one writes e.g.
+  * <pre>
+  *   new Name(base + prime)
+  * </pre>
+  *
+  * </pre>
+  *
+  * The literal syntax for names is as follows:
+  * <pre>
+  *       ( CHARACTER \ {prime,input,output,index}  )+ 
+  *       ( prime | input | output | index (CHARACTER \ {index})* index )*
+  * </pre>
+  *
+  * prime, input, output and index are the characters `'', `?', `!'
+  * and `#', respectively. Note that the representation of
+  * index is not the same as under LaTeX, and when producing 
+  * output for LaTeX, has to be substituted accordingly (by _{...}).
+  *
+  * @version $Id: Name.pizza,v 1.2 2000/01/02 17:35:37 wg Exp $
+  *
+  */
+
+import java.io.ObjectOutputStream;
+import java.io.ObjectInputStream;
+import java.io.IOException;
+import java.util.Hashtable;
+import java.util.Vector;
+
+import zeta.util.Term;
+
+import zeta.format.Formattable;
+import zeta.format.Format;
+import zeta.format.FormatInfo;
+
+import zeta.agl.Ordered;
+
+public class Name extends Term implements Ordered<Name> {
+
+ /** The name representation. This is always an `interned' string.
+   * @see java.lang.String#intern 
+   */
+  private String repr;
+
+  /** Constructs a Name. */
+  public Name(String repr){
+    this.repr = repr.intern(); 
+  }
+
+  /** Name equality. */
+  public boolean equals(Object other){
+    if (other instanceof Name){
+      return repr == ((Name)other).repr;
+    } else {
+      return false;
+    }
+  }
+
+  /** Return hashing-code of Name. */
+  public int hashCode(){
+    // since representations are interned, the code of the reference
+    // itself can be used
+    return System.identityHashCode(repr);
+  }
+
+  /** Name ordering. Represents a total order on names. Note that, for
+    * reasons of efficiency, this order does not necessarily coincides
+    * with the lexical ordering of the string representation of
+    * names. */
+  public int compareTo(Name other){
+    return System.identityHashCode(this.repr)
+                       - System.identityHashCode(other.repr);
+  }
+
+  /** Static method for lexical comparsion of two names. */
+  public static int lexCompare(Name n1, Name n2){
+    return n1.repr.compareTo(n2.repr);
+  }
+
+  /** Internalize a name. */
+  public Term intern(){
+    if (interned) return this;
+    Name n = (Name)internTab.get(this);
+    if (n == null) {
+      this.interned = true;
+      internTab.put(this,this);
+      return this;
+    } else {
+      return n;
+    }
+  }
+
+
+
+  private static Hashtable internTab = new Hashtable(256, 0.5f);
+    
+  /** Serialize a name. */
+  private void writeObject(ObjectOutputStream out)
+    throws IOException {
+    out.writeObject(repr);
+  }
+
+  /** Unserialize a name. */
+  private void readObject(ObjectInputStream in)
+    throws IOException, ClassNotFoundException {
+      repr = ((String)in.readObject()).intern();
+  }
+
+  /** Format a name. */
+  public Format toFormat(FormatInfo info){
+    return Format.literal(repr);
+  }
+
+  /** Make a ``standard'' name from the Z LaTeX 
+      representation.  */
+  public static Name stdName(String base){
+    return new Name(base);
+  }
+
+  /** Make an ``internal'' name. An internal name is guaranteed to
+    * be disjunct from any names which can be defined by external
+    * representation. */
+
+  public static Name internName(String base){
+    // FIXME: reserve a special character for this one
+    return new Name("@" + index(base));
+  }
+    
+  /** Get representation of Name, including embedded decoration 
+    */
+
+  public String getRepr(){
+    return repr;
+  }
+
+  /** Clones a name. Since a name is immutable, actually ``this'' is
+      returned. */
+  public Object clone(){
+    return this;
+  }
+
+    
+  /** Return string of Name. 
+    * @see Name#getRepr
+   */
+  public String toString(){
+    return repr; 
+  }
+
+  /** Represents prime stroke. */
+  public final static char prime = '\'';
+
+  /** Represents input stroke. */
+  public final static char input = '?';
+
+  /** Represents output stroke. */
+  public final static char output = '!';
+
+  /** Represents index stroke. */
+  public final static char index = '#';
+
+  /** Make an index stroke string. */
+  public static String index(String value){
+    return index + value + index;
+  }
+
+  /** Get value of index stroke.
+   * @exception IllegalArgumentException  if passed string is not an
+   *                index stroke, at is starts and ends with 
+   *                Name.index
+   */
+  public static String valueOfIndex(String stroke) {
+    if (stroke.length() > 1 &&
+	stroke.charAt(0) == index && stroke.charAt(stroke.length()-1) == index){
+      return stroke.substring(1,stroke.length()-1);
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+  /** Return array of strings describing components of
+    * this name. The first entry in the array is the
+    * base name, the remaining entries contain decoration strokes. */
+  public String[] getComponents(){
+    int n = repr.length();
+    int i = 0;
+    loop: while (i < n){
+      switch (repr.charAt(i)){
+      case input: case output: case prime: 
+	break loop;
+      case index:
+	int j = i+1;
+	while (j < n && repr.charAt(j) != index) j++;
+	if (j < n) {
+	  break loop;
+	}
+	else {
+	  i++;
+	  continue loop;
+	}
+      default:
+	i++;
+	continue loop;
+      }
+    }
+    if (i == n){
+      return new String[]{repr};
+    }
+    else {
+      Vector buf = new Vector();
+      buf.addElement(repr.substring(0, i));
+      while (i < n){
+	char ch = repr.charAt(i);
+	switch (ch){
+	case input:
+	case output:
+	case prime: 
+	  buf.addElement(new String(new char[]{ch}));
+	  i++;
+	  break;
+	case index:
+	  int j = i+1;
+	  while (j < n && repr.charAt(j) != index) j++;
+	  buf.addElement(repr.substring(i, j));
+	  i = j+1;
+	  break;
+	}
+      }
+      String[] strokes = new String[buf.size()];
+      buf.copyInto(strokes);
+      return strokes;
+    }
+  }
+
+    
+  /** Remove all decoration from name */
+  public Name undecorate(){
+    return undecorate(100000);
+  }
+
+  /** Remove given number of trailing decorations from name */
+  public Name undecorate(int num){
+    int i = repr.length() - 1;
+    while (i >= 0 && num > 0){
+      switch (repr.charAt(i)){
+      case input:
+      case output:
+      case prime: 
+	i--;
+	num--;
+	break;
+      case index:
+	i--;
+	while (i >= 0 && repr.charAt(i) != index) i--;
+	i--;
+	num--;
+	break;
+      default:
+	num = 0;
+	break;
+      }
+    }
+    return new Name(repr.substring(0,i+1));
+  }
+
+  /** Return a new name with decoration added. */
+  public Name decorate(String add){
+    return new Name(repr + add);
+  }
+
+  private int findDecorationBegin() {
+    int i, j;
+
+loop:
+    for (i = repr.length(); i-->0; ) {
+      switch (repr.charAt(i)) {
+        case input:
+        case output:
+        case prime:
+          break;
+        case index:
+          j = i;
+          while (i-->0 && repr.charAt(i) != index);
+          if (i < 0) { // no second index character found
+            i = j;
+            break loop;
+          }
+          break;
+        default:
+          break loop;
+      }
+    }
+    return i+1;
+  }
+
+  /** Return the name without its decoration */
+  public Name baseName() {
+    return new Name(repr.substring(0,findDecorationBegin()));
+  }
+
+  /** Return the decoration string of the name */
+  public String decoration() {
+    return repr.substring(findDecorationBegin());
+  }
+}

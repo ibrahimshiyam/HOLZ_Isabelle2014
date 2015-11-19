@@ -1,0 +1,1712 @@
+/** LatexScanner for LaTeX source texts. 
+  *
+  * @version $Id: LatexScanner.jj,v 1.19 2000/07/20 11:39:01 wg Exp $
+  */
+
+// TODO: locators of literals
+
+options {
+  DEBUG_PARSER 		= false;
+  DEBUG_TOKEN_MANAGER 	= false;
+  JAVA_UNICODE_ESCAPE 	= false;
+  STATIC		= false;
+}
+      
+PARSER_BEGIN(LatexScanner)
+
+package zeta.tools.latex;
+
+import java.util.Vector;
+
+import java.io.*;
+import java.util.Vector;
+
+import zeta.format.*;
+import zeta.format.impl.*;
+
+import zeta.util.*;
+import zeta.content.text.*;
+import zeta.content.zirp.Fixity;
+import zeta.session.*;
+
+
+public class LatexScanner {
+
+  /** Diagnostics associated with this scanner. */
+  private Diag diag = new Diag();
+
+  /** Configuration associated with this scanner. */
+  private LatexConfig config;
+
+  /** The array of names of default toolkits to use. If null,
+      use the value of defaultToolkits. */
+  private Name[] toolkits = null;
+
+  /** The default toolkits to use. */
+  private static final Name[] defaultToolkits = 
+    new Name[]{new Name("Toolkit")};
+
+  /** Name of input stream. */
+  private Name inputName;
+
+  /** A vector of files being included by this scanner. */
+  private Vector includedFiles = new Vector();
+
+  /** The LatexAdaptor running this scanner. Currently only used
+   * for locating files via <code>locateFile</code>.
+   */
+  private LatexAdaptor adaptor = null;
+
+  /**
+   * Whether the next environment will be unchecked.
+   */
+  private boolean nextUnchecked = false;
+
+
+  /** Create a new scanner for the given configuration, initial unit,
+      input stream, and input name.  */
+  public LatexScanner(LatexAdaptor adaptor,
+		      LatexConfig config,
+		      java.io.InputStream inputStream, 
+		      Name inputName){
+    this(inputStream);
+    this.adaptor = adaptor;
+    this.config = config;
+    this.inputName = inputName;
+  }
+
+  /** 
+   * Scan the given string literally as a sequence of Z tokens. 
+   * The given input name is a symbol for the input name part of
+   * created text locators.
+   */
+  public static ScanResult scanString(LatexConfig config,
+				      Name inputName, 
+				      int lineStart, int columnStart,
+				      String input){
+    LatexScanner scanner = 
+      new LatexScanner(new LatexScannerTokenManager(
+			     new SimpleCharStream(
+					 new StringBufferInputStream(input),
+					 lineStart, columnStart,
+					 128
+				       )
+			   ));
+    scanner.config = config;
+    scanner.inputName = inputName;
+    scanner.adaptor = null; // not needed since we dont handle includes
+    Vector v = new Vector();
+    try {
+      scanner.token_source.SwitchTo(ZED); 
+      scanner.getToken(0);
+      scanner.zedTokensAndEOF(v);
+      Text.ZedToken[] tokens = new Text.ZedToken[v.size()];
+      v.copyInto(tokens);
+      return new ScanResult(scanner.diag, tokens);
+    }
+    catch (TokenMgrError e){
+      scanner.handleTokenMgrError(e);
+      return new ScanResult(scanner.diag, null);
+    }
+    catch (ParseException e){
+      scanner.putDiag(e);
+      return new ScanResult(scanner.diag, null);
+    }
+  }
+
+  /** Class holding result of literal scanning. */
+  public static class ScanResult {
+    public final Diag diag;
+    public final Text.ZedToken[] tokens;
+    private ScanResult(Diag diag, Text.ZedToken[] tokens){
+      this.diag = diag; this.tokens = tokens;
+    }
+  }
+
+
+
+  /** Run scanner, returning a sequence of texts. 
+    */
+  public Text[] run(){
+    try {
+      return document();
+    }
+    catch (TokenMgrError e){
+      handleTokenMgrError(e);
+      return new Text[]{};
+    }
+    catch (ParseException e){
+      putDiag(e);
+      return new Text[]{};
+    }
+  }
+  
+  /** Generate diagnostic from token manager error. */
+  private void handleTokenMgrError(TokenMgrError e){
+    Token last = getToken(0);
+    Locator locator = last != null ? makeLocator(last) : 
+	                              new TextLocator(inputName, 1,1,1,1);
+    diag = diag.add(locator,
+		    Diag.Category.Error, 
+		    Format.append(Format.literal("lexcial error: "),
+				  Format.text(e.getMessage(), " ")));
+  }
+
+  /** Get the toolkits which are implicte parents for this scanners run. */
+  public Name[] getToolkits(){
+    return toolkits == null ? defaultToolkits : toolkits;
+  }
+
+  /** Get the files of subdocuments being included. */
+  public File[] getIncludedFiles(){
+    File[] files = new File[includedFiles.size()];
+    includedFiles.copyInto(files);
+    return files;
+  }
+
+  /** Return and clear diagnostics accumulated over the last runs
+    * of this scanner. */
+  public Diag getAndClearDiag(){
+    Diag d = diag;
+    diag = new Diag();
+    return d;
+  }
+
+  /** Add to the default toolkits. */
+  private void addDefaultToolkit(Name parent){
+    if (parent == null){
+      // %%toolkit <newline> resets toolkits to none
+      toolkits = new Name[0];
+    }
+    else if (toolkits == null){
+      toolkits = new Name[]{parent};
+    } else {
+      Name[] parents = new Name[toolkits.length+1];
+      System.arraycopy(toolkits, 0, parents, 0, toolkits.length);
+      parents[parents.length-1] = parent;
+      toolkits = parents;
+    }
+  }
+
+  /** Add diagnostics. */
+  private void putDiag(ParseException e){
+    Token next = getToken(1);
+    Format[] expectedFmts = new Format[e.expectedTokenSequences.length];
+    for (int i = 0; i < expectedFmts.length; i++){
+      expectedFmts[i] = 
+        new FormatText(e.tokenImage[e.expectedTokenSequences[i][0]] + " ");
+    }
+
+    diag = diag.add(makeLocator(e.currentToken), 
+		    Diag.Category.Error,
+		    new FormatBeneath(new Format[]{
+    	     	      new FormatText("looking at " + 
+		                     e.tokenImage[next.kind] +
+				     ", expected one of: "),
+		      new FormatBlock(expectedFmts)
+		    }));
+  }	
+
+  /** Convert to array of lexems, return null if not possible. */
+  private static Lexem[] toLexems(Text[] texts){
+    Lexem[] lexems = new Lexem[texts.length];
+    for (int i = 0; i < lexems.length; i++){
+      if (!(texts[i] instanceof Text.ZedToken)) return null;
+      lexems[i] = ((Text.ZedToken)texts[i]).lexem;
+    }
+    return lexems;
+  }
+
+  /** Convert to string, return null if not possible. */
+  private static String toString(Text[] texts){
+    StringBuffer res = new StringBuffer();
+    for (int i = 0; i < texts.length; i++){
+      if (!(texts[i] instanceof Text.ZedToken)) return null;
+      res = res.append(((Text.ZedToken)texts[i]).lexem.toString());
+    }
+    return res.toString();
+  }
+
+  /** Make locator for given token. */
+  private Locator makeLocator(Token tok){
+    return new TextLocator(
+		 inputName,
+		 (short)tok.beginLine,
+		 (short)tok.beginColumn,
+		 (short)tok.endLine,
+		 (short)tok.endColumn
+	       );
+  }
+
+  /** Make locator for range inbetween tokens. */
+  private Locator makeLocator(Token tok1, Token tok2){
+    return new TextLocator(
+		 inputName,
+		 (short)tok1.beginLine,
+		 (short)tok1.beginColumn,
+		 (short)tok2.endLine,
+		 (short)tok2.endColumn
+	       );
+  }
+
+  /** Make a Text.ZedToken, located at passed token. */
+  private Text.ZedToken makeZedToken(Token tok, Lexem lexem){
+    Text.ZedToken res = new Text.ZedToken(lexem);
+    res.locator = makeLocator(tok);
+    return res;
+  }
+
+
+  /** Make array of texts. */
+  private static Text[] makeTexts(Vector txts){
+    Text[] res = new Text[txts.size()];
+    txts.copyInto(res);
+    return res;
+  }
+
+  /** Add contents of a string buffer, if not empty. */
+  private static void addLit(Vector txts, StringBuffer lit){
+    if (lit.length() > 0){
+      txts.addElement(new Text.Literal(lit.toString()));
+      lit.setLength(0);
+    }
+  }
+
+  /** Check if there is only whitespace on the last line
+      in string buffer. */
+  private static boolean startsWithWhiteSpace(StringBuffer lit){
+    int n = lit.length();
+    while (n > 0){
+      n--;
+      char ch = lit.charAt(n);
+      switch (ch){
+      case '\n': return true;
+      case ' ': case '\t': case '\f': case '\r': continue;
+      default:
+	return false;
+      }
+    }
+    return true;
+  }
+
+  
+  /** The context of text element scanning. */
+  private static final int TOPLEVEL = 0;
+  private static final int INENV = 2;
+
+  
+  /** Include a subdocument. */
+  private Text includeDocument(Token begTok, Token endTok, String fname){
+    try {
+      if (fname.endsWith(".tex"))
+	fname = fname.substring(0, fname.length()-4); 
+      File actFile = adaptor.locateFile(new File(fname));
+      Text res;
+      if (actFile != null){
+	FileInputStream s = new FileInputStream(actFile);
+	LatexScanner subscanner = 
+	  new LatexScanner(adaptor, config,
+			   s, new Name(actFile.getPath()));
+	subscanner.toolkits = toolkits;
+	Text[] subtexts = subscanner.run();
+	s.close();
+	diag = diag.combine(subscanner.getAndClearDiag());
+	res = Text.DocMarkup("subdocument", new String[0], subtexts);
+	File[] subfiles = subscanner.getIncludedFiles();
+	for (int i = 0;  i < subfiles.length; i++){
+	  includedFiles.addElement(subfiles[i]);
+	}
+	includedFiles.addElement(actFile);
+      } else {
+	diag = diag.combine(
+		 adaptor.reportFileNotFound("included file",
+					    makeLocator(begTok, endTok),
+					    fname)
+	       );
+	res = 
+	  Text.DocMarkup("subdocument", new String[0], new Text[0]);
+      }
+      res.locator = makeLocator(begTok, endTok);
+      return res;
+    }
+    catch (IOException e){
+      diag = diag.add(makeLocator(begTok, endTok),
+                      Diag.Category.Error,
+		      "cannot include `" + fname + "': " + e.getMessage());
+      return null;		      
+    }
+  }
+
+  /** Enrich parents by default toolkit parents. */
+  private Name[] makeParents(Name[] parents){
+    Name[] tks = getToolkits();
+    Name[] prs = new Name[parents.length+tks.length];
+    System.arraycopy(parents, 0, prs, 0, parents.length);
+    System.arraycopy(tks, 0, prs, parents.length, tks.length);
+    return prs;
+  }
+
+
+  /** Create an implicite section if none is given until now. */
+  private void ensureSection(Locator orig, Vector txts){
+    // had become dead
+  }
+  
+  /** Translate an old (Spivey-Z) pragma. */
+  private void translateOldPragma(Text.ZedPragma pragma, Vector txts){
+    String repr = pragma.name.getRepr();
+    if (repr.equals("macro")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      if (lexems != null &&
+	  lexems.length >= 2 &&
+	  lexems[0] instanceof Lexem.Word &&
+	  lexems[1] instanceof Lexem.Number){
+	int argc = Integer.parseInt(((Lexem.Number)lexems[1]).image);
+	Lexem[] body = new Lexem[lexems.length-2];
+	System.arraycopy(lexems, 2, body, 0, lexems.length-2);
+	Text macro = 
+	  Text.ZedMacro(new Name(lexems[0].toString()),
+			argc, body);
+	macro.locator = pragma.locator;
+	txts.addElement(macro);
+      } else {
+	diag = diag.add(pragma.locator,
+			Diag.Category.Warning,
+			"syntax error in %%macro directive, ignored");
+      }
+    }
+    else if (repr.equals("ingen")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      for (int i = 0; i < lexems.length; i++){
+	Text fixity =
+	  Text.ZedFixity(makeRAInfix(Fixity.genericsPrio,
+				     true,
+				     lexems[i]));
+	fixity.locator = pragma.locator;
+	txts.addElement(fixity);
+      }
+    }
+    else if (repr.equals("pregen")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      for (int i = 0; i < lexems.length; i++){
+	Text fixity =
+	  Text.ZedFixity(makePrefix(Fixity.prefixPrio,
+				    true,
+				    lexems[i]));
+	fixity.locator = pragma.locator;
+	txts.addElement(fixity);
+      }
+    }
+    else if (repr.equals("inop")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      if (lexems.length >= 1 && 
+	  lexems[lexems.length-1] instanceof Lexem.Number){
+	int relPrio = Integer.parseInt(((Lexem.Number)lexems[lexems.length-1])
+				       .image);
+	for (int i = 0; i < lexems.length-1; i++){
+	  Text fixity =
+	    Text.ZedFixity(makeLAInfix(Fixity.functionPrio + relPrio*10,
+				       false,
+				       lexems[i]));
+	  fixity.locator = pragma.locator;
+	  txts.addElement(fixity);
+	}
+      } else {
+	diag = diag.add(pragma.locator,
+			Diag.Category.Warning,
+			"syntax error in %%inop directive, ignored");
+      }
+    }
+    else if (repr.equals("postop")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      for (int i = 0; i < lexems.length; i++){
+	Text fixity =
+	  Text.ZedFixity(makePostfix(Fixity.postfixPrio,
+				     false,
+				     lexems[i]));
+	fixity.locator = pragma.locator;
+	txts.addElement(fixity);
+      }
+    }
+    else if (repr.equals("inrel")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      for (int i = 0; i < lexems.length; i++){
+	Text fixity =
+	  Text.ZedFixity(makeRAInfix(Fixity.relationPrio,
+				     false,
+				     lexems[i]));
+	fixity.locator = pragma.locator;
+	txts.addElement(fixity);
+      }
+    }
+    else if (repr.equals("prerel")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      for (int i = 0; i < lexems.length; i++){
+	Text fixity =
+	  Text.ZedFixity(makePrefix(Fixity.relationPrio,
+				    false,
+				    lexems[i]));
+	fixity.locator = pragma.locator;
+	txts.addElement(fixity);
+      }
+    }
+
+    else if (repr.equals("texgen")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      if (lexems.length >= 1 && 
+	  lexems[lexems.length-1] instanceof Lexem.Number){
+	int argc = Integer.parseInt(((Lexem.Number)lexems[lexems.length-1])
+				       .image);
+	for (int i = 0; i < lexems.length-1; i++){
+	  Text fixity =
+	    Text.ZedFixity(makeTexFix(Fixity.maxExprPrio,
+				      true,
+				      argc,
+				      lexems[i]));
+	  fixity.locator = pragma.locator;
+	  txts.addElement(fixity);
+	}
+      } else {
+	diag = diag.add(pragma.locator,
+			Diag.Category.Warning,
+			"syntax error in %%texgen directive, ignored");
+      }
+    }
+    else if (repr.equals("texop")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      if (lexems.length >= 1 && 
+	  lexems[lexems.length-1] instanceof Lexem.Number){
+	int argc = Integer.parseInt(((Lexem.Number)lexems[lexems.length-1])
+				       .image);
+	for (int i = 0; i < lexems.length-1; i++){
+	  Text fixity =
+	    Text.ZedFixity(makeTexFix(Fixity.maxExprPrio,
+				      false,
+				      argc,
+				      lexems[i]));
+	  fixity.locator = pragma.locator;
+	  txts.addElement(fixity);
+	}
+      } else {
+	diag = diag.add(pragma.locator,
+			Diag.Category.Warning,
+			"syntax error in %%texop directive, ignored");
+      }
+    }
+    else if (repr.equals("texrel")){
+      Lexem[] lexems = toLexems(pragma.subtexts);
+      if (lexems.length >= 1 && 
+	  lexems[lexems.length-1] instanceof Lexem.Number){
+	int argc = Integer.parseInt(((Lexem.Number)lexems[lexems.length-1])
+				       .image);
+	for (int i = 0; i < lexems.length-1; i++){
+	  Text fixity =
+	    Text.ZedFixity(makeTexFix(Fixity.relationPrio,
+				      false,
+				      argc,
+				      lexems[i]));
+	  fixity.locator = pragma.locator;
+	  txts.addElement(fixity);
+	}
+      } else {
+	diag = diag.add(pragma.locator,
+			Diag.Category.Warning,
+			"syntax error in %%texrel directive, ignored");
+      }
+    }
+    else {
+      // take as is, after evaluating it
+      config.enter(new Text[]{pragma});
+      txts.addElement(pragma);
+    }
+  }
+
+  private static Fixity makeRAInfix(int prio,
+				    boolean isGeneric,
+				    Lexem lexem){
+    return new Fixity(prio, isGeneric,
+		      new Fixity.Component[]{
+			Fixity.Component.Operand(prio+1),
+			Fixity.Component.Keyword(new Name(lexem.toString())),
+			Fixity.Component.Operand(prio)
+		      });
+  }
+
+  private static Fixity makeLAInfix(int prio,
+				    boolean isGeneric,
+				    Lexem lexem){
+    return new Fixity(prio, isGeneric,
+		      new Fixity.Component[]{
+			Fixity.Component.Operand(prio),
+			Fixity.Component.Keyword(new Name(lexem.toString())),
+			Fixity.Component.Operand(prio+1)
+		      });
+  }
+
+  private static Fixity makeInfix(int prio,
+				  boolean isGeneric,
+				  Lexem lexem){
+    return new Fixity(prio, isGeneric,
+		      new Fixity.Component[]{
+			Fixity.Component.Operand(prio+1),
+			Fixity.Component.Keyword(new Name(lexem.toString())),
+			Fixity.Component.Operand(prio+1)
+		      });
+  }
+			
+  private static Fixity makePrefix(int prio,
+				   boolean isGeneric,
+				   Lexem lexem){
+    return new Fixity(prio, isGeneric,
+		      new Fixity.Component[]{
+			Fixity.Component.Keyword(new Name(lexem.toString())),
+			Fixity.Component.Operand(prio+1)
+		      });
+  }
+
+  private static Fixity makePostfix(int prio,
+				    boolean isGeneric,
+				    Lexem lexem){
+    return new Fixity(prio, isGeneric,
+		      new Fixity.Component[]{
+			Fixity.Component.Operand(prio),
+			Fixity.Component.Keyword(new Name(lexem.toString()))
+		      });
+  }
+			
+  private static Fixity makeTexFix(int prio,
+				   boolean isGeneric,
+				   int argc,
+				   Lexem lexem){
+    Fixity.Component[] comps = new Fixity.Component[1 + argc*3];
+    comps[0] = Fixity.Component.Keyword(new Name(lexem.toString()));
+    int i = 1;
+    while (argc-- > 0){
+      comps[i++] = Fixity.Component.Keyword(new Name(Lexem.Lgroup.toString()));
+      comps[i++] = Fixity.Component.Operand(0);
+      comps[i++] = Fixity.Component.Keyword(new Name(Lexem.Rgroup.toString()));
+    }
+    return new Fixity(prio, isGeneric, comps);
+  }
+
+  static String convertDenotation(StringBuffer buf){
+    StringBuffer res = new StringBuffer();
+    int i = "\\ZD{".length();
+    int l = buf.length()-1; // ending }
+    while (i < l){
+      char c = buf.charAt(i);
+      switch (c){
+      case '\\':
+	if (i < l-1){
+	  switch (buf.charAt(i+1)){
+	  case '{':
+	    res.append('{');
+	    i += 2;
+	    break;
+	  case '}':
+	    res.append('}');
+	    i += 2;
+	    break;
+	  case '\\':
+	    res.append('\\');
+	    i += 2;
+	    break;
+	  case 'n':
+	    res.append('\n');
+	    i += 2;
+	    break;
+	  case 'r':
+	    res.append('\r');
+	    i += 2;
+	    break;
+	  case 'f':
+	    res.append('\f');
+	    i += 2;
+	    break;
+	  case 'b':
+	    res.append('\b');
+	    i += 2;
+	    break;
+	  case 't':
+	    res.append('\t');
+	    i += 2;
+	    break;
+	  case '\"':
+	    res.append('\"');
+	    i += 2;
+	    break;
+	  default:
+	    res.append('\\');
+	    i++;
+	  }
+	} else {
+	  res.append('\\');
+	  i++;
+	}
+	break;
+      default:
+	res.append(c);
+	i++;
+      }
+    }
+    return res.toString();
+  }
+
+} 
+
+PARSER_END(LatexScanner)
+
+TOKEN_MGR_DECLS : {
+}
+
+
+// ========================================================================
+// Lexical Rules
+
+// FIXME: need to be adapted to full ISO-Latin1
+
+TOKEN : {
+  <#LATEXLETTER : ["a"-"z","A"-"Z"]>
+|
+  <#LATEXSPECIAL : "\\" | "\"" | "'" | "`" | "|" | 
+                    "{" | "}" | "(" | ")" | "[" | "]" | "<" | ">" |
+		    "=" | "+" | "-" | "*" | "#" | "%" | "@" | "$" | "&" |
+		    "/" | "!" | " " | "_" | "~" | "," | ";" | "." | ":" | 
+		    "?" | "^" | " " | "\n" >
+|
+  <ENDINPUT : "\\endinput" | "\\end{document}" >
+|
+  <BEGINDOC : "\\begin{document}" >
+|
+  <BEGIN : "\\begin">
+|
+  <END : "\\end">
+|
+  <LATEXCOMMAND : "\\" (<LATEXSPECIAL> | (<LATEXLETTER>)+)> 
+|
+  <BGROUP : "{">
+|
+  <EGROUP : "}">
+|
+  <IMPORTPRAGMA : "%%toolkit" | "%%import">
+|
+  <LINEPRAGMA : "%%line">
+|
+  <UNCHECKEDPRAGMA : "%%unchecked" | "%%ignored">
+|
+  <PRAGMA : "%%" (<LATEXLETTER>)+>
+|
+  <INVISIBLE : "%% ">
+|
+  <LITERAL : (~["\\", "{", "}", "%"])+> 
+}
+
+MORE: {
+  "%" : DEFAULT_LineComment
+}
+
+<DEFAULT_LineComment> TOKEN : {
+  <COMMENT: (~["\n"])* ("\n")? > : DEFAULT
+}
+
+<UNITNAME> TOKEN : {
+  <UNITNAMESPEC : (~[" ", "\"", "\t", "\r", "\f", "\n", ",", "$", "]", "}"])+>
+| <UNITNAMERBRACK : "]">
+| <UNITNAMERGROUP : "}">
+| <UNITNAMECOMMA : "," > 
+| <UNITNAMENEWLINE : "\n">
+}
+
+<UNITNAME> SKIP : {
+  <" ">
+| <"\t">
+| <"\r">
+| <"\f">
+| <"\""> // ignore this for compatibility with old %%toolkit directive
+}
+
+<FREELINE> TOKEN : {
+  <FREELINECONT : (~["\n"])+>
+| <FREELINENEWLINE : "\n">
+}
+
+
+
+<ZED> SKIP : {
+  <" ">
+| <"\t">
+| <"\r">
+| <"\f">
+| <"%"> : ZED_SkipLine
+}
+
+<ZED> SPECIAL_TOKEN : {
+  <"%% "> { if (matchedToken.beginColumn > 1) SwitchTo(ZED_SkipLine); }
+}
+
+<ZED_SkipLine> SKIP : { // FIXME: EOF?
+  < (~["\n"])* ("\n")? > : ZED
+}
+
+
+<ZED> TOKEN : {
+  <#LETTER: ["a"-"z","A"-"Z"]> // FIXME: ISO-LATIN
+| 
+  <#DIGIT: ["0"-"9"]>
+|
+  <#SPECIAL: ["+","-","*","=","<",">","~","\"","$","#","&","^","_","?"]>
+|
+  <#LATEXDENOTATION : 
+    "\\ZD{"
+      (   (~["}","\\", "\n", "\r"])
+        | ("\\" ["n","t","b","r","f","\\","\"","}","{"] )
+      )*
+      "}"  
+  > 
+|
+  <#LATEXCMD : "\\" (<LATEXSPECIAL> | (<LATEXLETTER>)+)> 
+|
+  <#LATEXID : (<LETTER> | "\\_") 
+              (<LETTER> | <DIGIT> 
+                        | "_{" <LATEXIDARG> | "^{" <LATEXIDARG> 
+			| "\\:" | "\\_")*>
+|
+  <#LATEXSPECIALID : (<SPECIAL>)+ >
+|
+  <#LATEXWORD : (<LATEXCMD> <LATEXDECORE>)
+              | (<LATEXID> <LATEXDECORE>)
+              | (<LATEXSPECIALID> <LATEXDECORE>)>
+|
+
+  <#LATEXNUMBER : (<DIGIT>)+>
+|
+  <#LATEXSTROKEINDEX : "_" ( <DIGIT> | "{" <LATEXIDARG> )>
+|
+  <#LATEXIDARG : (~["}","\n"])* ["}"]>
+|
+  <#LATEXDECORE : (["'","!","?"] | <LATEXSTROKEINDEX>)*>
+|
+  <#LATEXMACROARG : "#" <DIGIT>>
+|
+  <NEWLINE : "\n">
+|
+  <ZENV_END : "\\end">
+|
+  <WHERE : "\\where">
+|
+  // POSSIBILITES: LaTeX,Z,DZ,MSZ,LEX
+  // (currently restricted to Z only)
+  // NOTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	      // NEED TO MODIFY THE FOLLOWING BY HAND AFTER GENLEXIS:
+	      // <DENOTATION : <LATEXDENOTATION>>
+	      //     { matchedToken.image = 
+	      //           LatexScanner.convertDenotation(image); }
+
+  // @@TOKEN LaTeX,Z,LEX
+  // generated by genlexis:
+  <AGGREG : "@_@" "\\Aggreg">|
+  <AND : "\\land">|
+  <ANDSTATE : "@_@" "\\AndState">|
+  <ARG : "\\_">|
+  <ASSOC : "@_@" "\\Assoc">|
+  <AWAIT : "@_@" "\\dawait">|
+  <BASICSTATE : "@_@" "\\BasicState">|
+  <CHOICE : "@_@" "\\dchoice">|
+  <CHOP : "@_@" "\\dchop">|
+  <COLON : ":">|
+  <COMMA : ",">|
+  <COMPOSE : "\\semi">|
+  <COMPUTE : "@_@" "\\dcompute">|
+  <CONNECTOR : "@_@" "\\Connector">|
+  <CROSS : "\\cross">|
+  <DATA : "@_@" "\\Data">|
+  <DEFEQ : "==" | "\\defs">|
+  <DEFSYN : "::=">|
+  <DELTA : "\\Delta">|
+  <DERIVED : "@_@" "\\Derived">|
+  <DOT : ".">|
+  <DURATION : "@_@" "\\dDuration">|
+  <DYN : "@_@" "\\Dyn">|
+  <ELSE : "\\ELSE">|
+  <ENRICH : "@_@" "\\Enrich">|
+  <EVERYWHERE : "@_@" "\\deverywhere">|
+  <EXISTS : "\\exists">|
+  <EXISTS1 : "\\exists_1">|
+  <FALSE : "false">|
+  <FLOW : "@_@" "\\Flow">|
+  <FOLLOWEDBY : "@_@" "\\dseq">|
+  <FORALL : "\\forall">|
+  <GOTO : "@_@" "\\Goto">|
+  <HIDE : "\\hide">|
+  <IF : "\\IF">|
+  <IFF : "\\iff">|
+  <IMPLIES : "\\implies">|
+  <INIT : "@_@" "\\Init">|
+  <INTERNFLOW : "@_@" "\\InternFlow">|
+  <INPUT : "@_@" "\\Input">|
+  <LAMBDA : "\\lambda">|
+  <LBIND : "\\lblot" | "\\lbind">|
+  <LEFTASSOC : "\\leftassoc">|
+  <LGLUE : "@_@" "@@lglue@@">|
+  <LBRACK : "[">|
+  <LDATA : "\\ldata">|
+  <LEADSTO : "@_@" "\\dleadsto">|
+  <LENGTH : "@_@" "\\dLength">|
+  <LET : "\\LET">|
+  <LGROUP : "{">|
+  <LINESEP : "\\\\">|
+  <LISTARG : ",,">|
+  <LPARENTH : "(">|
+  <LSET : "\\{">|
+  <LSTATE : "@_@" "\\dlstate">|
+  <LTRANS : "@_@" "\\dltrans">|
+  <MID : "|" | "\\mid">|
+  <MU : "\\mu">|
+  <NOT : "\\lnot">|
+  <OR : "\\lor">|
+  <PIPE : "\\pipe">|
+  <PRE : "\\pre">|
+  <PREEMPT : "@_@" "\\dpreempt">|
+  <PORT : "@_@" "\\Port">|
+  <POWER : "\\power">|
+  <PROPERTY : "@_@" "\\Property">|
+  <PREFIX : "@_@" "\\dprefix">|
+  <PROJECT : "\\project">|
+  <RBIND : "\\rblot" | "\\rbind">|
+  <RBRACK : "]">|
+  <RDATA : "\\rdata">|
+  <REFSTATE : "@_@" "\\RefState">|
+  <REPEAT : "@_@" "\\drepeat">|
+  <RGLUE : "@_@" "@@rglue@@">|
+  <RGROUP : "}">|
+  <RIGHTASSOC : "\\rightassoc">|
+  <RPARENTH : ")">|
+  <RSET : "\\}">|
+  <RSTATE : "@_@" "\\drstate">|
+  <RTRANS : "@_@" "\\drtrans">|
+  <SEMI : ";">|
+  <SLASH : "/">|
+  <SOMEWHERE : "@_@" "\\dsomewhere">|
+  <SPOT : "@" | "\\spot">|
+  <STROKEIN : "?">|
+  <STROKEOUT : "!">|
+  <STROKEPRIME : "'">|
+  <THEN : "\\THEN">|
+  <THETA : "\\theta">|
+  <TO : "@_@" "\\To">|
+  <TRANS : "@_@" "\\dtr">|
+  <TRANSLABEL : "@_@" "\\tr">|
+  <TRUE : "true">|
+  <WHEN : "@_@" "\\When">|
+  <XI : "\\Xi">|
+  <XORSTATE : "@_@" "\\XorState">|
+  <NUMBER : <LATEXNUMBER>>|
+  <DENOTATION : <LATEXDENOTATION>>|
+  <STROKEINDEX : <LATEXSTROKEINDEX>>|
+  <WORD : <LATEXWORD>>|
+  <KEYWORD : "@_@" "@@keyword@@">|
+  <LKEYWORD : "@_@" "@@lkeyword@@">|
+  <RKEYWORD : "@_@" "@@rkeyword@@">|
+  <PKEYWORD : "@_@" "@@pkeyword@@">|
+  <SIMPLENAME : "@_@" "@@simplename@@">|
+  <MACROARG : <LATEXMACROARG>>
+
+  // @@ENDTOKEN
+}
+
+
+// ========================================================================
+// Scanning Rules
+
+/** Scan a document. */
+Text[] document() : {
+  Vector txts = new Vector();
+  Token tok;
+}{
+  tok=elements(TOPLEVEL, txts)
+  { 
+    return makeTexts(txts);
+  }
+}
+
+/** Scan elements of a non-zed environment. */
+Token elements(int context, Vector txts) : {
+  StringBuffer lit = new StringBuffer();
+  Token tok;
+  Text txt;
+  int groupnest = 0;
+}{
+  (
+    tok=<BEGINDOC>
+    { // ignore, because of special treatment of end{document}
+    }
+  |
+    tok=<BEGIN>
+    (
+      LOOKAHEAD({ groupnest == 0 })
+      // (context == TOPLEVEL || context == INENV) })
+      txt=environment(tok)
+      { addLit(txts, lit); 
+        if (txt instanceof Text.ZedMarkup) ensureSection(txt.locator, txts);
+        txts.addElement(txt); 
+      }
+    |
+      {
+        lit.append(tok.image); 
+      }
+    )
+  | 
+    tok=<END>
+    {
+      if (groupnest == 0 && context == INENV){
+        addLit(txts, lit);
+        return tok; 
+      } else {
+        lit.append(tok.image); 
+      }
+    }
+  |
+    tok=<BGROUP>
+    {
+      groupnest++;
+      lit.append(tok.image);
+    }
+  |
+    tok=<EGROUP>  
+    {
+      lit.append(tok.image); 
+      groupnest--;
+      if (groupnest < 0) groupnest = 0;
+    }
+  | 
+
+    tok=<IMPORTPRAGMA>
+    { Name uname = null; Token end;
+      token_source.SwitchTo(UNITNAME); }
+    [ uname=partialUnitName() ]
+    <UNITNAMENEWLINE>
+    { addDefaultToolkit(uname);
+      token_source.SwitchTo(DEFAULT); }
+
+  |
+    tok=<LINEPRAGMA>
+    linePragma(tok)
+
+  | 
+    tok=<UNCHECKEDPRAGMA>
+    uncheckedPragma(tok)
+  |
+    tok=<PRAGMA> 
+    (
+      LOOKAHEAD({ groupnest == 0 && tok.beginColumn == 1 })
+      txt=oldPragma(tok)
+      { addLit(txts, lit); 
+        ensureSection(txt.locator, txts);
+	translateOldPragma((Text.ZedPragma)txt, txts);
+      }
+    |
+      { lit.append(tok.image); }
+    )
+  |
+    tok=<INVISIBLE>
+    {
+      if (groupnest == 0 && tok.beginColumn == 1){
+        // throw away
+      } else {
+        lit.append(tok.image); 
+      }
+    }
+  |
+    tok=<LATEXCOMMAND> 
+    (
+      LOOKAHEAD({groupnest == 0 && 
+		   config.isInputCommand(tok.image) &&
+		   startsWithWhiteSpace(lit)})
+      txt=subdocument(tok)
+      { addLit(txts, lit); txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\zsection")})
+      txt=sectionDirective(tok)
+      { addLit(txts, lit); ensureSection(txt.locator, txts); 
+        txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\zfunction")})
+      txt=functionFixityDirective(tok)
+      { addLit(txts, lit); ensureSection(txt.locator, txts); 
+        txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\zrelation")})
+      txt=relationFixityDirective(tok)
+      { addLit(txts, lit); ensureSection(txt.locator, txts); 
+        txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\zgeneric")})
+      txt=genericFixityDirective(tok)
+      { addLit(txts, lit); 
+        ensureSection(txt.locator, txts); txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\zpragma")})
+      txt=pragmaDirective(tok)
+      { addLit(txts, lit); 
+        ensureSection(txt.locator, txts); txts.addElement(txt); }
+    |
+      LOOKAHEAD({groupnest == 0 && tok.image.equals("\\IncludeModel")})
+      txt=includeModel(tok)
+      { addLit(txts, lit); 
+        txts.addElement(txt); }
+    |
+      { lit.append(tok.image); }
+    )
+  |
+    ( tok=<LITERAL> | tok=<COMMENT> ) { lit.append(tok.image); }
+  )*
+  ( tok=<EOF> | tok=<ENDINPUT> )
+  {
+    addLit(txts, lit);
+    return tok;
+  }
+}
+
+
+/** Scan an environment. */
+Text environment(Token begTok):{
+  Token tok, name, endTok;
+  Text.ZedMarkupKind zedKind;
+}
+{
+  <BGROUP>
+  name=<LITERAL>
+  { name.image = name.image.trim(); 
+    zedKind = config.getMarkupKind(name.image);
+    if (nextUnchecked){
+      zedKind = null;
+      nextUnchecked = false;
+    }
+  }
+  <EGROUP>
+  (
+    LOOKAHEAD({ zedKind != null })
+    { Vector header = new Vector();
+      Vector decls = new Vector();
+      Vector props = new Vector();
+    }
+    tok=zedEnvironment(zedKind, header, decls, props)
+    endTok=environmentEnd(name, tok)
+    { Text res = new Text.ZedMarkup(zedKind,
+	                            makeTexts(header),
+				    makeTexts(decls),
+				    makeTexts(props));
+      res.locator = makeLocator(begTok, endTok);
+      return res;
+    }
+  |
+    LOOKAHEAD({ config.isClassMarkup(name.image) })
+    { token_source.SwitchTo(ZED); 
+      Name className;
+      Name[] parents = new Name[0];
+      Name[] formals = new Name[0];
+      Vector subtexts = new Vector();
+    }
+    [ <LBRACK>
+      { token_source.SwitchTo(UNITNAME); }
+      parents=partialUnitNameList()
+      <UNITNAMERBRACK>
+      { token_source.SwitchTo(ZED); }
+    ]
+    <LGROUP>
+    className=simpleName()
+    [ <LBRACK>
+      formals=simpleNameList()
+      <RBRACK>
+    ]
+    <RGROUP>
+    { token_source.SwitchTo(DEFAULT); }
+    tok=elements(INENV, subtexts)
+    endTok=environmentEnd(name, tok)
+    { Text res = new Text.ZedClass(className,
+				   makeParents(parents),
+	                           formals,
+				   makeTexts(subtexts));
+      res.locator = makeLocator(begTok, endTok);
+      return res;
+    }
+  |
+    { Vector txts = new Vector(); }
+    tok=elements(INENV, txts)
+    endTok=environmentEnd(name, tok)
+    { Text res = new Text.DocMarkup(name.image, new String[]{},
+	                            makeTexts(txts));
+      res.locator = makeLocator(begTok, endTok);
+      return res;
+     }
+  )
+}
+
+/** Scan end of environment. */
+Token environmentEnd(Token name, Token tok):{
+  Token endName;
+  Token endTok;
+}
+{
+  LOOKAHEAD({ tok.kind==END })
+  <BGROUP>
+  endName=<LITERAL>
+  { endName.image = endName.image.trim(); }
+  endTok=<EGROUP>
+  {
+    if (!name.image.equals(endName.image)){
+      diag = diag.add(makeLocator(endName), 
+		          Diag.Category.Warning,
+			  "environment `" + name.image + 
+			  "' terminated by `" + endName.image + "'");
+    }
+    return endTok;
+  }
+| 
+  {
+    diag = diag.add(makeLocator(name), 
+		    Diag.Category.Error,
+		    "LaTeX-environment `" + name.image + "' not terminated");
+    return getToken(0);
+  }
+}
+
+
+/** Scan elements of a Z environment. */
+Token zedEnvironment(Text.ZedMarkupKind kind,
+		     Vector header, Vector decls, Vector props):{
+  Token tok;
+}
+{
+  LOOKAHEAD({kind == Text.ZedMarkupKind.Unboxed})
+  { token_source.SwitchTo(ZED); }
+  zedTokens(props)
+  tok=zedEnvEnd()
+  { token_source.SwitchTo(DEFAULT); 
+    return tok; }
+|
+  LOOKAHEAD({kind == Text.ZedMarkupKind.AxiomaticDef})
+  { token_source.SwitchTo(ZED); }
+  zedTokens(decls)
+  [ <WHERE>
+    zedTokens(props)
+  ]
+  tok=zedEnvEnd()
+  { token_source.SwitchTo(DEFAULT); 
+    return tok; }
+|
+  LOOKAHEAD({kind == Text.ZedMarkupKind.Schema ||
+  	     kind == Text.ZedMarkupKind.XorState ||
+  	     kind == Text.ZedMarkupKind.AndState ||
+  	     kind == Text.ZedMarkupKind.Config ||
+  	     kind == Text.ZedMarkupKind.Reaction ||
+  	     kind == Text.ZedMarkupKind.Transition})
+  { token_source.SwitchTo(ZED); }
+  <LGROUP>
+  zedTokens(header)
+  <RGROUP>
+  zedTokens(decls)
+  [ <WHERE>
+    zedTokens(props)
+  ]
+  tok=zedEnvEnd()
+  { token_source.SwitchTo(DEFAULT); 
+    return tok; }
+}
+  
+Token zedEnvEnd():{
+  Token tok;
+}{
+  ( 
+    tok=<ZENV_END>
+    { tok.kind = END;
+      return tok; 
+    }
+  |
+    { return getToken(1); }  
+       // the error will be reported by environmentEnd
+  )
+}
+
+/** Scan subdocument inclusion. */
+Text subdocument(Token begTok):{
+  Token name,endTok;
+}{
+  <BGROUP>
+  name=<LITERAL>
+  endTok=<EGROUP>
+  {
+    return includeDocument(begTok, endTok, name.image.trim());
+  }
+}
+
+/** Scan section directive. */
+Text sectionDirective(Token begTok):{
+  Name[] parents = new Name[0];
+  Name name;
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  [ <LBRACK>
+    { token_source.SwitchTo(UNITNAME); }
+    parents=partialUnitNameList()
+    <UNITNAMERBRACK>
+    { token_source.SwitchTo(ZED); }
+  ]
+  <LGROUP>
+  { token_source.SwitchTo(UNITNAME); }
+  name=partialUnitName()
+  endTok=<UNITNAMERGROUP>
+  { token_source.SwitchTo(DEFAULT); }
+  { 
+    Text.ZedSection res = new Text.ZedSection(name, makeParents(parents),
+					      new Text[0]);
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+/** Scan model inclusion. */
+Text includeModel(Token begTok):{
+  Name unit;
+  Token endTok;
+}{
+  <BGROUP>   // we are still in DEFAULT!
+  { token_source.SwitchTo(UNITNAME); }
+  unit=partialUnitName()
+  endTok=<UNITNAMERGROUP>
+  { 
+    token_source.SwitchTo(DEFAULT);
+    Text.ModelInclusion res = new Text.ModelInclusion(unit);
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+
+Name[] simpleNameList():{
+  Vector buf = new Vector();
+  Name name;
+}{
+  name=simpleName()
+  { buf.addElement(name); }
+  ( <COMMA>
+    name=simpleName()
+    { buf.addElement(name); }
+  )*
+  { Name[] names = new Name[buf.size()];
+    buf.copyInto(names);
+    return names;
+  }
+}
+
+Name simpleName():{
+  Token tok;
+}{
+  tok=<WORD>
+  { return new Name(tok.image); }
+}
+
+Name[] partialUnitNameList():{
+  Vector buf = new Vector();
+  Name spec;
+}{
+  spec=partialUnitName()
+  { buf.addElement(spec); }
+  ( <UNITNAMECOMMA>
+    spec=partialUnitName()
+    { buf.addElement(spec); }
+  )*
+  { Name[] specs = new Name[buf.size()];
+    buf.copyInto(specs);
+    return specs;
+  }
+}
+
+Name partialUnitName():{
+  Token tok;
+}{
+  tok=<UNITNAMESPEC>
+  { return new Name(tok.image); }
+}
+
+  
+
+/** Scan function fixity directive. */
+Text functionFixityDirective(Token begTok):{
+  Fixity fix;
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  <LGROUP>
+  fix=fixity(false, false)
+  endTok=<RGROUP>
+  { token_source.SwitchTo(DEFAULT); }
+  { Text.ZedFixity res = new Text.ZedFixity(fix);
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+/** Scan generic fixity directive. */
+Text genericFixityDirective(Token begTok):{
+  Fixity fix;
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  <LGROUP>
+  fix=fixity(false, true)
+  endTok=<RGROUP>
+  { token_source.SwitchTo(DEFAULT); }
+  { Text.ZedFixity res = new Text.ZedFixity(fix);
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+/** Scan relation fixity directive. */
+Text relationFixityDirective(Token begTok):{
+  Fixity fix;
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  <LGROUP>
+  fix=fixity(true, false)
+  endTok=<RGROUP>
+  { token_source.SwitchTo(DEFAULT); }
+  { Text.ZedFixity res = new Text.ZedFixity(fix);
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+/** Scan a fixity. */
+Fixity fixity(boolean isRelation, boolean isGeneric):{
+  Token begTok = null;
+  Token endTok = null;
+  Token prec = null;
+  Token assoc = null;
+  Token tok = null;
+  Token tok1,tok2;
+  int prio = -1;
+  boolean isLeftAssoc = false;
+  boolean isRightAssoc = false;
+  Vector buf = new Vector();
+}{
+  [
+    prec=<NUMBER>
+    { 
+      if (isRelation){
+	diag = diag.add(makeLocator(prec),
+			Diag.Category.Error,
+			"relation cannot have a precedence");
+      }
+      prio = Integer.parseInt(prec.image);
+    }
+  ]
+  [
+    assoc=<LEFTASSOC>
+    { isLeftAssoc = true; }
+  |
+    assoc=<RIGHTASSOC>
+    { isRightAssoc = true; }
+  ]
+  begTok=<LPARENTH>
+  (
+    ( tok=<WORD> | tok=<LGROUP> | tok=<RGROUP> )
+    ( tok1=<LISTARG>
+      ( ( tok2=<WORD> | tok2=<LGROUP> | tok2=<RGROUP> )
+        { buf.addElement(Fixity.Component.OperandList(
+			   new Name(tok.image),
+			   new Name(tok2.image)
+			 )); }
+      | 
+	{ diag = diag.add(makeLocator(tok1),
+			  Diag.Category.Error,
+		"list placeholder needs to be followed by keyword"
+			  );
+	}
+      )
+    |
+      { buf.addElement(Fixity.Component.Keyword(new Name(tok.image))); }
+    )
+  |
+    <ARG>
+    { buf.addElement(Fixity.Component.Operand(0)); }
+  |
+    tok=<LISTARG> 
+    { diag = diag.add(makeLocator(tok),
+		      Diag.Category.Error,
+		"list placeholder needs to be preceeded by keyword"
+		     );
+    }
+  )+
+  endTok=<RPARENTH>
+
+  {
+    Fixity.Component[] comps = new Fixity.Component[buf.size()];
+    buf.copyInto(comps);
+
+    // check if fixity requires a priority
+    if (prec == null && !isRelation){
+      if (comps[0] instanceof Fixity.Component.Operand ||
+	  comps[comps.length-1] instanceof Fixity.Component.Operand){
+	diag = diag.add(makeLocator(begTok, endTok),
+			Diag.Category.Error,
+			"fixity requires a priority");
+      }
+    }
+
+    // set priority
+    if (isLeftAssoc || isRightAssoc){
+      // induced by associativity
+      if (isRelation){
+	diag = diag.add(makeLocator(assoc),
+			Diag.Category.Error,
+			"relation cannot have an associativity");
+      } 
+      else if (comps.length == 3 &&
+	       comps[0] instanceof Fixity.Component.Operand &&
+	       comps[1] instanceof Fixity.Component.Keyword &&
+	       comps[2] instanceof Fixity.Component.Operand){
+	if (isLeftAssoc){
+	  ((Fixity.Component.Operand)comps[0]).prio = prio;
+	  ((Fixity.Component.Operand)comps[2]).prio = prio+1;
+	} else {
+	  ((Fixity.Component.Operand)comps[0]).prio = prio+1;
+	  ((Fixity.Component.Operand)comps[2]).prio = prio;
+	}
+      } else {
+	diag = diag.add(makeLocator(assoc),
+			Diag.Category.Error,
+			"only infixes can have an associativity");
+      }
+    } else {
+      if (isRelation &&
+	  comps.length == 3 &&
+	  comps[0] instanceof Fixity.Component.Operand &&
+	  comps[1] instanceof Fixity.Component.Keyword &&
+	  comps[2] instanceof Fixity.Component.Operand){
+	((Fixity.Component.Operand)comps[0]).prio = 0;
+	((Fixity.Component.Operand)comps[2]).prio = -1;
+      }
+      else {
+	if (comps[0] instanceof Fixity.Component.Operand){
+	  ((Fixity.Component.Operand)comps[0]).prio = prio+1;
+	}
+	if (comps[comps.length-1] instanceof Fixity.Component.Operand){
+	  ((Fixity.Component.Operand)comps[comps.length-1]).prio = prio+1;
+	}
+      }
+    }
+    
+    return new Fixity(prio, isGeneric, comps);
+  }
+}
+
+  
+/** Parsing pragma directive. */
+Text pragmaDirective(Token begTok):{
+  Vector txts = new Vector();
+  Token name;
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  <LGROUP>
+  name=<WORD>
+  <RGROUP>
+  <LGROUP>
+  zedTokens(txts)
+  endTok=<EGROUP>
+  { token_source.SwitchTo(DEFAULT); }
+  { Text.ZedPragma res = 
+      new Text.ZedPragma(
+	    new Name(name.image),
+	    makeTexts(txts)
+	  ); 
+    res.locator = makeLocator(begTok, endTok);
+    config.enter(new Text[]{res});
+    return res;
+  }
+}
+
+
+/** Parsing old (Spivey-Z) pragma. */
+Text oldPragma(Token begTok):{
+  Vector txts = new Vector();
+  Token endTok;
+}{
+  { token_source.SwitchTo(ZED); }
+  zedTokensUntilNewline(txts)
+  endTok=<NEWLINE>
+  { token_source.SwitchTo(DEFAULT); }
+  { Text.ZedPragma res = 
+      new Text.ZedPragma( new Name(begTok.image.substring(2)), 
+			  makeTexts(txts) ); 
+    res.locator = makeLocator(begTok, endTok);
+    return res;
+  }
+}
+
+/** Parsing %%line pragma. */
+void linePragma(Token begTok):{
+  Token contTok, endTok;
+}{
+  { token_source.SwitchTo(FREELINE); }
+  contTok=<FREELINECONT>
+  endTok=<FREELINENEWLINE>
+  { token_source.SwitchTo(DEFAULT); 
+    String image = contTok.image.trim();
+    int i = image.indexOf('"');
+    int j = image.indexOf('"', i+1);
+    int k = image.indexOf('$', j+1);
+    boolean errors = true;
+    if (i >= 0 && j >= 0 && k >= 0){
+      String sourceName = image.substring(i+1, j).trim();
+      try {
+	int lineNo = Integer.parseInt(image.substring(k+1).trim());
+	errors = false;
+	inputName = new Name(sourceName);
+	jj_input_stream.adjustBeginLineColumn(lineNo-2, 1);
+      }
+      catch (NumberFormatException e){}
+    }
+    if (errors){
+      diag = diag.add(makeLocator(begTok, endTok),
+                      Diag.Category.Warning,
+		      "illformed %%line directive");
+    }
+  }
+}
+
+void uncheckedPragma(Token begTok):{
+  Token contTok = null; Token endTok;
+}{
+  { token_source.SwitchTo(FREELINE); }
+  [ contTok=<FREELINECONT> ]
+  endTok=<FREELINENEWLINE>
+  { token_source.SwitchTo(DEFAULT); 
+    if (contTok != null && contTok.image.length() > 0){
+      diag = diag.add(makeLocator(begTok, endTok),
+                      Diag.Category.Warning,
+		      "bogus content in %%unchecked directive");
+    }
+    nextUnchecked = true; 
+  }
+}
+
+
+void zedTokens(Vector v):{
+  Token tok;
+  Text txt; 
+}{
+  (
+    tok=<LGROUP>
+    { v.addElement(makeZedToken(tok, Lexem.Lgroup)); }
+    zedTokens(v)
+    tok=<RGROUP>
+    { v.addElement(makeZedToken(tok, Lexem.Rgroup)); }
+  |
+    txt=zedToken()
+    { v.addElement(txt); }
+  |
+    <NEWLINE>
+    // ignore
+  )*
+}
+
+void zedTokensAndEOF(Vector v):{}{
+  zedTokens(v) <EOF>
+}
+
+void zedTokensUntilNewline(Vector v):{
+  Token tok;
+  Text txt; 
+}{
+  (
+    tok=<LGROUP>
+    { v.addElement(makeZedToken(tok, Lexem.Lgroup)); }
+    zedTokens(v)
+    tok=<RGROUP>
+    { v.addElement(makeZedToken(tok, Lexem.Rgroup)); }
+  |
+    txt=zedToken()
+    { v.addElement(txt); }
+  )*
+}
+
+
+Text zedToken():{
+  Token tok; Lexem lexem;
+}{
+  (
+  tok=<MACROARG> { lexem = zeta.content.text.Lexem.MacroArg(tok.image); }|
+
+  // Z,DZ,MSZ
+  // @@TOKENRULE lexem,zeta.content.text.Lexem,Z
+  // generated by genlexis:
+  <AND> { lexem = zeta.content.text.Lexem.And; }|
+  <ARG> { lexem = zeta.content.text.Lexem.Arg; }|
+  <COLON> { lexem = zeta.content.text.Lexem.Colon; }|
+  <COMMA> { lexem = zeta.content.text.Lexem.Comma; }|
+  <COMPOSE> { lexem = zeta.content.text.Lexem.Compose; }|
+  <CROSS> { lexem = zeta.content.text.Lexem.Cross; }|
+  <DEFEQ> { lexem = zeta.content.text.Lexem.Defeq; }|
+  <DEFSYN> { lexem = zeta.content.text.Lexem.Defsyn; }|
+  <DELTA> { lexem = zeta.content.text.Lexem.Delta; }|
+  <DOT> { lexem = zeta.content.text.Lexem.Dot; }|
+  <ELSE> { lexem = zeta.content.text.Lexem.Else; }|
+  <EXISTS> { lexem = zeta.content.text.Lexem.Exists; }|
+  <EXISTS1> { lexem = zeta.content.text.Lexem.Exists1; }|
+  <FALSE> { lexem = zeta.content.text.Lexem.False; }|
+  <FORALL> { lexem = zeta.content.text.Lexem.Forall; }|
+  <HIDE> { lexem = zeta.content.text.Lexem.Hide; }|
+  <IF> { lexem = zeta.content.text.Lexem.If; }|
+  <IFF> { lexem = zeta.content.text.Lexem.Iff; }|
+  <IMPLIES> { lexem = zeta.content.text.Lexem.Implies; }|
+  <LAMBDA> { lexem = zeta.content.text.Lexem.Lambda; }|
+  <LBIND> { lexem = zeta.content.text.Lexem.Lbind; }|
+  <LEFTASSOC> { lexem = zeta.content.text.Lexem.LeftAssoc; }|
+  <LBRACK> { lexem = zeta.content.text.Lexem.Lbrack; }|
+  <LDATA> { lexem = zeta.content.text.Lexem.Ldata; }|
+  <LET> { lexem = zeta.content.text.Lexem.Let; }|
+  <LINESEP> { lexem = zeta.content.text.Lexem.Linesep; }|
+  <LISTARG> { lexem = zeta.content.text.Lexem.ListArg; }|
+  <LPARENTH> { lexem = zeta.content.text.Lexem.Lparenth; }|
+  <LSET> { lexem = zeta.content.text.Lexem.Lset; }|
+  <MID> { lexem = zeta.content.text.Lexem.Mid; }|
+  <MU> { lexem = zeta.content.text.Lexem.Mu; }|
+  <NOT> { lexem = zeta.content.text.Lexem.Not; }|
+  <OR> { lexem = zeta.content.text.Lexem.Or; }|
+  <PIPE> { lexem = zeta.content.text.Lexem.Pipe; }|
+  <PRE> { lexem = zeta.content.text.Lexem.Pre; }|
+  <POWER> { lexem = zeta.content.text.Lexem.Power; }|
+  <PROJECT> { lexem = zeta.content.text.Lexem.Project; }|
+  <RBIND> { lexem = zeta.content.text.Lexem.Rbind; }|
+  <RBRACK> { lexem = zeta.content.text.Lexem.Rbrack; }|
+  <RDATA> { lexem = zeta.content.text.Lexem.Rdata; }|
+  <RIGHTASSOC> { lexem = zeta.content.text.Lexem.RightAssoc; }|
+  <RPARENTH> { lexem = zeta.content.text.Lexem.Rparenth; }|
+  <RSET> { lexem = zeta.content.text.Lexem.Rset; }|
+  <SEMI> { lexem = zeta.content.text.Lexem.Semi; }|
+  <SLASH> { lexem = zeta.content.text.Lexem.Slash; }|
+  <SPOT> { lexem = zeta.content.text.Lexem.Spot; }|
+  <STROKEIN> { lexem = zeta.content.text.Lexem.StrokeIn; }|
+  <STROKEOUT> { lexem = zeta.content.text.Lexem.StrokeOut; }|
+  <STROKEPRIME> { lexem = zeta.content.text.Lexem.StrokePrime; }|
+  <THEN> { lexem = zeta.content.text.Lexem.Then; }|
+  <THETA> { lexem = zeta.content.text.Lexem.Theta; }|
+  <TRUE> { lexem = zeta.content.text.Lexem.True; }|
+  <XI> { lexem = zeta.content.text.Lexem.Xi; }|
+  tok = <NUMBER> { lexem = new zeta.content.text.Lexem.Number(tok.image.toString()); }|
+  tok = <DENOTATION> { lexem = new zeta.content.text.Lexem.Denotation(tok.image.toString()); }|
+  tok = <STROKEINDEX> { lexem = new zeta.content.text.Lexem.StrokeIndex(tok.image.toString()); }|
+  tok = <WORD> { lexem = new zeta.content.text.Lexem.Word(tok.image.toString()); }
+
+  // @@ENDTOKENRULE
+  )
+  { return makeZedToken(getToken(0), lexem); }
+}
+
+
+

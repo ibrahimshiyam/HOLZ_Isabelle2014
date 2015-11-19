@@ -1,0 +1,12 @@
+#!/bin/sh
+# $Id: xemacs_clear_locators,v 1.4 1998/12/14 09:35:13 wg Exp $
+
+if [ -z "$ZETABASE" ]; then
+    echo "\$ZETABASE not defined" >&2
+    exit 1
+fi
+. $ZETABASE/etc/etenv.sh        
+
+form="(progn (zeta-server-clear))"
+$GNUDOIT "$form" 1>/dev/null 2>/dev/null
+exit 0

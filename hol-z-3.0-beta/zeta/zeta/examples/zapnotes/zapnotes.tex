@@ -1,0 +1,993 @@
+\documentclass{article}
+
+\sloppy
+\input{zetadefs}
+
+\begin{document}
+\title{Notes on \ZAP}
+
+\author{Wolfgang Grieskamp\thanks{Technische Universit\"at Berlin,
+    Fachbereich Informatik, Franklinstr. 28/29, 10587 Berlin,
+    e-mail:~\texttt{wg@cs.tu-berlin.de}}}
+
+\date{\today{} -- for version $2$ of \ZAP{} (DRAFT)}
+
+\maketitle
+
+\begin{abstract}
+  This (incomplete and draft) document is an attempt towards a
+  documentation for \ZAP, the compiler for
+  Executable Z, as it is part of the \Zeta{} system. 
+\end{abstract}
+
+\tableofcontents
+
+\section{Introduction}
+
+\ZAP{} (version 2) realizes an execution model for Z based on concepts
+described e.g.~in \cite{gri99b,gri00a}. It provides a
+combination of higher-order, functional logic execution principles,
+adapted to the set-based environment of Z. All idioms of Z which are
+related to \emph{functional} and to \emph{logic} programming languages
+are executable with \ZAP.
+
+This document is a (first) attempt towards a documentation of \ZAP.
+It cannot substitute a manual and tutorial.  For some examples and
+tutorial introduction, see also the \verb:examples: directory of the
+\Zeta{} distribution, and the publications \cite{gl00a,gl00b}.
+
+\begin{remark}
+  In order to replay the examples in this document, you may load its
+  source into \zetalink{\Zeta{}}{zeta}. Environments named
+  \verb:zexecexpr: and \verb:zexecpred: contain the execution queries.
+  The source of this document is found in the examples directory of
+  the \Zeta{} distribution, subdirectory \verb:zapnotes:.
+\end{remark}
+
+\section{Principles}
+
+
+\subsection{Recursive Sets}
+
+As sets are paradigmatic for the specification level of Z, they are
+for the execution level. Set objects -- relations or functions -- are
+eventually defined by (recursive) equations, as in the following
+example, where we define natural numbers as a free type\footnote{See
+  section \ref{sec:freetypes} why we use $S \ldata \{x:N\} \rdata$
+  instead of $S \ldata N \rdata$.}, addition on these numbers and an
+order relation:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{Nat}
+\end{zdirectives} \\
+\begin{zed}
+  N ::= Z | S \ldata \{x: N\} \rdata    
+\end{zed}
+\begin{axdef}
+  three == S(S(S~Z))
+\end{axdef}
+\begin{axdef}
+  add: N \cross N \fun N
+\where
+  add = \< 
+     \{ y: N @ (Z,y) \mapsto y \} \cup % ~ ~ \cup \\
+     \{ x,y,z: N | (x,y) \mapsto z \in add @ (S~x,y) \mapsto S~z \}
+   \>
+\end{axdef}
+\begin{zdirectives}
+  \zrelation{(\_ less \_)}
+\end{zdirectives} \\
+\begin{axdef}
+  \_ ~less~ \_ == \{x,y: N | (\exists t: N @ (x,S~t) \mapsto y \in add)\}
+\end{axdef}
+\end{zedgroup}
+
+We may now execute under \Zeta{} queries such as the following, 
+where we ask for the numbers less then three:
+
+\begin{zexecexpr}
+  \{x:N | x ~ less ~ three\}
+\yields
+{Z,S(Z),S(S(Z))}
+\end{zexecexpr}
+
+These capabilities are similar to logic programming.  In
+fact, we can give a translation from any clause-based system to a
+system of recursive set-equations in the style given for $add$, where
+we collect all clauses for the same relational symbol into a union of
+set-comprehensions, and map literals $R(e_1,\ldots,e_n)$ to membership
+tests $(e_1,\ldots,e_n) \in R$.
+
+\subsection{Encapsulated Search}
+\label{sec:esearch}
+
+A binary relation $R$ can be \emph{applied}, written as $R~e$, which
+is syntactic sugar for the expression $\mu t:X | (e,t) \in R$.  This
+expression is defined iff their exists a unique $t$ such that the
+constraint is satisfied; it then delivers this $t$. The set $add$ is a
+binary relation (since it is member of the set $\power((N \cross N)
+\cross N)$), and therefore we can for example evaluate
+
+\begin{zexecexpr}
+ add(three,three) 
+\yields
+S(S(S(S(S(S(Z))))))
+\end{zexecexpr}
+
+Note the semantic difference of $(e,y) \in R$ and $y=R~e$: the first
+is not satisfied if $R$ is not defined at $e$, or produces several
+solutions for $y$ if $R$ is not unique at $e$, whereas the second is
+\emph{undefined} in these cases. 
+
+This difference is resembled in the implementation: application,
+$\mu$-expressions, and related forms are realized by
+\emph{encapsulated search}.  When resolving the constraint $y = \mu t:X
+| (e,t) \in R$ (the unsugared form of $y = R~e$), the constraint
+$(e,t) \in R$ is resolved in a different search space then the outer
+constraint $y = \ldots$ (which just waits for the completion of
+the inner search). 
+
+Encapsulated search is not allowed to produce bindings for variables
+belonging to outer contexts. If an encapsulated search requires the
+binding of a context variable, it residuates until the context
+provides the binding. One reason for this behavior is that we may use
+the context variables in negative positions (i.e.~$\mu t:X @ \lnot
+(x,t) \in S$, where a binding for $x$ obviously is a semantic error).
+Another reason is that encapsulated search gives us a tool to control
+resolution order in a natural way -- it introduces \emph{functional}
+reduction into our framework.
+
+As a consequence, in our above example, $y = \mu t:X | (e,t) \in R$,
+if we have $e = x$, where $x$ is a variable from an outer context
+(i.e. if we have originally written $y = R~x$), the encapsulated
+search residuates until $x$ is bound in the context -- if the
+resolution of $(x,t) \in R$ actually requires a binding for $x$
+\footnote{A situation where the value of $x$ is not required is
+  f.i.~given if $R = \{x:\num@(x,x)\}$.}.
+
+For illustration, we redefine the $less$ relation from the
+previous section as follows:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zrelation{(\_ less_1 \_)}
+\end{zdirectives} \\
+\begin{axdef}
+  \_ ~less_1~ \_ == \{x,y: N | (\exists t: N @ y = add(x,S~t))\}
+\end{axdef}
+\end{zedgroup}
+
+\begin{zexecexpr}
+  \{x:N | x ~ less_1 ~ three\}
+\yields
+ unresolvable constraints in toplevel goal {
+    resolving LTX:zapnotes.tex(136.21-136.64)
+    with variables:
+     x = _x
+     y = S(S(...))
+     t~1 unbound
+    unresolved constraints:
+     LTX:zapnotes.tex(136.52-136.61) waiting for subgoal {
+       resolving '{_y|(_x,_y) IN _S}'
+       with parameters:
+        _S = LTX:zapnotes.tex(70.6-70.33)+LTX:zapnotes.tex(71.6-71.67)
+        _x = (_x,S(...))
+       with variables:
+        _y unbound
+       unresolved constraints:
+        '(_x,_y) IN _S' waiting for variable _x
+     }
+  }
+{*unknown*}
+\end{zexecexpr}
+
+Here, the encapsulated search for $add(x,y)$ cannot continue, since it
+is not allowed to produce bindings for the context variables $x$. In
+the above diagnostics, \verb:{_y|(_x,_y) IN _S}: is the encapsulated
+search goal for application, which is parameterized over \verb:_x: and
+\verb:S:.  The parameter names are in a different name scope, hence
+the parameter binding \verb:_x = (_x,S(...)): is \emph{not} cyclic.
+The constraint residuates for the variable \verb:_x:, which is the
+value assigned to \verb:x:.
+
+
+
+\subsection{Higher-Orderness}
+
+As functions are first-order citizens in functional languages, sets
+are in \ZAP.  For example, we define a function describing relational
+image as follows:
+
+\begin{axdef}[X,Y]
+   image == 
+      \lambda R: \power(X \cross Y); S: \power X @ % \\\t1
+        \{x: X; y: Y | x \in S; (x,y) \in R @ y \}
+\end{axdef}
+
+A query for the relational image of the $add$ function over the
+cartesian product of the numbers less then three yields in:
+
+\begin{zexecexpr}
+  \LET ns == \{x: N | x~less~three \} @ image(add,ns \cross ns)
+\yields
+{Z,S(Z),S(S(Z)),S(S(S(Z))),S(S(S(S(Z))))}
+\end{zexecexpr}
+
+In a similar style as above most constants of the Z toolkit (domain
+restriction and so on) can be naturally defined.
+
+
+\subsection{Quantors}\label{sec:quantors}
+
+Universal quantification is executable if it deals with finite ranges.
+For example, we can define a generic constant denoting the set of partial
+functions:
+
+\begin{axdef}[X,Y]
+  pfun ==  
+    \{R: \power(X \cross Y) | % \\\t4
+            (\forall x:X| x \in \dom R @ \exists_1 y:Y @ (x,y) \in R)\}
+\end{axdef}
+
+Universal and unique existential quantification are resolved by
+enumeration (an instance of encapsulated search).  Thus, if we try to
+check whether $add$ is a partial function, we get:
+
+\begin{zexecpred}
+  add \in pfun[N \cross N,N]
+\yields
+  ...
+   unresolved constraints:
+      LTX:zapnotes.tex(205.58-205.68) waiting for variable y
+\end{zexecpred}
+
+The reason for this behavior is that the domain of $add$ is not
+finitely enumerable:
+
+\begin{zexecpred}
+  \dom add 
+\yields
+{(Z,y),(S(Z),z),(S(S(Z)),y),(S(S(S(Z))),y),...}
+\end{zexecpred}
+
+However, if we restrict $add$ to a finite domain it works:
+
+\begin{zexecpred}
+  \exists_1 ns == \{x: N | x~less~three \} @
+  ((ns \cross ns) \dres add) \in pfun[N \cross N,N]
+\yields
+*true*
+\end{zexecpred}
+
+Above, $A \dres R$ restricts the domain of $R$ to the set $A$;
+the existential quantor is used to introduce a local name in
+the predicate.
+
+\subsection{Schema Calculus}
+
+In Z, a schema denotes a set of \emph{bindings}, where bindings are
+tuples (records) with named components. The schema calculus operators,
+then, are essentially set operations with special implicit signature
+translations. 
+
+Therefore, the schema calculus is fully executable. For instance
+
+\begin{zexecexpr} \relax
+  [x,y: \num | y \in 1 \upto 2] \land [y,z:\num | y = z]
+\yields
+  {<x==x,y==1,z==1>,<x==x,y==2,z==2>}   
+\end{zexecexpr}
+
+For more examples see the birthday-book specification in the
+\verb:examples: directory of the \Zeta{} distribution.
+
+
+\subsection{Declarations}
+\label{sec:decls}
+
+In Z specifications we often find declarations of the kind $f: A \pfun
+B$, imposing that $f$ has type $\power (A \cross B)$ on the one hand,
+and that $f \in A \pfun B$ on the other. As we have seen in section
+\ref{sec:quantors}, the check whether a value is a partial function is
+only executable for finite domains.
+
+In order to conveniently support this specification style, \ZAP{}
+treats declarations $x:E$ as \emph{assumptions}. Hence the membership
+test $x \in E$ implied by $x:E$ is discarded for execution. 
+
+If $x:E$ is actually a non-redundant property, it has to be
+explicitely denoted in the constraint part of schema text.
+For this reason, in the definition of $pfun$ in the
+previous section, we have written $\forall x: X | x \in \dom R @ \ldots$
+instead of $\forall x:\dom R @ \ldots$.
+
+
+
+\subsection{Definition Forms}
+
+When providing definitions of relations and functions one has to use
+equational forms.  For example, the factorial function would be
+typically specified in Z by axioms of the kind:
+
+\zsection{facNonExec}
+
+\begin{axdef}
+  fac : \nat \fun \nat
+\where
+  fac~0 = 1; \forall x:\nat | x > 0 @ fac(x) = x*fac(x-1)
+\end{axdef}
+
+A definition of this form is unamenable to execution. Instead one
+may write:
+
+\zsection{facExec1}
+
+\begin{axdef}
+  fac : \nat \fun \nat
+\where
+  fac = \{(0,1)\} \cup (\lambda x:\nat | x > 0 @ x*fac(x-1))
+\end{axdef}
+
+or
+
+\zsection{facExec2}
+
+\begin{axdef}
+  fac : \nat \fun \nat
+\where
+  fac = \lambda x:\nat @ \IF x = 0 \THEN 1 \ELSE x*fac(x-1)
+\end{axdef}
+
+The automatic conversion of axioms of the first form
+to definitions of the later forms may become a feature of future
+versions of \ZAP\footnote{\ZAP{} version 1 provided such
+conversions, which are, however, not yet ported.}.
+
+\subsection{Free Types}
+\label{sec:freetypes}
+
+\paragraph{Generators}
+
+Free types are translated by \ZAP{} to sets which generate the type's
+domain.  Consider the following definition:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{FreeTypes}
+\end{zdirectives}
+\begin{zed}
+  MySeq ::= nil | cons \ldata 1 \upto 3 \cross MySeq \rdata
+\end{zed}
+\end{zedgroup}
+
+We can execute:
+
+\begin{zexecexpr}
+  MySeq
+\yields
+{nil,cons(1,nil),cons(1,cons(1,nil)),...}
+\end{zexecexpr}
+
+
+\paragraph{Using Constructors}
+
+Constructors are functions as other functions are, which have
+the property that they are \emph{(partial) injections}. Partiality
+may be present because of the restrictions given for the domain 
+in a free type declaration. 
+
+We can use $cons\inv$ to convert a constructor to a projection,
+and $x \in \ran cons$ to test whether a value is a variant of
+this constructor.
+
+Regarding the ``matching'' of constructed values.  in general the
+constraint $ys' = cons(x,ys)$ can not be used if $x$ and $ys$ are
+free.  The call to $cons$ will residuate until $x$ and $ys$ are bound,
+since the encapsulated search implementing the call tries to execute
+the constraint $(x,ys) \in \dom cons$, to which end it is not allowed
+to produce bindings for $x$ and $ys$ (cf.~section \ref{sec:esearch}).
+Thus, for matching one has to generally write $(x,ys) \mapsto ys' \in
+cons$.
+
+However, the constraints on the domain of a constructor can be
+completely discarded, using the following declaration form
+(cf.~section \ref{sec:decls}):
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{FreeTypes2}
+\end{zdirectives}
+\begin{zed}
+  MySeq ::= nil | cons \ldata \{x: 1 \upto 3 \cross MySeq\} \rdata
+\end{zed}
+\end{zedgroup}
+
+Now it becomes possible to write $ys' = cons(x,ys)$ for matching,
+since there are no constraints imposed on $x$ and $ys$ which need
+to be resolved in the encapsulated search of the constructor
+application. Note, however, that now the assertion that
+the first component of $cons$ is in the range $1 \upto 3$ is
+not longer checked for a constructor call at runtime. 
+
+Note that the above treatment is even necessary if we have total
+constructor functions, e.g. $cons \ldata \num \cross MySeq \rdata$:
+the reason is that $ys \in MySeq$ is a constraint which though
+semantically is true, acts as a generator for values of $MySeq$.
+
+
+\subsection{Genericity}
+
+The genericity concept of Z allows to provide instantiations
+with particular sets. For instance, given the definition
+of the identity relation:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{Genericity}
+\end{zdirectives}
+\begin{axdef}[X]
+  id == \{x:X | x \in X @ (x,x)\}
+\end{axdef}
+\end{zedgroup}
+
+\ldots we can provide instantiations as follows:
+
+\begin{zexecexpr}
+  id[\{1,2\}]
+\yields  
+{(1,1),(2,2)}
+\end{zexecexpr}
+
+On the implementation level this feature requires to represent each
+generic constant as a function over its instantiation. Since in most
+cases the instantiation is universal and imposes no 
+constraints this is a serious efficiency problem.
+
+For this reason, \ZAP{} compiles for each generic constant two
+versions: one as a function over the instantiation argument, and the
+other as a constant optimized for the case that the instantiation is
+universal.  Which of these versions is selected is controlled by
+whether an instantiation of a generic constant is \emph{inferred} or
+\emph{provided}: for inferred instantiations the optimized version is
+used.
+
+\subsection{Numbers}
+
+Though it is possible in our model to represent e.g.~natural numbers
+by constructors $Z$ and $S \ldata N \rdata$, as shown in the previous
+sections, enabling resolution techniques on them, this approach is
+hopelessly inefficient for real applications.  Thus numbers are
+actually integrated by a native implementation, and resolution
+techniques for arithmetic constraints are not available for them
+\footnote{It is planned to integrate resolution techniques for
+  arithmetic constraints in future versions of \ZAP{}.}
+
+To generate extensional number ranges, $n \upto m$ may be used:
+
+\begin{zexecexpr}
+  \{x:\num | x \in 1 \upto 1024; x \mod 2 = 0\}
+\yields
+{2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,
+ 54,56,58,60,...}
+\end{zexecexpr}
+
+Note that $n \upto m$ forces the storage of a set extension
+in memory. Thus $n$ and $m$ should be in a moderate range.
+Use $\{x:\num|n \leq x \leq m\}$ if you do not actually want
+to enumerate a range.
+
+
+\subsection{Power-Sets and the Like}
+
+The resolution techniques for subset constraints in our model
+are relatively weak (they capture just functional and logic
+computation, not more). For example, we are not able to enumerate the
+set $\{x: \power A | x \subseteq S\}$ (which equals $\power S$), even
+if $A$ is finitely enumeratable (indeed, we can test whether a ground
+value is in this set).
+
+Technically, the constraint resolution system of \ZAP{}
+has problems with the following kind of constraints:
+
+\begin{itemize}
+\item subset constraints where the left or the right hand side is a
+  free variable: $x \subseteq v$ or $v \subseteq x$.  These
+  constraints can generally not be resolved before $x$ becomes bound.
+  A typical instance is the powerset example given above.
+\item constraints which represent unification problems on sets,
+  for instance $x \cup y = \{1,2\}$. These
+  constraints cannot produce bindings for $x$ and $y$, since set-unification
+  is currently not employed in our model. Instead, they must residuate
+  until other constraints provide bindings.
+\end{itemize}
+
+
+
+
+\section{The User Interface}
+
+\ZAP{} is embedded in the diverse interfaces (graphical, XEmacs,
+batch) provided by \zetalink{\Zeta{}}{zeta.html}. Here, we look
+at the batch-oriented (command line) interface. Similar principles
+apply to the other interfaces.
+
+\subsection{Queries}
+
+Execution is involved by the two single-letter commands \verb:e:
+(execute expression) and \verb:p: (execute predicate). The output
+of the \verb:help: command gives the following syntax for these commands:
+
+\begin{verbatim}
+  e [-u <UNITNAME>] [ ( -r | -t | -f ) ] ( -n | -d | -o | <EXPR> ) 
+  p [-u <UNITNAME>] <PREDICATE> 
+\end{verbatim}
+
+The optional unit name specifies the section focus, as usual with
+\Zeta{} commands. The first group of options to the \verb:e: command
+has the following meaning:
+
+\begin{itemize}
+\item \verb:-r: -- ``raw mode'' -- indicates that sets in the
+  result should not be enumerated.
+\item \verb:-t: -- ``try mode'' -- indicates that sets in the
+  result should be enumerated to a certain extend. This may
+  fail, producing ``unresolved constraints'' diagnostics. This
+  is the default.
+\item \verb:-f: -- ``force mode'' -- indicates that sets in the
+  result should be forced to be completely enumerated. This may lead
+  to non-termination.
+\end{itemize}
+
+The last group of options of the \verb:e: command allows us
+to step through the solutions to the entire specification
+or a set-result. Consider the (loose) specification:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{Stepping}   
+\end{zdirectives}
+\begin{axdef}
+  S: \power \num
+\where
+  S \in \{\{1,2\},\{3,4\}\}
+\end{axdef}
+\end{zedgroup}
+
+Evaluating $S$ yields in:
+
+\begin{zexecexpr}
+S
+\yields
+{1,2}
+(possibly more solutions)
+\end{zexecexpr}
+
+Typing \verb:e -n: shows the next solution to $S$, \verb:{3,4}:.
+From the current value we are observing, we can also step
+downwards (if the current value is a set value): typing \verb:e -d:
+now yields \verb:3 (possibly more solutions):, and \verb:e -n: afterwards
+\verb:4:. With \verb:e -o: we return to the outer target.
+
+
+\subsection{Profiling}
+
+\ZAP{} provides two options for timing and profiling.  First, with the
+command \verb:xconf ton:/\verb:xconf toff: timing of execution can
+beactivated and deactivated.  
+
+Second, the command \verb:xprof: can be used to display a profile
+which counts the number of steps executed in each individual
+constraint.
+
+
+
+\section{Controlling Search}
+
+The execution model of \ZAP{} uses concurrent constraint resolution,
+employing the so-called \emph{Andorra Principle} to schedule search.
+This means that deterministic computation is preferred for
+non-deterministic computation: on resolving the constraints of
+a goal, those constraints which try to create a choice point
+are suspended until no other constraints can continue. 
+
+If several choices remain in such a situation, those which are textual
+``first'' are preferred. However, for recursive definitions, also
+those choices which are ``older'' are preferred for those which are
+``younger''. This is necessary in order to provide fairness. It may
+lead to unexpected behavior, which is discussed in this section.
+
+Consider a specification of the 8-queens problem:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{queens}
+\end{zdirectives} \\
+\begin{axdef}
+  N == 8 
+\end{axdef}
+\begin{zed}
+  Pos == \num \cross \num 
+\end{zed} \\
+\begin{axdef}
+  col == \lambda p: Pos @ p.1 \\
+  row == \lambda p: Pos @ p.2 
+\end{axdef}
+\begin{axdef}
+  up == \lambda p: Pos @ col(p) - row(p) \\
+  down == \lambda p: Pos @ col(p) + row(p) \\
+\end{axdef}
+\begin{axdef}
+  feasible == \{\<ps: \power Pos; p: Pos |
+                \forall p': Pos | p' \in ps @ \\\t1
+                 col(p) \neq col(p') \land
+                 row(p) \neq row(p') \land
+                 up(p) \neq up(p') \land
+                 down(p) \neq down(p') \}\>
+\end{axdef}
+\begin{axdef}
+  queens : \nat \rel \power Pos
+\where
+  queens = \\\t1
+    \{(0, \emptyset)\} \cup \\ \t1
+    \{\<
+      n,c: \nat; qs,qs': \power Pos | \\
+      n > 0;
+      (n-1,qs) \in queens;
+      c \in 1 \upto N \\ 
+      (qs, (c,n)) \in feasible; 
+      qs' = qs \cup \{(c,n)\}
+       @ 
+      (n, qs') \} \>
+\end{axdef}
+\end{zedgroup}
+
+Execution of the goal 
+
+\begin{zexecexpr}
+  \{qs: \power Pos | (8,qs) \in queens\}
+\end{zexecexpr}
+
+leads to virtual endless search. What is wrong with the specification
+(resp.~\ZAP{}'s current execution model)?
+
+The problem is that $queens$ is computed again and again for the same
+$n$. Though on the same recursion level the constraint $(n-1,qs) \in
+queens$ preceed the constraint $c \in 1 \upto N$ and is thus
+priorized, $(n-2,qs) \in queens$ is not priorized for $c \in 1 \upto
+N$ on the upper level, since older constraints are priorized over younger
+ones. Thus for each choice point of $c \in 1 \upto N$ the constraint
+$(n-2,qs) \in queens$ is backtracked and recomputed.
+
+In fact, there is no actual dependency between $(n-1,qs) \in queens$
+and $c \in 1 \upto N$, and thus backtrack is not necessary.  However,
+\ZAP{} is currently not capable of recognizing the independency.
+
+There are several ways how a user can control search, discussed below.
+
+\subsection{Sequentialization}
+
+There are two primitive predicates, $\BEGINSEQ$ (\verb:\BEGINSEQ:)
+and $\ENDSEQ$ (\verb:\ENDSEQ:) which can be used to enforce
+sequential execution. Used for queens, this looks as follows:
+
+\begin{axdef}
+  queens_1 : \nat \rel \power Pos
+\where
+  queens_1 = \\\t1
+    \{(0, \emptyset)\} \cup \\ \t1
+    \{\<
+      n,c: \nat; qs,qs': \power Pos | \\
+      n > 0;
+      \BEGINSEQ;
+      (n-1,qs) \in queens_1;
+      c \in 1 \upto N;
+      \ENDSEQ \\ 
+      (qs, (c,n)) \in feasible; 
+      qs' = qs \cup \{(c,n)\}
+       @ 
+      (n, qs') \} \>
+\end{axdef}
+
+The constraints enclosed in $\BEGINSEQ$ and $\ENDSEQ$ are
+strictly executed sequential. Note that this means, if one
+of them residuates, the entire group residuates. For the
+example, we thus ensure that choices for $c$ are always
+appended to the bottom of the choice tree for $qs$.
+
+
+\subsection{Extensionalization}
+
+We can enforce the complete enumeration of the solutions on the
+next recursion level using the $\EXT: \power A \pfun \power A$
+(\verb:\EXT:) function from the toolkit. This functions takes
+a set and yields its extensional (enumerated) version:
+
+\begin{axdef}
+  queens_2 : \nat \rel \power Pos
+\where
+  queens_2 = \\\t1
+    \{(0, \emptyset)\} \cup \\ \t1
+    \{\<
+      n,c: \nat; qs,qs': \power Pos | \\
+      n > 0;
+      qs \in \EXT \{qs: \power Pos | (n-1,qs) \in queens_2 \};
+      c \in 1 \upto N \\
+      (qs, (c,n)) \in feasible; 
+      qs' = qs \cup \{(c,n)\}
+       @ 
+      (n, qs') \} \>
+\end{axdef}
+
+Here, $qs \in \{\ldots\}$ is still backtracked if $c \in 1 \upto N$ makes
+a choice, but since the result of $\{\ldots\}$ is already computed, this
+does not hurts very much.
+
+The $\EXT$ function can enhance efficiency in many other situations
+which deal with finite sets. In general, if a set is defined
+by a set-comprehension, its contents is recomputed at every
+application point. This behavior is intended, since 
+the application context determines what we actually
+need to compute of a set (in a constraint $e \in S$, the
+``pattern'' of the expression $e$ narrows what 
+to compute from $S$). However, for problems such as $queens$
+this behavior is not adequate.
+
+
+\section{Special Definitions}
+
+%% \zsection{Specials}
+
+The mathematical toolkit which comes with \Zeta{} contains
+some special definitions which are tailored for working with \ZAP{}
+and are documented below.
+
+\subsection{Debug Printing}
+
+The function $\TRACE~x$ (\verb:\TRACE:) can be used to print the value
+of $x$ to the session log. It just returns $x$. The function
+$\PRINT(x,y)$ (\verb:\PRINT:) prints the value of $x$ and returns $y$.
+The semantic definition, apart of these side-effects, is as follows:
+
+\begin{zedgroup}
+\begin{axdef}[X]
+  \TRACE == \lambda x:X @ x
+\end{axdef}
+\begin{axdef}[X,Y]
+  \PRINT == \lambda x:X; y:Y @ y
+\end{axdef}
+\end{zedgroup}
+
+\subsection{Forcing}
+
+The function $\FORCE~x$ (\verb:\FORCE:) residuates the executing
+constraint until $x$ is bound (if $x$ is not a variable, it immediately
+returns). The function $\DEEPFORCE~x$ (\verb:\DEEPFORCE:) does so
+until \emph{all} free variables in $x$ are bound. Semantically,
+both are identity:
+
+\begin{zedgroup}
+\begin{axdef}[X]
+  \FORCE == \lambda x:X @ x 
+\end{axdef}
+\begin{axdef}[X]
+  \DEEPFORCE == \lambda x:X @ x
+\end{axdef}
+\end{zedgroup}
+
+\subsection{Assumptions}
+
+The generic constant $\assumed X$ (\verb:\assumed:) takes a set and
+converts it into a unversal set. Semantically, it is identity: 
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zgeneric{1 (\assumed \_)}
+\end{zdirectives}
+\begin{axdef}[X]
+  \assumed \_ == X
+\end{axdef}
+\end{zedgroup}
+
+However, the compiler treats $\assumed X$ as $\{x:X\}$, discarding
+any constraints involved by the instance of $X$.
+
+This allows a usage as follows:
+
+\begin{schema}{S}
+  x: \num
+\where
+  \assumed [|x>0] \\
+\end{schema}
+
+The constraint $x>0$ is not checked at execution time.
+
+There is also a \Zeta{} macro which supports the
+above usage in a more natural notation:
+
+\begin{verbatim}
+%%macro \assert 1 [|#1]
+\end{verbatim}
+
+\begin{schema}{S}
+  x: \num
+\where
+  \assert{x>0}
+\end{schema}
+
+
+
+\subsection{Extensionalization}
+
+The function $\EXT~x$ (\verb:\EXT:) enforces the enumeration
+of the set $x$, denotating its extensional internal representation.
+It is undefined for sets which cannot be enumerated. The semantic
+definition is identity:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zfunction{90 (\EXT \_)}
+\end{zdirectives}
+\begin{axdef}[X]
+  \EXT \_ == \lambda S: \power X @ S
+\end{axdef}
+\end{zedgroup}
+
+\subsection{Reduction Over Sets}
+
+The function $setreduce$ implements homomorphisms over sets:
+
+\begin{axdef}[X,Y]
+  setreduce : (X \cross Y \pfun Y) \cross Y \cross \power X \pfun Y
+\where
+  setreduce = 
+     \lambda f: X \cross Y \pfun Y; y: Y; S: \power X @ \\\t1
+        \IF S = \emptyset \THEN y 
+        \ELSE (\mu y': Y | 
+                \forall x: X @ y' = setreduce(f,f(x,y),S \setminus \{x\}))
+\end{axdef}
+
+Semantically, it is thus only defined for functions $f$ which are
+commutative in the first argument ($f(x,f(x',y)) =
+f(x',f(x,y))$. However, this condition is not checked in the actual
+implementation.
+
+\subsection{Reduction Over Sequences}
+
+Folding on sequences, as well-known from functional
+programming, is provided:
+
+\begin{axdef}[X,Y]
+  foldr : (X \cross Y \pfun Y) \cross Y  \fun \seq X \pfun Y
+\where
+  foldr = \lambda f: X \cross Y \pfun Y; y: Y @
+           \lambda s: \seq X @
+              \IF s = \langle\rangle \THEN y 
+              \ELSE f(head~s,foldr(f,y)(tail~s))
+\end{axdef}
+
+\begin{axdef}[X,Y]
+  foldl : Y \cross (Y \cross X \pfun Y) \fun \seq X \pfun Y
+\where
+  foldl = \lambda y: Y; f: Y \cross X \pfun Y @
+           \lambda s: \seq X @
+              \IF s = \langle\rangle \THEN y 
+              \ELSE foldl(f(y,head~s),f)(tail~s)
+\end{axdef}
+
+
+
+\subsection{Extensional Powerset}
+
+The function $\efinset X$ (\verb:\efinset:) constructs the
+extensional powerset of the set $X$, which must be enumerable.
+Semantically, it is the same as $\finset X$:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zfunction{90 (\efinset \_)}
+\end{zdirectives}
+\begin{axdef}[X]
+  \efinset \_ == \lambda S: \power X @ \finset X
+\end{axdef}
+\end{zedgroup}
+
+We do not define $\finset$ itself to deliver an extension since for
+even small domains powersets easily explode -- $\efinset
+(1 \upto 16)$ contains $65536$ elements.
+
+
+\subsection{Reflection}
+
+A simple concept of reflection is provided, which is currently only
+used for type-safe conversion of data given in a denotation or a file
+into a runtime value (next section).
+
+The function $\typeinfo T$ results a value representing
+information of the base type of the set $T$. The function
+$\giventypeinfo T$ results information about a free type
+definition associated with the base type of $T$, which must
+be a simple type name. These functions can only be used
+if $T$ does not contains generic types.
+
+
+\begin{zedgroup}
+\begin{zed}
+  [TYPEINFO[A]]
+\end{zed}
+\begin{zed}
+  [GIVENTYPEINFO[A]]
+\end{zed}
+\begin{zdirectives}
+  \zgeneric{10 (\typeinfo \_)} \\
+  \zgeneric{10 (\giventypeinfo \_)}
+\end{zdirectives} \\
+\begin{axdef}[A]
+  \typeinfo \_ : TYPEINFO[A] \\
+\end{axdef}
+\begin{axdef}[A]
+  \giventypeinfo \_ : GIVENTYPEINFO[A]
+\end{axdef}
+\end{zedgroup}
+
+\subsection{Data Input}
+
+For the purpose of e.g.~test evaluation, \ZAP{} provides
+a type-safe conversion of data found in a file or in a denotation
+into values. This is achieved by the following functions:
+
+\begin{zedgroup}
+\begin{zdirectives}
+ \zfunction{9 (\_ \fromfile \_)} \\
+ \zfunction{9 (\_ \fromdeno \_)}   
+\end{zdirectives} \\
+\begin{axdef}[A]
+  \_ \fromfile \_ : TYPEINFO[A] \cross \denotation \pfun \seq A
+\end{axdef}
+\begin{axdef}[A]
+  \_ \fromdeno \_ : TYPEINFO[A] \cross \denotation \pfun \seq A
+\end{axdef}
+\end{zedgroup}
+
+These functions parse the denotation or the contents of the file
+according to the following grammar, parameterized over types,
+with $P_{\tau}$ the start symbol, reading a sequence of values,
+and $V_{\tau}$ the non-terminal reading a single value:
+
+\begin{zdirectives}
+  P_{\tau}  & \rightarrow & \epsilon | P_{\tau} ~ V_{\tau} \\
+  V_{\num}  & \rightarrow & \mathtt{number} \\
+  V_{\power \tau}  & \rightarrow & \mathtt{\{} V_\tau \ldots V_\tau \mathtt{\}} \\
+  V_{\tau_1 \cross \ldots \cross \tau_n}
+            & \rightarrow & V_{\tau_1} \ldots V_{\tau_n} \\
+  V_{[x_1:\tau_1; \ldots; x_n: \tau_n]}
+            & \rightarrow & V_{\tau_1} \ldots V_{\tau_n} \\
+  V_{T ::= cons_1 \ldata \tau_1 \rdata | \ldots | cons_n \ldata \tau_n \rdata}
+            & \rightarrow & \mathtt{cons}_1 V_{\tau_1} | \ldots |
+                          \mathtt{cons}_n V_{\tau_n} 
+\end{zdirectives}
+
+Tokens are numbers, constructor names, and braces.  Arbitrary white
+space is allowed between tokens. Here is an example:
+
+\begin{zedgroup}
+\begin{zdirectives}
+  \zsection{DataInput}
+\end{zdirectives}
+\begin{zed}
+  Seq[A] ::= nil | cons \ldata A \cross Seq[A] \rdata 
+\end{zed}
+\end{zedgroup}
+
+\begin{zexecexpr}
+  \typeinfo Seq[\power [x: \num; y: \num]] ~ \fromdeno 
+            \ZD{cons \{1 2\} cons \{\} cons \{5 6 7 8\} nil nil}
+\yields
+<cons({<x==1,y==2>},cons({},cons({<x==5,y==6>,<x==7,y==8>},nil))),nil>
+\end{zexecexpr}
+
+\bibliographystyle{plain}
+\bibliography{compu,lang,new,eabpub,eabtech,uebb,z98,statecharts} 
+
+\end{document}
+

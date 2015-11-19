@@ -1,0 +1,17 @@
+
+AUTOSUBNODES	= 
+NODEKIND	= java
+
+PIZZA_FILES	= Lexem.pizza Text.pizza Config.pizza \
+		  LaTeXFragment.pizza TextContentTypes.pizza
+
+all:	_all
+
+lexis:	
+	java zeta.meta.genlexis.GenLexis \
+		 LEXTABLE \
+		 Lexem.pizza \
+	         $(ET)/src/tools/latex/LatexScanner.jj \
+		 $(ET)/src/tools/latex/LatexConfig.pizza \
+		 $(ET)/src/tools/zparser/TextTokenManager.pizza \
+		 $(ET)/src/tools/zparser/ItemParser.jj

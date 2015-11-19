@@ -1,0 +1,10 @@
+#!/bin/sh
+ZETABASE="/home/uebb/wg/et"
+export ZETABASE
+CLASSPATH="$ZETABASE/classes"
+export CLASSPATH
+TEXINPUTS="$TEXINPUTS:$ZETABASE/lib/latex:$ZETABASE/lib/ztoolkits"
+export TEXINPUTS
+THREADS_FLAG=native
+export THREADS_FLAG
+java -Xmx64m -Xms32m "-Djava.compiler=" "-Dzeta.debug=yes" "-Djava.library.path=$ZETABASE/lib/native/Linux-i386"  "-Dzeta.home=$ZETABASE"  "-Dzeta.latex.path=$TEXINPUTS" zeta.tools.sh.Driver "$@"

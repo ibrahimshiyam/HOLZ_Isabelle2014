@@ -1,0 +1,57 @@
+package zeta.agl;
+
+import net.sf.pizzacompiler.lang.*;
+
+/*  A class for optional data.
+ *  @author  Martin Odersky
+ *  @version 1.1
+ *  @since pizza 1.0alpha8 96/11/22
+ */
+public class Option<A> {
+
+  /** Store no data. */
+    public case None;
+  
+  /** Store a value. */
+    public case Some(A value);
+
+  /** 
+   * Return the stored value. 
+   * @exception MatchError if Option has no value
+   */
+    public A value() {
+	switch (this) {
+	case None:
+	    throw new MatchError("no value");
+	case Some(A x):
+	    return x;
+	}
+    }
+
+  /** Is a value stored? */
+    public boolean hasValue() {
+	switch (this) {
+	case None:
+	    return false;
+	case Some(A x):
+	    return true;
+	}
+    }
+
+  /** Convert from null or the stored value. Only provided for options
+    * which carry an object. */
+  public static <B implements Object> Option<B> from(B b){
+    return b == null ? None : Some(b);
+  }
+
+  /** Convert to null or the stored value. Only provided for options
+    * which carry an object. */
+  public static <B implements Object> B to(Option<B> ob){
+    switch (ob) {
+    case None: return null;
+    case Some(B b): return b;
+    }
+  }
+
+}
+	

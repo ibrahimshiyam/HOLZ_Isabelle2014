@@ -1,0 +1,650 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>A. An Example Adaptor</TITLE>
+<META NAME="description" CONTENT="A. An Example Adaptor">
+<META NAME="keywords" CONTENT="guide">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="guide.css">
+<LINK REL="previous" HREF="guide-node3.html">
+<LINK REL="up" HREF="guide.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif_gr.gif"> 
+<A NAME="tex2html105"
+ HREF="guide.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html103"
+ HREF="guide-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A>   
+<BR>
+<B> Up:</B> <A NAME="tex2html106"
+ HREF="guide.html">The ZETA Developers Guide</A>
+<B> Previous:</B> <A NAME="tex2html104"
+ HREF="guide-node3.html">3. The Zeta Aggregation</A>
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html107"
+ HREF="guide-node4.html#SECTION00041000000000000000">A.1 Imports</A>
+<LI><A NAME="tex2html108"
+ HREF="guide-node4.html#SECTION00042000000000000000">A.2 Variables</A>
+<LI><A NAME="tex2html109"
+ HREF="guide-node4.html#SECTION00043000000000000000">A.3 Adaptor Name</A>
+<LI><A NAME="tex2html110"
+ HREF="guide-node4.html#SECTION00044000000000000000">A.4 Initialization</A>
+<LI><A NAME="tex2html111"
+ HREF="guide-node4.html#SECTION00045000000000000000">A.5 Storage</A>
+<LI><A NAME="tex2html112"
+ HREF="guide-node4.html#SECTION00046000000000000000">A.6 Computations</A>
+<LI><A NAME="tex2html113"
+ HREF="guide-node4.html#SECTION00047000000000000000">A.7 Forms</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00040000000000000000">
+A. An Example Adaptor</A>
+</H1>
+&lt;!- this file was generated automatically by noweave -- better not edit it-&gt;
+In order to connect a tools the the Zeta system, it is necessary
+to implement an adaptor interface.  This adaptor can then easily be
+plugged into the system (e.g.&nbsp;via 
+<BR>
+tt plugin mypackage.MyAdaptor).
+We use the implementation of the <I>graphics adaptor</I> to show
+how an adaptor is implemented.  The adaptor is developed with
+the noweb system.  An adaptor has to implement the interface
+<A NAME="tex2html30"
+ HREF="api/zeta.session.Adaptor.html"><TT> zeta.session.Adaptor</TT></A>.
+For convenience, their is a default implementation
+(<A NAME="tex2html31"
+ HREF="api/zeta.session.DefaultAdaptor.html"><TT> DefaultAdaptor</TT></A>).  This
+abstract adaptor give default implementation of some adaptor functions,
+particularely those that are only needed by source adaptors.  The default
+adaptor also provides methods to send messages to the session.
+
+<P>
+ 
+<pre><dfn>&lt;*&gt;=</dfn>
+package zeta.tools.graphics;
+
+/** Graphics Converter Adaptor.
+ *
+ * Adaptor for graphics format conversion.  Computes various bitmap formats
+ * (currently PPM and GIF) from encapsulated postript.
+ *
+ * @author &lt;a href="http://swt.cs.tu-berlin.de/~buessow"&gt;Robert Buessow&lt;/a&gt;
+ * @version $Id: GraphicsAdaptor.nw,v 1.6 2000/07/17 05:09:11 wg Exp $
+ */
+
+<i>&lt;Imports&gt;</i>
+public class GraphicsAdaptor extends DefaultAdaptor {
+    <i>&lt;PrivateVariables&gt;</i>
+    <i>&lt;MyName&gt;</i>
+    <i>&lt;Initialization&gt;</i>
+    <i>&lt;Storage&gt;</i>
+    <i>&lt;Computations&gt;</i>
+    <i>&lt;Forms&gt;</i>
+}
+</pre>
+<P>
+
+<H2><A NAME="SECTION00041000000000000000">
+A.1 Imports</A>
+</H2>
+
+<P>
+ 
+<pre><dfn>&lt;Imports&gt;=</dfn>
+import java.lang.*;
+import java.awt.*;
+import java.awt.image.*;
+import java.awt.event.*;
+import java.io.*;
+import java.util.Date;
+import zeta.content.graphics.GraphicsContentTypes;
+import zeta.util.Name;
+import zeta.util.FatalError;
+import zeta.format.*;
+import zeta.form.*;
+import zeta.session.*;
+import zeta.tools.util.Executor;
+import zeta.tools.util.SessionUtil;
+</pre>
+<P>
+
+<H2><A NAME="SECTION00042000000000000000">
+A.2 Variables</A>
+</H2>
+
+<P>
+ 
+<pre><dfn>&lt;PrivateVariables&gt;=</dfn>
+    <i>&lt;ConverterExecutables&gt;</i>
+    <i>&lt;Executor&gt;</i>
+    <i>&lt;ToolDirectory&gt;</i>
+</pre>
+<P>
+ 
+<pre><dfn>&lt;ConverterExecutables&gt;=</dfn>
+    private File ppm2gif_exec;
+    private File eps2ppm_exec;
+</pre>
+<P>
+The <A NAME="tex2html32"
+ HREF="api/zeta.util.Executor"><TT> Executor</TT></A>
+is an auxiliar class to
+execute system commands.  We use it to executed the converters.
+<pre><dfn>&lt;Executor&gt;=</dfn>
+    private Executor executor;
+</pre>
+<P>
+Private directory for files.  The adaptor requests
+a directory to store, e.g., generated gif images with
+<code>session.getToolDir()</code> and stores the returned directory
+(<A NAME="tex2html33"
+ HREF="api/zeta.session.Session.html#getToolDir"><TT> session.getToolDir</TT></A>).
+<pre><dfn>&lt;ToolDirectory&gt;=</dfn>
+    private File tool_dir;
+</pre>
+<P>
+
+<H2><A NAME="SECTION00043000000000000000">
+A.3 Adaptor Name</A>
+</H2>
+
+<P>
+Each adaptor has a name that can be obtained via the <code>getName</code>
+method.  The name should be unique throughout the session.  The name
+is also used to identify a source adaptor in a MSL.
+
+<P>
+ 
+<pre><dfn>&lt;MyName&gt;=</dfn>
+    private static final Name thisName = new Name("GRAPHICS");
+
+    public Name getName() {
+      return thisName;
+    }
+</pre>
+<P>
+
+<H2><A NAME="SECTION00044000000000000000">
+A.4 Initialization</A>
+</H2>
+
+<P>
+Adaptors are initialized via their <code>initialize</code> method, rather then
+their constructors.  During initialization adaptors have to register the
+content types they want to use and the forms they provide.  Additionally,
+they do whatever they need to initialize.
+
+<P>
+ 
+<pre><dfn>&lt;Initialization&gt;=</dfn>
+    private static final String startup_msg =
+      "installed graphics adaptor v1.02 (c) 1998 buessow@cs.tu-berlin.de";
+
+    public void initialize(Session session, StorageHandle handle) {
+      super.initialize(session, handle);
+
+        <i>&lt;RegisterContentTypes&gt;</i>
+        <i>&lt;SendStartupMessage&gt;</i>
+        <i>&lt;ToolDir&gt;</i>
+        <i>&lt;SetConverterExecutables&gt;</i>
+        loadData();
+        <i>&lt;RegisterForms&gt;</i>
+    }
+</pre>
+<P>
+An adaptor should send some (progress) message during
+initialization to inform the user about the actual configuration
+of the system.
+<pre><dfn>&lt;SendStartupMessage&gt;=</dfn>
+      sendProgress(startup_msg);
+</pre>
+<P>
+After startup the session does not know anything about the
+available content types, therefore each adaptor is supposed to register the
+content types it uses.  These are the types it requests or provides.
+An adaptor can use the standard types from <code>zeta.content</code> or
+define its own, which are only known to this adaptor itself or,
+additionally, to its <I>friends</I>.
+<pre><dfn>&lt;RegisterContentTypes&gt;=</dfn>
+      session.registerContentType(GraphicsContentTypes.eps);
+      session.registerContentType(GraphicsContentTypes.gif);
+      session.registerContentType(GraphicsContentTypes.ppm);
+</pre>
+<P>
+Get tool dir for created files.  The session provides for each
+adaptor a directory, for files, the adaptor needs to create.
+<pre><dfn>&lt;ToolDir&gt;=</dfn>
+      tool_dir = session.getToolDir(thisName);
+</pre>
+<P>
+Get converter executables.  Scripts and binaries that are executed
+by adaptors are supposed to reside in the <code>$ET/lib</code>
+directory.  <A NAME="tex2html34"
+ HREF="api/zeta.session.Session.html#getToolDir"><TT> session.getToolDir</TT></A>
+provides 
+this directory.
+<pre><dfn>&lt;SetConverterExecutables&gt;=</dfn>
+  
+      if(System.getProperty("os.name").startsWith("Windows")) {
+        ppm2gif_exec = new File(session.getLibDir(), "ppm2gif.bat");
+        eps2ppm_exec = new File(session.getLibDir(), "eps2ppm.bat");
+      } else {
+        ppm2gif_exec = new File(session.getLibDir(), "ppm2gif");
+        eps2ppm_exec = new File(session.getLibDir(), "eps2ppm");
+      }
+      executor = new Executor(session, this);
+</pre>
+<P>
+Register this adaptor's commands to the shell:
+<pre><dfn>&lt;RegisterForms&gt;=</dfn>
+      session.registerForm(set_form());
+      session.registerForm(show_form());
+</pre>
+<P>
+
+<H2><A NAME="SECTION00045000000000000000">
+A.5 Storage</A>
+</H2>
+
+<P>
+Adaptors can keep their state persistent.  For this, it defines a
+serializable class holding the persistent data.  This data can then be read
+during initialization and written upon termination of the session.
+
+<P>
+For conversion of Postscript to PPM the user may provide additional
+parameters (e.g. for magnification etc.)  These options can be set
+via the command `graphics gs-options &lt;ops&gt;' (see also <code>set_form</code>).
+The options are kept persistent, i.e. they are preserved between sessions.
+
+<P>
+Momentary, only this one variable is kept persistent.  However,
+in order to easily support more persistent data, a storage class
+is declared. 
+<pre><dfn>&lt;Storage&gt;=</dfn>
+    <i>&lt;StorageClass&gt;</i>
+    <i>&lt;LoadData&gt;</i>
+    <i>&lt;FlushData&gt;</i>
+</pre>
+<P>
+ 
+<pre><dfn>&lt;StorageClass&gt;=</dfn>
+    private static class PersistentData implements Serializable {
+      case PersistentData(String gs_options);
+    }
+
+    /** ... and a variable of this type is declared */
+    private PersistentData data;
+</pre>
+<P>
+Load persistent data.  <A NAME="tex2html35"
+ HREF="api/zeta.session.Session.html#load"><TT> session.load</TT></A>
+returns <code>null</code> if no data is available.
+
+<P>
+ 
+<pre><dfn>&lt;LoadData&gt;=</dfn>
+    private void loadData() {
+      data = (PersistentData) session.load(handle);
+      /* Check, if data was stored in the previous session: */
+      if(data == null) {
+          /* Initialize `data' to default: */
+          data = new PersistentData(null);
+      }
+      gs_options_state.string = data.gs_options == null ? "" : data.gs_options;
+    }
+</pre>
+<P>
+Store data.  This method is called by the session upon termination
+(see <A NAME="tex2html36"
+ HREF="api/zeta.session.Adaptor.html#flush"><TT> session.flush</TT></A>).
+
+<P>
+ 
+<pre><dfn>&lt;FlushData&gt;=</dfn>
+    public void flush() {
+      session.store(handle, data);
+    }
+</pre>
+<P>
+
+<H2><A NAME="SECTION00046000000000000000">
+A.6 Computations</A>
+</H2>
+
+<P>
+ 
+<pre><dfn>&lt;Computations&gt;=</dfn>
+    <i>&lt;ProvideComputedTypes&gt;</i>
+    <i>&lt;TryToComputeContent&gt;</i>
+</pre>
+<P>
+The content types, the adaptor computes can be obtained with the
+<code>computedTypes</code> method.  That an adaptor says it can compute
+some content type does not mean that it is able to compute this
+type for any unit nor does it mean that it is the only adaptor can
+computes this type.  It only means that the session might ask the
+adaptor, if the content is to be computed.
+<pre><dfn>&lt;ProvideComputedTypes&gt;=</dfn>
+    /**
+     * Computed content types.  Returns an array of content types that
+     * can be computed by this adaptor. */
+    public ContentType[] computedTypes() {
+      return new ContentType[] {
+          GraphicsContentTypes.gif,
+          GraphicsContentTypes.ppm
+      };
+    }
+</pre>
+<P>
+Try to compute content.  This method does the actual computions of
+contents.  <code>tryCompute</code> either defines the content to compute and
+terminates or throws an exception.  It throws <code>CannotCompute</code> if
+the adaptor could not compute the content but an other adaptor should
+be asked.  This is usually the case if some source content, the adaptors
+needs, is not available.  In this case an other adaptor could be able
+to compute the content from other sources.  If the adaptor cannot
+compute some content because an error occured during computation, it
+sends a diagnostic message (with <code>sendDiag</code> for example) and throws
+<code>ComputationFailed</code>.  This is for example the case, if the typechecker
+tries to compute <code>checked-absy</code> but the unit is not context correct
+(see <A NAME="tex2html37"
+ HREF="api/zeta.session.Adaptor#tryCompute"><TT> zeta.sessionAdaptor.tryCompute</TT></A>).
+
+<P>
+ 
+<pre><dfn>&lt;TryToComputeContent&gt;=</dfn>
+    public void tryCompute(Target target)
+    throws Failures.ComputationFailed, Failures.CannotCompute {
+      /* Take time before actual compuation starts. */
+
+      /* Compute PPM: */
+      if(target.type.equals(GraphicsContentTypes.ppm)) {
+        <i>&lt;ComputePPM&gt;</i>
+      } else if(target.type.equals(GraphicsContentTypes.gif)) {
+        <i>&lt;ComputeGIF&gt;</i>
+      } else {
+          /* the content type is not computed by this adaptor
+           * (should not happen). */
+        throw new Failures.CannotCompute(target);
+      }
+    }
+</pre>
+<P>
+ 
+<pre><dfn>&lt;ComputePPM&gt;=</dfn>
+        /* Request encapsulated Postscript. */
+        File eps_file = (File) target.unit.query(GraphicsContentTypes.eps);
+        String n = target.unit.getName().getRepr();
+        int i = n.indexOf(":");
+        if(i &gt;= 0 &amp;&amp; i &lt; n.length()) n = n.substring(i+1);
+        File ppm_file = new File(tool_dir, n+".ppm");
+
+        /* Excute conversion filter.  The &lt;code&gt;Executor&lt;/code&gt; class
+         * is used to execute the conversion filter.
+         * @see zeta.tools.util.Executor
+         */
+        Date define_at = new Date();
+        sendProgress("converting "+target.unit.getName()+" to PPM");
+        boolean result;
+        if(data.gs_options == null) {
+          /* without Ghostscript options. */
+          result = executor.exec(default_locator,
+                                 eps2ppm_exec.getPath(),
+                                 eps_file.getPath(),
+                                 ppm_file.getPath(),
+                                 "4711ZETAEND");
+        } else {
+          /* with Ghostscript options. */
+          result = executor.exec(default_locator,
+                                 eps2ppm_exec.getPath(),
+                                 data.gs_options,
+                                 eps_file.getPath(),
+                                 ppm_file.getPath(),
+                                 "4711ZETAEND");
+        }
+
+        if(result) {
+          /* conversion was successful, add content to unit */
+          target.unit.define(GraphicsContentTypes.ppm, // type
+                             ppm_file,                 // content
+                             true,                     // persistent
+                             define_at,                // start of comput.
+                             new Target[] {            // dependencies
+                               new Target(target.unit,
+                                          GraphicsContentTypes.eps) },
+                             this);                    // myself
+        } else {
+           /* The conversion has failed. (We already send some diagnostics) */
+           throw new Failures.ComputationFailed(target);
+        }
+</pre>
+<P>
+ 
+<pre><dfn>&lt;ComputeGIF&gt;=</dfn>
+        /* Get ppm content of the unit. Note that this will call
+         * this.tryCompute recursively. */
+        File ppm_file = (File) target.unit.query(GraphicsContentTypes.ppm);
+        String n = target.unit.getName().getRepr();
+        int i = n.indexOf(":");
+        if(i &gt;= 0 &amp;&amp; i &lt; n.length()) n = n.substring(i+1);
+        File gif_file = new File(tool_dir, n+".gif");
+
+        /* Notify user that conversion starts (might take notable time) */
+        Date define_at = new Date();
+        sendProgress("converting "+target.unit.getName().getRepr()+" to GIF");
+
+        /* Use &lt;code&gt;Executor&lt;/code&gt; to execute the converter.  The
+         * executor will send diagnostics, if execution fails (a non-zero
+         * exit code is returned). */
+        boolean result = executor.exec(default_locator,
+                                       ppm2gif_exec.getPath(),
+                                       ppm_file.getPath(),
+                                       gif_file.getPath(),
+                                       "4711ZETAEND");
+
+        /* Define content, if conversion was successful.  Defines for 
+         * &lt;code&gt;target.unit&lt;/code&gt; the content type
+         * &lt;code&gt;GraphicsContentTypes.gif&lt;/code&gt; with actual content
+         * &lt;code&gt;gif_file&lt;/code&gt;,  that is persistent (&lt;code&gt;true&lt;/code&gt;),
+         * defined at &lt;code&gt;define_at&lt;/code&gt;, and dependent from the
+         * content type &lt;code&gt;GraphicsContentTypes.eps&lt;/code&gt; of this unit.
+         */
+        if(result) {
+            target.unit.define(GraphicsContentTypes.gif, // type
+                               gif_file,                 // content
+                               true,                     // is persistent
+                               define_at,                // now
+                               new Target[] {            // dependencies
+                                 new Target(target.unit,
+                                 GraphicsContentTypes.ppm) },
+                               this);
+        } else {
+            /* The conversion has failed. (We already send some diagnostics) */
+            throw new Failures.ComputationFailed(target);
+        }
+</pre>
+<P>
+
+<H2><A NAME="SECTION00047000000000000000">
+A.7 Forms</A>
+</H2>
+
+<P>
+The graphics adaptor offers two forms.  <code>set_form</code> allows to
+configure the converters in providing additional arguments for
+ghostscript.  <code>show_form</code> shows the GIF content of a unit in a AWT
+window.  <code>show_form</code> uses the <code>ImgFrame</code> to show the image.
+
+<P>
+It is strongly recommended to initialize the forms via methods and
+initializer, since the latter are evaluated before <code>initialize</code> is
+executed.
+
+<P>
+ 
+<pre><dfn>&lt;Forms&gt;=</dfn>
+    <i>&lt;SetForm&gt;</i>
+    <i>&lt;ImageFrame&gt;</i>
+    <i>&lt;ShowForm&gt;</i>
+</pre>
+<P>
+A form is defined with <code>TopLevelForm.make</code>.  The first argument
+tells the Zeta commander where this form should appear.  Here, the
+<I>Options</I> menu is choosen.  The second argument is the actual
+form.  Here, this is a sequence of two forms--a descriptive text
+<code>LiteralForm</code> and a text input <code>StringForm</code>.  The <code>StringForm</code>
+uses the <code>StringState.State</code> <code>gs_options_state</code> to store the current 
+context of the input field (i.e.&nbsp;<code>gs_options_state.string</code>).  The
+third argument is a descriptive text and the fourth, the action to be
+performed.  This action is executed each time the form is executed
+(e.g.&nbsp;the apply button is pushed).
+
+<P>
+This form will appear in the command line shell as a command called
+<TT> gs-options</TT> and in the Zeta commander in the <TT> Options</TT>
+menu as <TT> Ghostscript Options</TT>.
+
+<P>
+ 
+<pre><dfn>&lt;SetForm&gt;=</dfn>
+    private StringForm.State gs_options_state = new StringForm.State("");
+
+    /** Form to set Ghostscript options. */
+    private TopLevelForm set_form() {
+      return TopLevelForm.make(
+        new TopLevelForm.Style.Config().setModal(false),
+        new SeqForm(
+          new LiteralForm("gs-options").describe("Ghostscript Options"),
+          new StringForm(gs_options_state)
+        ),
+        "Set Ghostscript options for image conversion",
+        fun(Session session, Locator locator) 
+        throws Failures.FormFailed -&gt; void {
+          data.gs_options = gs_options_state.string;
+        }
+      );
+    }
+</pre>
+<P>
+AWT Frame to display units as images (gif).
+
+<P>
+ 
+<pre><dfn>&lt;ImageFrame&gt;=</dfn>
+    private static class ImgFrame extends Frame {
+      private Image image;
+      ImgFrame(String title, Image image) {
+        super(title);
+        this.image = image;
+
+        /* Call getWidth in order to register me as image observer.   
+         * imageUpdate will be called, each time more data of the
+         * image is loaded. (AWT loads images asynchronously) */
+        image.getWidth(this);
+
+        /* delete frame, if window close was selected. */
+        addWindowListener(new WindowAdapter() {
+          public void windowClosing(WindowEvent event) { dispose(); }
+        });
+      }
+
+      /* set frame bounds after image loading is completed: */
+      public boolean
+      imageUpdate(Image image, int flags, int x, int y, int w, int h) {
+        if((flags &amp; ImageObserver.ALLBITS) != 0) {
+          /* image is loaded: */
+          setBounds(0, 0, image.getWidth(this)+10, image.getHeight(this)+30);
+          repaint();
+          return false;
+        }
+        return true;
+      }
+
+      /* paint image: */
+      public void paint(Graphics g) {
+        g.drawImage(image, 5, 25, this);
+      }
+    }
+</pre>
+<P>
+The <code>show_form</code> uses the <code>UnitForm</code> form to specify the unit to be
+shown.  The choosen unit will be stored in <code>UnitForm.defaultState.unit</code>.
+Note that this form may fail.  It throws <code>FormFailed</code> in this case
+after sending a diagnostic message.
+
+<P>
+<pre><dfn>&lt;ShowForm&gt;=</dfn>
+    private TopLevelForm show_form() { 
+      return TopLevelForm.make(
+        TopLevelForm.Style.Function(),
+        new SeqForm(
+          new LiteralForm("show").describe("Show Image"), 
+          new UnitForm()),
+        "Show unit GIF-content in separate frame",
+        fun(Session session, Locator locator) 
+        throws Failures.FormFailed -&gt; void {
+          if(UnitForm.defaultState.unit == null) {
+            session.send(thisName,
+                         new Diag(locator, 
+                                  Diag.Category.Error,
+                                  "no unit given"));
+            throw new Failures.FormFailed("ShowImage");
+          } 
+          try {
+            Unit unit = UnitForm.defaultState.unit;
+            File gif_file = (File) unit.query(GraphicsContentTypes.gif);
+            Image image = 
+              Toolkit.getDefaultToolkit().getImage(
+                gif_file.getPath().toString());
+            Frame frame = new ImgFrame(unit.getName().toString(), image);
+            frame.show();
+          } catch(Failures e) {
+            session.send(thisName,
+                         new Diag(locator,
+                                  Diag.Category.Error,
+                                  "GIF content not available"));
+            throw new Failures.FormFailed("ShowImage");
+          }
+        }
+      );
+    }
+</pre>
+<P>
+<HR>
+<!--Navigation Panel-->
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif_gr.gif"> 
+<A NAME="tex2html105"
+ HREF="guide.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html103"
+ HREF="guide-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A>   
+<BR>
+<B> Up:</B> <A NAME="tex2html106"
+ HREF="guide.html">The ZETA Developers Guide</A>
+<B> Previous:</B> <A NAME="tex2html104"
+ HREF="guide-node3.html">3. The Zeta Aggregation</A>
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

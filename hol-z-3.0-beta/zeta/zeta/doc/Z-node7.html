@@ -1,0 +1,254 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>A. LATEX Syntax for Z</TITLE>
+<META NAME="description" CONTENT="A. LATEX Syntax for Z">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node8.html">
+<LINK REL="previous" HREF="Z-node6.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node8.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html150"
+ HREF="Z-node8.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html146"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html140"
+ HREF="Z-node6.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html148"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html151"
+ HREF="Z-node8.html">B. L<SUP>A</SUP>TEX Symbols</A>
+<B> Up:</B> <A NAME="tex2html147"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html141"
+ HREF="Z-node6.html">5. Type-Checker Directives</A>
+ &nbsp <B>  <A NAME="tex2html149"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html152"
+ HREF="Z-node7.html#SECTION00071000000000000000">A.1 Specification</A>
+<LI><A NAME="tex2html153"
+ HREF="Z-node7.html#SECTION00072000000000000000">A.2 Paragraphs</A>
+<LI><A NAME="tex2html154"
+ HREF="Z-node7.html#SECTION00073000000000000000">A.3 Predicates</A>
+<LI><A NAME="tex2html155"
+ HREF="Z-node7.html#SECTION00074000000000000000">A.4 Expression</A>
+<LI><A NAME="tex2html156"
+ HREF="Z-node7.html#SECTION00075000000000000000">A.5 Declarations</A>
+<LI><A NAME="tex2html157"
+ HREF="Z-node7.html#SECTION00076000000000000000">A.6 Operator Templates</A>
+<LI><A NAME="tex2html158"
+ HREF="Z-node7.html#SECTION00077000000000000000">A.7 Identifier</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00070000000000000000"></A>
+<A NAME="sec:z-syntax"></A>
+<BR>
+A. L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X  Syntax for Z
+</H1>
+
+<P>
+This syntax is based on the working draft version 1.5 of the Z
+standard.
+
+<P>
+
+<H2><A NAME="SECTION00071000000000000000">
+A.1 Specification</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="465" HEIGHT="52" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img45.gif"
+ ALT="\begin{latexsyntax}
+\os{Specification}
+&amp;::=&amp; \os{Paragraph}* \ns{Section}* \\
+...
+...aph}* \\
+\ns{Parents} &amp;::=&amp; \ns{NAME}~\{~¦,¦~\ns{NAME}~\} \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00072000000000000000">
+A.2 Paragraphs</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="585" HEIGHT="298" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img46.gif"
+ ALT="\begin{latexsyntax}
+\ns{Paragraph} &amp;::=&amp; ¦\begin{zed}¦~\ns{ZedParagraphs}~¦\end{...
+...¦~\ns{NAME}~\} \\
+\os{Sep} &amp;::=&amp; ¦;¦ \\
+&amp; \vert &amp; ¦\\ ¦ \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00073000000000000000">
+A.3 Predicates</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="395" HEIGHT="262" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img47.gif"
+ ALT="\begin{latexsyntax}
+\os{Predicate} &amp;::=&amp; ¦\forall¦~\os{SchemaText}~¦@¦~\os{Predi...
+...
+&amp; \vert &amp; ¦false¦ \\
+&amp; \vert &amp; ¦(¦ \os{Predicate} ¦)¦ \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+<BR>
+<IMG
+ WIDTH="492" HEIGHT="53" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img48.gif"
+ ALT="\begin{latexsyntax}
+\ns{Relation} &amp;::=&amp; \ns{Expression}~\ns{NAME}~\{~\ns{Express...
+... \ns{NAME}~\ns{Expression}~\{~\ns{NAME}~\ns{Expression}~\} \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00074000000000000000">
+A.4 Expression</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="499" HEIGHT="632" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img49.gif"
+ ALT="\begin{latexsyntax}
+\ns{Expression} &amp;::=&amp; ¦\forall¦~\os{SchemaText}~¦@¦~\os{Expr...
+...mu¦~\os{SchemaText} \\
+&amp; \vert &amp; ¦(¦~\os{Expression}~¦)¦ \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+<BR>
+<IMG
+ WIDTH="518" HEIGHT="89" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img50.gif"
+ ALT="\begin{latexsyntax}
+\ns{Renaming} &amp;::=&amp; ¦[¦ \ns{DeclName}~¦/¦~\ns{DeclName}~
+\{...
+...}~\ns{Expression}~\os{NAME}~
+\{~\ns{Expression}~\ns{NAME}~\}
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00075000000000000000">
+A.5 Declarations</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="423" HEIGHT="213" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img51.gif"
+ ALT="\begin{latexsyntax}
+\ns{SchemaDisplayText}
+&amp;::=&amp; \ns{DeclPart}~\begin{displayma...
+...ns{RefName} &amp;::=&amp; \ns{NAME} \\
+&amp; \vert &amp; ¦(¦~\ns{OpName}~¦)¦
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00076000000000000000">
+A.6 Operator Templates</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="373" HEIGHT="89" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img52.gif"
+ ALT="\begin{latexsyntax}
+\ns{OpName} &amp;::=&amp; ¦\_¦~\ns{NAME}~\{~¦\_¦~\ns{NAME}~\} \\
+&amp;...
+...~\ns{NAME}~\} \\
+\ns{GenName} &amp;::=&amp; \ns{NAME}~\{~\ns{NAME}~\}
+\end{latexsyntax}">
+<BR>
+
+<P>
+<BR>
+<IMG
+ WIDTH="424" HEIGHT="279" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img53.gif"
+ ALT="\begin{latexsyntax}
+\ns{OperatorTemplate}
+&amp;::=&amp; ¦\zrelation¦~\ns{Template} \\
+...
+...::=&amp; ¦(¦~\os{NAME}~\{~(~¦\_¦~\vert~¦,,¦~)~\os{NAME}~\}~¦)¦ \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<H2><A NAME="SECTION00077000000000000000">
+A.7 Identifier</A>
+</H2>
+
+<P>
+<BR>
+<IMG
+ WIDTH="436" HEIGHT="106" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img54.gif"
+ ALT="\begin{latexsyntax}
+\os{NAME} &amp;::=&amp; ¦\¦~\os{LETTER}~\os{LETTER}~\{~\ns{STROKE}~\...
+...vert ¦!¦ \\
+\os{NUMBER} &amp;::=&amp; \os{DIGIT}~\{~\os{DIGIT}~\} \\
+\end{latexsyntax}">
+<BR>
+
+<P>
+
+<BR><HR>
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

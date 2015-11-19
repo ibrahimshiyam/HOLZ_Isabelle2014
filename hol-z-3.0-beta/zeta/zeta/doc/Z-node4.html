@@ -1,0 +1,356 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>3. The Style: Details</TITLE>
+<META NAME="description" CONTENT="3. The Style: Details">
+<META NAME="keywords" CONTENT="Z">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="Z.css">
+<LINK REL="next" HREF="Z-node5.html">
+<LINK REL="previous" HREF="Z-node3.html">
+<LINK REL="up" HREF="Z.html">
+<LINK REL="next" HREF="Z-node5.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html105"
+ HREF="Z-node5.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html101"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html95"
+ HREF="Z-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html103"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html106"
+ HREF="Z-node5.html">4. The Language: Details</A>
+<B> Up:</B> <A NAME="tex2html102"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html96"
+ HREF="Z-node3.html">2. Novice to L<SUP>A</SUP>TEX</A>
+ &nbsp <B>  <A NAME="tex2html104"
+ HREF="Z-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html107"
+ HREF="Z-node4.html#SECTION00041000000000000000">3.1 Tabbing and Alignment</A>
+<LI><A NAME="tex2html108"
+ HREF="Z-node4.html#SECTION00042000000000000000">3.2 Side by Side</A>
+<LI><A NAME="tex2html109"
+ HREF="Z-node4.html#SECTION00043000000000000000">3.3 Style Options and Parameters</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00040000000000000000">
+3. The Style: Details</A>
+</H1>
+
+<P>
+
+<H2><A NAME="SECTION00041000000000000000"></A>
+<A NAME="sec:tabbing"></A>
+<BR>
+3.1 Tabbing and Alignment
+</H2>
+
+<P>
+There are two ways of setting indents.  You can either use the
+<code>\t</code><I>n</I> (put <I>n</I> in braces, if <IMG
+ WIDTH="42" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img10.gif"
+ ALT="$n \geq 10$">)
+to insert a space of
+<I>n</I> <code>\zedtabs</code> or use the <code>\<</code> and <code>\></code>
+markers for relative indentation:
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}
+    f : \num \pfun \num
+\where
+    \forall x : \nat @ \\\t1 
+        x \in \dom f \land \\\t1
+        x < f~x 
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="477" HEIGHT="107" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img11.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}
+f : \num \pfun \num
+\where
+\forall x : \nat @ \\ \t1
+x \in \dom f \land \\ \t1
+x &lt; f~x
+\end{axdef}\end{example}}">
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{axdef}
+    f : \num \pfun \num
+\where
+    \forall x : \nat @ \< 
+        x \in \dom f \land \\
+        x < f~x \>
+\end{axdef}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="456" HEIGHT="108" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img12.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{axdef}
+f : \num \pfun \num
+\where
+\forall x : \nat @ \&lt;
+x \in \dom f \land \\
+x &lt; f~x \&gt;
+\end{axdef}\end{example}}">
+
+<P>
+Both kind of markups are ignored by the type-checker.
+
+<P>
+A <code>zed</code> environment also introduces a tabular, thus definitions can be
+aligned:
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{zed}
+    TREE &::=& Leaf \\
+         & | & Node
+                \ldata Left : Tree, 
+                       Right : Tree
+                \rdata
+\end{zed}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="497" HEIGHT="107" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img13.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{zed}
+TREE &amp;::=&amp; Leaf \\
+&amp; \vert &amp; Node
+\ldata Left : Tree,
+Right : Tree
+\rdata
+\end{zed}\end{example}}">
+
+<P>
+The environment <code>syntax</code> known from Spivey-Z is just an alias
+for the <code>zed</code> environment.
+
+<P>
+Vertical space between lines can be introduced by using <code>\also</code>,
+<code>\Also</code>, and <code>\ALSO</code> instead of <code>\\</code>.
+A vertical space of <code>\jot</code>, <code>2\jot</code>, resp.&nbsp;
+<code>4\jot</code> is inserted, where <code>\jot=3pt</code> by default.
+
+<P>
+
+<H2><A NAME="SECTION00042000000000000000"></A>
+<A NAME="sec:sidebyside"></A>
+<BR>
+3.2 Side by Side
+</H2>
+
+<P>
+For small schemata and definitions, it is usually desirable to set
+them side by side.  The <code>zeta</code> style introduces the <code>zedgroup</code>
+environment that sets paragraphs automatically side by side, if they fit.
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{zedgroup}
+\begin{schema}{A}
+    a : \nat
+\end{schema}
+\begin{schema}{B}
+    b : \nat
+\where
+    b > 4
+\end{schema}
+\end{zedgroup}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="376" HEIGHT="158" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img14.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{zedgroup}
+\begin{schema}{A}
+a : \nat
+\end{schem...
+...egin{schema}{B}
+b : \nat
+\where
+b &gt; 4
+\end{schema}\end{zedgroup}\end{example}}">
+
+<P>
+Line breaks between paragraphs can be forced with <code>\\</code>.  In
+order to produce a regular layout, schemata in the same row are set
+with the same height and there is a limited predefined set of possible
+paragraph width, i.e.&nbsp;full width, half width, a third, and a quarter.
+<code>zedgroup</code> environments can not be nested.  Note that due the
+implementation of <code>zedgroup</code>, errors in the L<SUP><SMALL>A</SMALL></SUP>T<SMALL>E</SMALL>X &nbsp;code may
+lead to error messages with inaccurate positions.
+
+<P>
+For downwards compatibility with other styles, there is also a
+<code>sidebyside</code> environment.  You have to specify explicitly with
+<code>\nextside</code> which portions are supposed to be set side by side.
+If more than two columns are required, the number of columns has to be
+specified, e.g.&nbsp;<code>\begin{sidebyside}[3]</code> for three columns.
+
+<P>
+ 
+
+<!-- MATH
+ $\dummy {
+\begin{example}
+\begin{sidebyside}
+\begin{schema}{A}
+    a : \nat
+\end{schema}
+\nextside
+\begin{schema}{B}
+    b : \nat
+\where
+    b > 4
+\end{schema}
+\end{sidebyside}
+\end{example}
+}$
+ -->
+<IMG
+ WIDTH="383" HEIGHT="173" ALIGN="BOTTOM" BORDER="0"
+ SRC="Z-img15.gif"
+ ALT="\dummy {
+\begin{example}
+\begin{sidebyside}
+\begin{schema}{A}
+a : \nat
+\end{sch...
+...in{schema}{B}
+b : \nat
+\where
+b &gt; 4
+\end{schema}\end{sidebyside}\end{example}}">
+
+<P>
+
+<H2><A NAME="SECTION00043000000000000000"></A>
+<A NAME="sec:parameters"></A>
+<BR>
+3.3 Style Options and Parameters
+</H2>
+
+<P>
+
+<UL><LI><code>oxsz</code>: use <TT> oxsz</TT> charset (you need to
+  have an installation of this font, which originates from the fUZZ package).
+  If not given, special Z symbols will be simulated using existing
+  symbols (as in the <code>oz</code> style).
+
+</UL>
+
+<P>
+The layout of the Z boxes and formulae can be manipulated by various
+T<SMALL>E</SMALL>X  parameters:
+
+<P>
+
+<UL><LI><code>\zedindent</code>: left indent of Z paragraphs.
+
+<LI><code>\zedbeforeskip</code>: space before Z paragraphs.
+
+<LI><code>\zedafterskip</code>: space after Z paragraphs.
+
+<LI><code>\zedtab</code>: horizontal space that is introduced by <code>\t1</code>
+
+<LI><code>\zedleftsep</code>: horizontal space between left vertical
+        line of schemata and axiomatic definitions and the beginning of
+        declarations and predicates.
+
+<LI><code>\zeddeclpartskip</code>: vertical space between top horizontal
+        line of a schema and the declarations.
+
+<LI><code>\zedlinethickness</code>: thickness of schema and axiomatic
+        definition box's lines.
+
+</UL>
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html105"
+ HREF="Z-node5.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html101"
+ HREF="Z.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html95"
+ HREF="Z-node3.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html103"
+ HREF="Z-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html106"
+ HREF="Z-node5.html">4. The Language: Details</A>
+<B> Up:</B> <A NAME="tex2html102"
+ HREF="Z.html">The Z of ZETA</A>
+<B> Previous:</B> <A NAME="tex2html96"
+ HREF="Z-node3.html">2. Novice to L<SUP>A</SUP>TEX</A>
+ &nbsp <B>  <A NAME="tex2html104"
+ HREF="Z-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

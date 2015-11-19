@@ -1,0 +1,16 @@
+This directory contains Zeta, its dependencies and extensions:
+
+- pizza:
+  The Pizza (version 1.1) compiler. It was downloaded from 
+  http://pizzacompiler.sourceforge.net/ 
+  Copyright: Artistic License
+
+- zeta: 
+  The Z type-checken. Version 1.5 of Zeta was downloaded from 
+  http://uebb.cs.tu-berlin.de/zeta/ 
+  Copyright: GNU General License (GPL)
+  This directory contains a slightly enhancent version/branch of 
+  Zeta; please see "zeta/ChangeLog" for details. 
+
+- hol-z-adapter:
+  The HOL-Z adapter for Zeta. 

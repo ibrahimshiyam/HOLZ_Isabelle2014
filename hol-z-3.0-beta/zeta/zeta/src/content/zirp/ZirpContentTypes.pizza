@@ -1,0 +1,81 @@
+package zeta.content.zirp;
+
+/** 
+ * This class defines constants for content types related to ZIRP.
+ *
+ * @see zeta.session.ContentTypes
+ * @see zeta.session.Unit#query
+ *
+ * @version $Id: ZirpContentTypes.pizza,v 1.1.1.1 1998/09/01 10:51:19 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+ * */
+
+import zeta.util.Name;
+import zeta.session.ContentType;
+
+public class ZirpContentTypes {
+
+  /**
+   * The content type of the abstract syntax of an unchecked (parsed)
+   * unit.  Its symbolic name is "unchecked-absy", its content class
+   * <code>UnitAbsy</code>. 
+   *
+   * @see UnitAbsy
+   */
+  public static final ContentType uncheckedAbsy =
+    new ContentType(new Name("unchecked-absy"), UnitAbsy.class);
+  
+  /**
+   * The content type of the abstract syntax a checked (parsed and
+   * type-checked) unit.  Its symbolic name is "checked-absy", its
+   * content class <code>UnitAbsy</code>. <p>
+   *
+   * For a checked absy, the following annotations may be asserted:
+   * <UL>
+   * <LI> each <code>NameAppl</code> which represents a generic name
+   *      defines the <code>Act</code> slot
+   * <LI> each <code>Expr</code> defines the <code>Type</code> slot
+   * <LI> each <code>Item</code> defines the <code>Used</code> slot
+   * </UL>
+   * checked-absy subsumes unchecked-absy, and may be delivered
+   * where last one has been queried.  
+   * 
+   * @see UnitAbsy
+   */
+  public static final ContentType checkedAbsy =
+    new ContentType(new Name("checked-absy"), UnitAbsy.class);
+
+  /**
+   * The content type of the environment of an unchecked (parsed) unit 
+   * Its symbolic name is "unchecked-env", its content class
+   * <code>UnitEnv</code>. <p>
+   *
+   * An "unchecked" environment contains all macro and fixity
+   * declarations of a unit and those units which are parents of
+   * the given unit. It does not necessarily contains constant declarations.
+   *
+   * @see UnitEnv
+   */
+  public static final ContentType uncheckedEnv =
+    new ContentType(new Name("unchecked-env"), UnitEnv.class);
+
+
+  /**
+   * The content type of the environment of a checked (parsed and
+   * type-checked) unit.  Its symbolic name is "checked-env", its
+   * content class <code>UnitEnv</code>. <p>
+   *
+   * An "checked" environment contains all macro, fixity, and constant
+   * declarations of a unit and those units which are parents of
+   * the given unit. <p>
+   *
+   * "checked-absy" subsumes "unchecked-absy", and may be delivered
+   * where last one has been queried.  
+   *
+   * @see UnitEnv
+   */
+  public static final ContentType checkedEnv =
+    new ContentType(new Name("checked-env"), UnitEnv.class);
+
+
+}

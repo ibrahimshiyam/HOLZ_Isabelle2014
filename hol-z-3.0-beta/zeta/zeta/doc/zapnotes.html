@@ -1,0 +1,151 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>Notes on ZAP</TITLE>
+<META NAME="description" CONTENT="Notes on ZAP">
+<META NAME="keywords" CONTENT="zapnotes">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zapnotes.css">
+<LINK REL="next" HREF="zapnotes-node1.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html12"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html8"
+ HREF="index.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif_gr.gif"> 
+<A NAME="tex2html10"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html13"
+ HREF="zapnotes-node1.html">Contents</A>
+<B> Up:</B> <A NAME="tex2html9"
+ HREF="index.html">ZETA Documentation</A>
+ &nbsp <B>  <A NAME="tex2html11"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+
+<P>
+
+<P>
+
+<P>
+ 
+<H1 ALIGN="CENTER">Notes on Z<SMALL>A</SMALL>P</H1>
+<P ALIGN="CENTER"><STRONG>Wolfgang Grieskamp<A NAME="tex2html1"
+ HREF="zapnotes-footnode.html#foot376"><SUP>1</SUP></A></STRONG></P>
+<P ALIGN="CENTER"><STRONG>July 26, 2000</STRONG></P>
+
+<P>
+
+<H3>Abstract:</H3>
+<DIV>
+This (incomplete and draft) document is an attempt towards a
+  documentation for Z<SMALL>A</SMALL>P, the compiler for
+  Executable Z, as it is part of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> system. 
+</DIV>
+<P>
+
+<P>
+ 
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"></A>
+
+<UL>
+<LI><A NAME="tex2html14"
+ HREF="zapnotes-node1.html">Contents</A>
+<LI><A NAME="tex2html15"
+ HREF="zapnotes-node2.html">1. Introduction</A>
+<LI><A NAME="tex2html16"
+ HREF="zapnotes-node3.html">2. Principles</A>
+<UL>
+<LI><A NAME="tex2html17"
+ HREF="zapnotes-node3.html#SECTION00031000000000000000">2.1 Recursive Sets</A>
+<LI><A NAME="tex2html18"
+ HREF="zapnotes-node3.html#SECTION00032000000000000000">2.2 Encapsulated Search</A>
+<LI><A NAME="tex2html19"
+ HREF="zapnotes-node3.html#SECTION00033000000000000000">2.3 Higher-Orderness</A>
+<LI><A NAME="tex2html20"
+ HREF="zapnotes-node3.html#SECTION00034000000000000000">2.4 Quantors</A>
+<LI><A NAME="tex2html21"
+ HREF="zapnotes-node3.html#SECTION00035000000000000000">2.5 Schema Calculus</A>
+<LI><A NAME="tex2html22"
+ HREF="zapnotes-node3.html#SECTION00036000000000000000">2.6 Declarations</A>
+<LI><A NAME="tex2html23"
+ HREF="zapnotes-node3.html#SECTION00037000000000000000">2.7 Definition Forms</A>
+<LI><A NAME="tex2html24"
+ HREF="zapnotes-node3.html#SECTION00038000000000000000">2.8 Free Types</A>
+<UL>
+<LI><A NAME="tex2html25"
+ HREF="zapnotes-node3.html#SECTION00038010000000000000">2.8.0.1 Generators</A>
+<LI><A NAME="tex2html26"
+ HREF="zapnotes-node3.html#SECTION00038020000000000000">2.8.0.2 Using Constructors</A>
+</UL>
+<LI><A NAME="tex2html27"
+ HREF="zapnotes-node3.html#SECTION00039000000000000000">2.9 Genericity</A>
+<LI><A NAME="tex2html28"
+ HREF="zapnotes-node3.html#SECTION000310000000000000000">2.10 Numbers</A>
+<LI><A NAME="tex2html29"
+ HREF="zapnotes-node3.html#SECTION000311000000000000000">2.11 Power-Sets and the Like</A>
+</UL>
+<LI><A NAME="tex2html30"
+ HREF="zapnotes-node4.html">3. The User Interface</A>
+<UL>
+<LI><A NAME="tex2html31"
+ HREF="zapnotes-node4.html#SECTION00041000000000000000">3.1 Queries</A>
+<LI><A NAME="tex2html32"
+ HREF="zapnotes-node4.html#SECTION00042000000000000000">3.2 Profiling</A>
+</UL>
+<LI><A NAME="tex2html33"
+ HREF="zapnotes-node5.html">4. Controlling Search</A>
+<UL>
+<LI><A NAME="tex2html34"
+ HREF="zapnotes-node5.html#SECTION00051000000000000000">4.1 Sequentialization</A>
+<LI><A NAME="tex2html35"
+ HREF="zapnotes-node5.html#SECTION00052000000000000000">4.2 Extensionalization</A>
+</UL>
+<LI><A NAME="tex2html36"
+ HREF="zapnotes-node6.html">5. Special Definitions</A>
+<UL>
+<LI><A NAME="tex2html37"
+ HREF="zapnotes-node6.html#SECTION00061000000000000000">5.1 Debug Printing</A>
+<LI><A NAME="tex2html38"
+ HREF="zapnotes-node6.html#SECTION00062000000000000000">5.2 Forcing</A>
+<LI><A NAME="tex2html39"
+ HREF="zapnotes-node6.html#SECTION00063000000000000000">5.3 Assumptions</A>
+<LI><A NAME="tex2html40"
+ HREF="zapnotes-node6.html#SECTION00064000000000000000">5.4 Extensionalization</A>
+<LI><A NAME="tex2html41"
+ HREF="zapnotes-node6.html#SECTION00065000000000000000">5.5 Reduction Over Sets</A>
+<LI><A NAME="tex2html42"
+ HREF="zapnotes-node6.html#SECTION00066000000000000000">5.6 Reduction Over Sequences</A>
+<LI><A NAME="tex2html43"
+ HREF="zapnotes-node6.html#SECTION00067000000000000000">5.7 Extensional Powerset</A>
+<LI><A NAME="tex2html44"
+ HREF="zapnotes-node6.html#SECTION00068000000000000000">5.8 Reflection</A>
+<LI><A NAME="tex2html45"
+ HREF="zapnotes-node6.html#SECTION00069000000000000000">5.9 Data Input</A>
+</UL>
+<LI><A NAME="tex2html46"
+ HREF="zapnotes-node7.html">Bibliography</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

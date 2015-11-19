@@ -1,0 +1,964 @@
+package zeta.tools.sh;
+
+/**
+ * The ZETA main driver.
+ *
+ * @version $Id: Main.pizza,v 1.31 2000/05/08 07:07:43 wg Exp $
+ */
+
+import java.io.*;
+import java.util.NoSuchElementException;
+import java.util.StringTokenizer;
+
+import net.sf.pizzacompiler.lang.Pair;
+
+import zeta.agl.*;
+import zeta.format.*;
+
+import zeta.util.*;
+import zeta.session.*;
+
+import Command.*;
+
+
+public class Main implements Listener, Shell {
+
+  // CONSTANTS
+
+  /**
+   * Whether we should issue debug messages.
+   */
+  private static final boolean debugMessages = 
+    System.getProperty("zeta.debug.messages") != null;
+
+
+  // FIELDS
+
+  /*
+   * The session.
+   */
+  private Session session;
+
+
+  /**
+   * The print writer used for debug messages.
+   */
+  private PrintWriter debugWriter;
+
+  /**
+   * The print writer used for normal messages.
+   */
+  private PrintWriter messageWriter;
+
+
+  /**
+   * The command line prompt writer.
+   */
+  private PrintWriter promptWriter;
+
+  /**
+   * The command line reader.
+   */
+  private BufferedReader commandReader;
+
+  /**
+   * A flag to indicate whether the shell should be exited.
+   */
+  private boolean exitShell = false;
+
+  /**
+   * The name of the shell.
+   */
+  private static final Name thisName = new Name("Shell");
+
+  private static String prompt = System.getProperty("zeta.sh.prompt", "? ");
+
+  /**
+   * An locator to be taken for diagnostics in command execution.
+   */
+  private Locator commandLocator = new CommandLocator("<command-line>");
+
+  public static class CommandLocator extends Locator {
+    public case CommandLocator(String msg);
+    public Format toFormat(FormatInfo info){
+      return Format.literal(msg);
+    }
+    public Name getTool(){
+      return thisName;
+    }
+  }
+
+  
+  // MAIN ENTRY 
+
+  public static void main(String[] argv){
+
+    System.out.println(
+      "ZETA 1.01, (c) 1998 The ZETA Team, zeta@uebb.cs.tu-berlin.de"
+    );
+
+    if(System.getProperty("zeta.home") == null) {
+      System.err.println("Zeta error: property `zeta.home' not defined.");
+      return;
+    }
+
+    String project; 
+    if (argv.length == 0)
+      project = System.getProperty("user.dir");
+    else if (argv.length == 1)
+      project = argv[0];
+    else {
+      System.out.println("usage: zeta [ <projectname> ]");
+      System.exit(1);
+      return;
+    }
+
+
+    // Open or create session
+    Session session;
+    boolean created;
+    try {
+      session = SessionManager.open(project);
+      created = false;
+    }
+    catch (Failures.NoSuchEntity e){
+      session = SessionManager.create(project);
+      created = true;
+    }
+
+    // Session loaded, from now on catch user interrupts
+    Impure.driver.catchInterrupts();
+
+    try {
+      // Create driver object and enter command loop
+      DebugWriter.setReceiver(session);
+      VerboseWriter.setReceiver(session);
+      Main main = new Main(session, created);
+      main.sourceConfigScripts();
+      main.commandLoop();
+    }
+    catch (Throwable e){
+      session.abort(e);
+    }
+  }
+
+  private void sourceConfigScripts() {
+    sourceConfigScript(new File(session.getLibDir(), "zetarc"));
+    sourceConfigScript(new File(System.getProperty("user.home"), ".zetarc"));
+    sourceConfigScript(new File("zetarc"));
+  }
+
+  private void sourceConfigScript(File file) {
+    if(file.canRead())
+      sourceScript(file);
+    else
+      sendDebug("config script `"+file.getPath()+"' not found");
+  }
+
+  private void sourceScript(File file) {
+    try {
+      LineNumberReader reader = new LineNumberReader(new FileReader(file));
+      try {
+	while(readAndExec(null, session.getCommand(), file, reader));
+      } catch(Failures.CannotExecute e) {
+	sendDebug("evaluation of `"+file.getName()+"'failed before line "+
+		  reader.getLineNumber());
+      }
+    } catch(IOException e) {
+      sendDiag(commandLocator, "cannot open file `"+file.getName()+"'");
+    }
+  }
+
+
+  private Main(Session session, boolean created){
+    this.session = session;
+    this.debugWriter = 
+      new PrintWriter(new OutputStreamWriter(System.err));
+    this.messageWriter = this.promptWriter =
+      new PrintWriter(new OutputStreamWriter(System.out));
+    this.commandReader = new BufferedReader(new InputStreamReader(System.in));
+    session.registerListener(null, this);
+    session.registerShell(this);
+    session.initialize();
+    session.registerCommand(mainCommand);
+/*
+    if (created){
+      sendProgress("initializing new project");
+      // add default adaptors
+      try {
+	session.registerAdaptor(zeta.tools.sc2smv.MCAdaptor.class);
+	session.registerAdaptor(zeta.tools.stm.StmAdaptor.class);
+	session.registerAdaptor(zeta.tools.latex.LatexAdaptor.class);
+	session.registerAdaptor(zeta.tools.zparser.ParserAdaptor.class);
+	session.registerAdaptor(zeta.tools.zchecker.CheckerAdaptor.class);
+	session.registerAdaptor(zeta.tools.mzreducer.ReducerAdaptor.class);
+	session.registerAdaptor(zeta.tools.mzrewriter.RewriterAdaptor.class);
+	session.registerAdaptor(zeta.tools.zap.ZapAdaptor.class);
+	session.registerAdaptor(zeta.tools.pp.PrettyPrinterAdaptor.class);
+	session.registerAdaptor(zeta.tools.documentor.DocAdaptor.class);
+      }
+      catch (Failures.EntityExists e){}
+    }
+*/
+  }
+
+
+  // INTERACTION COMMANDS
+
+  private Command exitCommand =
+    Command.sequence(
+      Command.Keyword("Exit"),
+      Command.perform(
+	fun (Command.Token[] inputs)->void {
+	  sendProgress("exiting, please wait while storing project data ...");
+	  try {
+	    session.exit();
+	  }
+	  finally {
+	    exitShell = true;
+	  }
+        }
+      )
+    );
+
+  private Command abortCommand =
+    Command.sequence(
+      Command.Keyword("Abort"),
+      Command.perform(
+	fun (Command.Token[] inputs)->void {
+	  sendProgress("aborting, session state not saved");
+	  try {
+	    session.abort();
+	  }
+	  finally {
+	    exitShell = true;
+	  }
+        }
+      )
+    );
+
+  private Command listUnitsCommand =
+    Command.sequence(
+      Command.Keyword("Units"),
+      Command.perform(
+	fun (Command.Token[] inputs)->void {
+	  sendResult(
+	    Format.list(
+	      Format.empty,
+	      Format.literal(","),
+	      Format.empty,
+	      fun (Unit u)->Format { 
+		return Format.literal(u.getName().toString());
+	      },
+		new ArraySeq(session.getUnits())
+	    )
+	  );
+	}
+      )
+    );
+  
+  private Command listTypesCommand =
+    Command.sequence(
+      Command.Keyword("Types"),
+      Command.perform(
+	fun (Command.Token[] inputs)->void {
+	  sendResult(
+	    Format.list(
+	      Format.empty,
+	      Format.literal(","),
+	      Format.empty,
+	      fun (ContentType t)->Format { 
+		return Format.literal(t.toString());
+	      },
+	      new ArraySeq(session.getContentTypes())
+	    )
+	  );
+	}
+      )
+    );
+	  
+  private Command listCommand =
+    Command.sequence(
+      Command.Keyword("List"),
+      Command.choice(listUnitsCommand, listTypesCommand)
+    );
+
+  private Command dumpCommand =
+    new Command.Sequence(new Command[] {
+      Command.Keyword("Dump"),
+      Command.UnitName,
+      Command.ContentTypeName,
+      new Command.Option(new Command.FileName(false)),
+      Command.perform(
+	fun (Token[] inputs)->void {
+	  Unit unit = ((Command.Token.UnitName)inputs[1]).unit;
+	  ContentType type = ((Command.Token.ContentTypeName)inputs[2]).type;
+	  PrintWriter file_writer = null;
+	  Token token = ((Command.Token.Option)inputs[3]).token;
+	  if(token != null) {
+	    File file = ((Command.Token.FileName) token).file;
+	    try {
+	      file_writer = new PrintWriter(new FileWriter(file));
+	    } catch(IOException e) {
+	      sendDiag(new Diag(commandLocator, 
+				Diag.Category.Error, 
+				Format.literal("could not open file `"+
+				               file.getName()+"'")));
+	      return;
+	    }
+	  }
+	  try {
+	    Object ob = unit.query(type);
+	    sendProgress("formatting");
+	    if (file_writer != null){
+	      Format.buildFormat(ob).printFormat(file_writer, 79);
+	      file_writer.close();
+	    } else {
+	      sendResult(Format.buildFormat(ob));
+	    }
+	  }
+	  catch (Failures.ComputationFailed e){
+	    // e.printStackTrace();
+	    // diagnostics will have been printed
+	  }
+	  catch (Failures.CannotCompute e){
+	    // e.printStackTrace();
+	    sendDiag(
+	      new Diag(
+		    commandLocator,
+		    Diag.Category.Error,
+		    Format.describe(
+		      "query not resovable",
+		      "target", Format.buildFormat(e.target)
+		    )
+		  )
+	    );
+	  }
+        }
+      )
+    });
+	    
+  private Command queryCommand =
+    Command.sequence(
+      Command.Keyword("Make"),
+      Command.UnitName,
+      Command.ContentTypeName,
+      Command.perform(
+	fun (Token[] inputs)->void {
+	  Unit unit = ((Command.Token.UnitName)inputs[1]).unit;
+	  ContentType type = ((Command.Token.ContentTypeName)inputs[2]).type;
+	  try {
+	    Object ob = unit.query(type);
+	    sendResult(Format.literal(
+			 new Target(unit, type) + " succeeded."));
+	  }
+	  catch (Failures.ComputationFailed e){
+	    // e.printStackTrace();
+	    // diagnostics will have been printed
+	  }
+	  catch (Failures.CannotCompute e){
+	    // e.printStackTrace();
+	    sendDiag(
+	      new Diag(
+		    commandLocator,
+		    Diag.Category.Error,
+		    Format.describe(
+		      "query not resovable",
+		      "target", Format.buildFormat(e.target)
+		    )
+		  )
+	    );
+	  }
+        }
+      )
+    );
+	    
+  private Command helpCommand =
+    Command.sequence(
+      Command.Keyword("Help"),
+      Command.perform(
+	fun (Token[] inputs)->void {
+	  session.send(thisName,
+		       new ResultMessage(
+			     Format.beneath(
+			       getChoices(session.getCommand())
+					 .map(makeHelp)
+			     )
+			   )
+		      );
+        }
+      )
+    );
+
+
+  /** Set system property. */
+  private Command setCommand =
+    Command.sequence(
+      Command.Keyword("Set").describe("set property"),
+      new Command.Variable(Command.identityParser),
+      new Command.Variable(Command.identityParser),
+      Command.perform(fun (Token[] inputs)->void {
+	String prop = (String) ((Command.Token.Variable) inputs[1]).value;
+	String val = (String) ((Command.Token.Variable) inputs[2]).value;
+	// looks dirty:
+	System.getProperties().put(prop, val);
+      })
+    );
+
+
+  /** Register a new adaptor. */
+  private Command registerCommand =
+    Command.sequence(
+      Command.Keyword("Register").describe("register new adaptor"),
+      new Command.Variable(Command.identityParser),
+      Command.perform(fun (Token[] inputs)->void {
+	String name = (String) ((Command.Token.Variable) inputs[1]).value;
+	try {
+	  session.registerAdaptor(Class.forName(name));
+	} catch(ClassNotFoundException e) {
+	  sendDiag(commandLocator, "cannot load class `"+name+"'");
+	  return;
+	} catch(Failures.EntityExists e) {
+	  sendDiag(commandLocator, "already installed `"+name+"'");
+	}
+      })
+    );
+
+  /** Source a Zeta command script */
+  private Command sourceCommand =
+    Command.sequence(
+      Command.Keyword("Source").describe("source a Zeta script"),
+      new Command.FileName(true),
+      Command.perform(fun (Token[] inputs)->void {
+	File file = (File) ((Command.Token.FileName) inputs[1]).file;
+	sourceScript(file);
+      })
+    );
+
+
+  private Seq<Command> getChoices(Command com){
+    switch (com){
+    case Choice(Command[] coms):
+      Seq<Command> subComs = new BufferSeq();
+      for (int i = 0; i < coms.length; i++){
+	subComs = subComs.appendAll(getChoices(coms[i]));
+      }
+      return subComs;
+    default:
+      return new ArraySeq(com);
+    }
+  }
+
+
+  private Command mainCommand = 
+    Command.Choice(
+      new Command[]{exitCommand, abortCommand,
+		    dumpCommand, queryCommand, listCommand,
+		    helpCommand, setCommand, registerCommand,
+		    sourceCommand }
+    );
+		      
+
+  // COMMAND LOOP
+
+  private void commandLoop(){
+    do {
+      try {
+	exec(prompt, session.getCommand());
+      }
+      catch (Failures.CannotExecute e){
+	// error reported elsewhere
+      }
+    }
+    while (!exitShell);
+  }
+
+
+  // COMMAND EXECUTION
+
+  /**
+   * Execute a command.
+   */
+  public void exec(final String prompt, final Command command)
+  throws Failures.CannotExecute {
+    session.checkExternalData();
+    final Failures.CannotExecute[] failure = new Failures.CannotExecute[1];
+    if (!Impure.driver.runInterruptable(
+	  new Runnable(){
+	    public void run(){
+	      try {
+		if(!readAndExec(prompt, command, null, commandReader))
+		  session.abort();
+	      }
+	      catch (Failures.CannotExecute e){
+		failure[0] = e;
+	      }
+	      catch (Exception e){
+		session.abort(e);
+	      }
+	    }})){
+      promptWriter.println();
+      promptWriter.println("interrupted!");
+      throw new Failures.CannotExecute("interrupted");
+    } else {
+      if (failure[0] != null) throw failure[0];
+    }
+  }
+
+  /**
+   * Notify a command change.
+   */
+  public void notifyCommandChange(){
+  }
+
+  /**
+   * Read and execute a command.
+   *
+   * @return true, if more data can be read from <code>reader</code> and
+   * false if eof was encountered.
+   */
+  private boolean readAndExec(String prompt,
+			      Command command, 
+			      File file,
+			      BufferedReader reader)
+  throws Failures.CannotExecute	{
+    Locator loc;
+    if (file != null && reader instanceof LineNumberReader)
+      loc = new CommandLocator(file + " near line " + 
+				((LineNumberReader)reader).getLineNumber());
+    else 
+      loc = new CommandLocator("<command-line>");
+    commandLocator = loc;
+    String res = "";
+    boolean cont = false;
+    do {
+      String line;
+      try {
+	if(prompt != null) {
+	  if (!cont)
+	    promptWriter.print(prompt);
+	  promptWriter.flush();
+	}
+	line = reader.readLine();
+	if(line == null) return false;
+      }
+      catch (IOException e){
+	throw new Errors.PhysicalError(e);
+      }
+      if (line != null){
+	res += line;
+	if (isBalanced(res)) break;
+	cont = true;
+      } else
+	break;
+    } while (true);
+    Seq<String> words = tokenize(loc, res);
+    if (words != null && words.size() > 0){
+      Pair<Token,Seq<String>> ires = interpret(command, loc, words);
+      if (ires != null && !ires.snd.isEmpty()){
+	sendDiag(loc, "superfluous input: " + ires.snd.head());
+	throw new Failures.CannotExecute(loc.toString());
+      }
+      else if (ires == null){
+	sendDiag(loc, "erroneous input");
+	throw new Failures.CannotExecute(loc.toString());
+      }
+    } 
+    return true;
+  }
+
+  /**
+   * Check if a string is balanced.
+   */
+  private boolean isBalanced(String s){
+    boolean quoted = false;
+    for (int i = 0; i < s.length(); i++){
+      switch (s.charAt(i)){
+      case '\\':
+	i++;
+	break;
+      case '\"':
+	quoted = !quoted;
+      }
+    }
+    return !quoted;
+  }
+
+  /**
+   * Tokenize a string into a sequence of strings.
+   */
+  private Seq<String> tokenize(Locator loc, String s){
+    StringTokenizer tkn = new StringTokenizer(s," \n\t\r\"\\", true);
+    Seq<String> buf = new BufferSeq();
+    String quoted = null;
+    while (tkn.hasMoreTokens()){
+      String tk = tkn.nextToken();
+      if (quoted != null){
+	if (tk.equals("\\") && tkn.hasMoreTokens()){
+	  tk = tkn.nextToken();
+	  if (tk.equals("\"")){
+	    // escaped "
+	    quoted += tk;
+	  } else {
+	    quoted += "\\";
+	    quoted += tk;
+	  }
+	} 
+	else if (tk.equals("\"")){
+	  buf = buf.append(quoted);
+	  quoted = null;
+	} else
+	  quoted += tk;
+      } else {
+	if (tk.equals("\"")){
+	  quoted = "";
+	} 
+	else if (tk.equals("\\") && tkn.hasMoreTokens()){
+	  // see if this \ has to be merged with next token
+	  tk = tkn.nextToken();
+	  if (!isSpaceToken(tk)) {
+	    buf = buf.append("\\" + tk);
+	  } else
+	    buf = buf.append("\\").append(tk);
+	}
+	else if (isSpaceToken(tk)){
+	  // ignore whitespace
+	} else {
+	  buf = buf.append(tk);
+	}
+      }
+    }
+    if (quoted != null){
+      sendDiag(loc, "unclosed quote");
+      return null;
+    } else {
+      return buf;
+    }
+  }
+  
+  private static boolean isSpaceToken(String tk){
+    return tk.equals(" ") || tk.equals("\n") || tk.equals("\t") ||
+           tk.equals("\r");
+  }
+
+  /**
+   * Interpret a command. Return null if command doesn't matches input words.
+   * Otherwise return scanned tokens and remaining input words.
+   */
+  private Pair<Token,Seq<String>> 
+  interpret(Command command, Locator loc, Seq<String> words)
+  throws Failures.CannotExecute {
+    switch (command) {
+    case Sequence(Command[] commands):
+      return interpretSequence(new ArraySeq(commands), loc, words);
+    case Choice(Command[] commands):
+      for (int i = 0; i < commands.length; i++){
+	Pair<Token,Seq<String>> res = interpret(commands[i], loc, words);
+	if (res != null) return res;
+      }
+      return null;
+    case Option(Command ocommand):
+      Pair<Token,Seq<String>> res = interpret(ocommand, loc, words);
+      if (res != null)
+	return new Pair(Token.Option(res.fst), res.snd);
+      else
+	return new Pair(Token.Option(null), words);
+    case Repeat(Command rcommand):
+      Seq<Token> buf = new BufferSeq();
+      do {
+	Pair<Token,Seq<String>> res = interpret(rcommand, loc, words);
+	if (res == null)
+	  break;
+	else {
+	  buf = buf.append(res.fst);
+	  words = res.snd;
+	}
+      } while (true);
+      return new Pair(Token.Repeat(buf.toArray(Token.class)), words);
+    case Keyword(String kword):
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      if (kword.toLowerCase().equals(next.toLowerCase()))
+	return new Pair(Token.Keyword(kword), words.tail());
+      else
+	return null;
+    case Variable(Parser parser):
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      Object val = parser.parse(next);
+      if (val != null)
+	return new Pair(Token.Variable(val), words.tail());
+      else
+	throw new Failures.CannotExecute(loc.toString());
+    case UnitName:
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      Name name = new Name(next);
+      try {
+	Unit unit = session.lookupUnit(name);
+	return new Pair(Token.UnitName(unit), words.tail());
+      }
+      catch (Failures.UnresolvableName e){
+	reportUnresolvable(loc, name);
+	throw new Failures.CannotExecute(loc.toString());
+      }
+      catch (Failures.AmbigiousName e){
+	reportAmbigious(loc, name, e.fullNames);
+	throw new Failures.CannotExecute(loc.toString());
+      }
+      
+    case ContentTypeName:
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      Name name = new Name(next);
+      try {
+	ContentType type = session.lookupContentType(name);
+	return new Pair(Token.ContentTypeName(type), words.tail());
+      }
+      catch (Failures.NoSuchEntity e){
+	sendDiag(loc, "content type `" + name + "' does not exists");
+	throw new Failures.CannotExecute(loc.toString());
+      }
+    case FileName(boolean mustExists):
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      File file = new File(next);
+      if (mustExists && !file.isFile()){
+	sendDiag(loc, "file `" + file + "' does not exists");
+	throw new Failures.CannotExecute(loc.toString());
+      }
+      return new Pair(Token.FileName(file), words.tail());
+    case FolderName(boolean mustExists):
+      String next = getNextWord(loc, words);
+      if (next == null) return null;
+      File file = new File(next);
+      if (mustExists && !file.isDirectory()){
+	sendDiag(loc, "directory `" + file + "' does not exists");
+	throw new Failures.CannotExecute(loc.toString());
+      }
+      return new Pair(Token.FolderName(file), words.tail());
+    default:
+      sendDebug("lonley transform or perform in interaction command");
+      sendDiag(loc, "cannot execute");
+      throw new Failures.CannotExecute(loc.toString());
+    }
+  }
+
+  private void reportUnresolvable(Locator loc, Name name){
+    sendDiag(new Diag(loc,
+		      Diag.Category.Error,
+		      "`" + name + "' cannot be resolved as a unit"));
+  }
+
+  private void reportAmbigious(Locator loc, 
+			       Name name, Name[] fullNames){
+    sendDiag(new Diag(loc,
+		      Diag.Category.Error,
+		      Format.describe(
+			"`" + name + "' is ambigious",
+			"possible completions",
+			Format.list(Format.empty,
+				    Format.literal(", "),
+				    Format.empty,
+				    fullNames))));
+  }
+
+  /**
+   * Get the next word, or throw if no next word exists.
+   */
+  private String getNextWord(Locator loc, Seq<String> words){
+    if (!words.isEmpty()){
+      return words.head();
+    } else {
+      return null;
+    }
+  }
+
+
+      
+  /**
+   * Interpret a sequence of commands. 
+   */
+  private Pair<Token,Seq<String>> 
+  interpretSequence(Seq<Command> commands, Locator loc, Seq<String> words)
+  throws Failures.CannotExecute {
+    Seq<Token> tokens = new BufferSeq();
+    int i = 0;
+    while (!commands.isEmpty()){
+      switch (commands.head()){
+      case Reduce(Transformation trafo):
+	session.checkExternalData();
+	Token[] reduced = trafo.transform(tokens.toArray(Token.class));
+	if (reduced == null)
+	  if (i == 0)
+	    return null;
+	  else {
+	    sendDiag(loc, "erroneous input");
+	    throw new Failures.CannotExecute(loc.toString());
+	  }
+	else 
+	  tokens = new ArraySeq(reduced);
+	break;
+      case Perform(Action action):
+	session.checkExternalData();
+	action.action(tokens.toArray(Token.class));
+	break;
+      default:
+	Pair<Token,Seq<String>> res = interpret(commands.head(), loc, words);
+	if (res == null){
+	  if (i == 0)
+	    return null;
+	  else {
+	    if (words.isEmpty())
+	      sendDiag(loc, "erroneous input");
+	    else
+	      sendDiag(loc, "unexpected input: " + words.head());
+	    throw new Failures.CannotExecute(loc.toString());
+	  }
+	} else {
+	  tokens = tokens.append(res.fst);
+	  words = res.snd;
+	}
+      }
+      commands = commands.tail();
+      i++;
+    }
+    return new Pair(Token.Sequence(tokens.toArray(Token.class)), words);
+  }
+
+  /**
+   * Make help text for command.
+   */
+  private Format makeHelp(Command command) {
+    switch (command) {
+    case Sequence(Command[] commands):
+      return Format.list(Format.empty, Format.space, Format.empty,
+			 makeHelp,
+			 new ArraySeq(commands));
+    case Choice(Command[] commands):
+      return Format.list(Format.literal("( "), 
+			 Format.literal(" | "),
+			 Format.literal(" )"),
+			 makeHelp,
+			 new ArraySeq(commands));
+    case Option(Command ocommand):
+      return Format.append(Format.literal("[ "), makeHelp(ocommand),
+			   Format.literal(" ]"));
+    case Repeat(Command rcommand):
+      return Format.append(Format.literal("{ "), makeHelp(rcommand),
+			   Format.literal(" }"));
+    case Keyword(String kword):
+      return Format.literal(kword.toLowerCase());
+    case Variable(Parser parser):
+      return Format.literal("<param>");
+    case UnitName:
+      return Format.literal("<unit-spec>");
+    case ContentTypeName:
+      return Format.literal("<content-type>");
+    case FileName(boolean mustExists):
+      return Format.literal("<file-name>");
+    case FolderName(boolean mustExists):
+      return Format.literal("<folder-name>");
+    default:
+      return Format.literal(".");
+    }
+  }
+  
+  // OWN MESSAGES
+
+  /**
+   * Issue a shell progress.
+   */
+  private void sendProgress(String message){
+    session.send(thisName, new ProgressMessage(Format.literal(message)));
+  }
+
+  /**
+   * Issue a shell result.
+   */
+  private void sendResult(Format format){
+    session.send(thisName, new ResultMessage(format));
+  }
+
+  /**
+   * Issue a shell diagnostics.
+   */
+  private void sendDiag(Locator loc, String message){
+    session.send(thisName,
+		 new Diag(loc,
+			  Diag.Category.Error,
+			  message));
+  }
+
+  /**
+   * Issue a shell diagnostics.
+   */
+  private void sendDiag(Diag diag){
+    session.send(thisName, diag);
+  }
+
+  /**
+   * Issue a shell debug message.
+   */
+  private void sendDebug(String message){
+    session.send(thisName, new DebugMessage(Format.literal(message)));
+  }
+  private void sendDebug(Format format){
+    session.send(thisName, new DebugMessage(format));
+  }
+  private void sendDebug(String message, Object obj){
+    session.send(thisName, 
+		 new DebugMessage(
+		       Format.line(Format.literal(message + ":"),
+				   Format.buildFormat(obj))));
+  }
+
+
+  // MESSAGE LISTENER
+
+  public void receive(Name sender, Message message){
+    if (message instanceof DebugMessage){
+      if (debugMessages){
+	printPrefixed("@ " + sender + ": ", debugWriter,
+		      Format.build(message));
+      }
+    }
+    else if (message instanceof Diag){
+      printPrefixed("! ", messageWriter, Format.build(message));
+    }
+    else if (message instanceof ResultMessage){
+      printPrefixed("= ", messageWriter, Format.build(message));
+    }
+    else if (message instanceof ProgressMessage){
+      printPrefixed("+ ", messageWriter, Format.build(message));
+    }
+    else {
+      printPrefixed("- ", messageWriter, Format.build(message));
+    }
+  }
+
+  private static void printPrefixed(String prefix, PrintWriter writer,
+				    Format format){
+    String string = format.toString(79 - prefix.length());
+    StringTokenizer tkn = new StringTokenizer(string, "\n\r");
+    int unprintedEmpty = 0;
+    while (tkn.hasMoreTokens()){
+      String line = tkn.nextToken();
+      if (line.length() == 0)
+	unprintedEmpty++;
+      else {
+	while (unprintedEmpty > 0){
+	  writer.println(prefix);
+	  unprintedEmpty--;
+	}
+	writer.print(prefix);
+	writer.println(line);
+      }
+    }
+    // ignore trailing empty lines
+    writer.flush();
+  }
+	  
+
+}
+    

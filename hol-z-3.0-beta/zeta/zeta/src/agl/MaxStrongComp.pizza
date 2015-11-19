@@ -1,0 +1,105 @@
+package zeta.agl;
+
+/** Class for calculating the maximal strongly connected components of
+  * a graph. <p>
+  *
+  * The graph may thereby be represented either by successor and predecessor
+  * higher-order methods, or by an AGL mapping. <p>
+  *
+  * @version $Id: MaxStrongComp.pizza,v 1.2 1998/09/13 15:11:15 wg Exp $
+  */
+
+
+import net.sf.pizzacompiler.lang.Pair;
+import java.util.NoSuchElementException;
+
+
+public class MaxStrongComp {
+  
+  // FIXME EFFICIENCY: derived from a pure functional algorithm ...
+
+  public static <A> Seq<Seq<A>> msc(Aggregate<A> nodes, 
+				    (A)->Aggregate<A> successors,
+				    (A)->Aggregate<A> predecessors){
+    DFS<A> succs = new DFS(successors);
+    DFS<A> preds = new DFS(predecessors);
+    succs.visit(nodes);
+    succs.forest().apply(fun (Seq<A> tree)->void { preds.visit(tree); });
+    return preds.forest();
+  }
+
+  public static <A> Seq<Seq<A>> msc(Map<A,Set<A>> graph){
+    Map<A,Set<A>> inv = 
+      graph.reduce((Map)new HashMap(),
+		   fun (Map<A,Set<A>> m, Pair<A,Set<A>> p)->Map<A,Set<A>>
+		   {
+		     for (Enum<A> e = p.snd.enumerate(); e.more();
+			  e.advance()){
+		       A n = e.current();
+		       if (m.defines(n)){
+			 m = m.define(n, m.get(n).include(p.fst));
+		       } else {
+			 m = m.define(n, new HashSet(p.fst));
+		       }
+		     }
+		     return m;
+		   });
+    return msc(graph.domain(),
+	       fun (A n)->Aggregate<A>
+	       {  
+		 try {
+		   return graph.get(n);
+		 }
+		 catch (NoSuchElementException e){
+		   return new ArraySeq();
+		 }
+	       },
+	       fun (A n)->Aggregate<A>
+	       {  
+		 try {
+		   return inv.get(n);
+		 }
+		 catch (NoSuchElementException e){
+		   return new ArraySeq();
+		 }
+	       });
+  }
+
+    
+  static class DFS<A> {
+
+    private Set<A> visited = new HashSet();
+    private Seq<Seq<A>> forest = new BufferSeq();
+    private (A)->Aggregate<A> adjacents;
+
+    private DFS((A)->Aggregate<A> adjacents){
+      this.adjacents = adjacents;
+    }
+
+    void visit(Aggregate<A> nodes){
+      for (Enum<A> e = nodes.enumerate(); e.more(); e.advance()){
+	A node = e.current();
+	if (!visited.contains(node)){
+	  forest = forest.prepend(new ArraySeq());
+	  visitTree(node);
+	}
+      }
+    }
+
+    void visitTree(A node){
+      visited = visited.include(node);
+      Aggregate<A> adj = adjacents(node);
+      adj.apply(fun (A node)->void {
+		  if (!visited.contains(node)) visitTree(node);
+		});
+      forest = forest.tail().prepend(forest.head().prepend(node));
+    }
+
+    Seq<Seq<A>> forest(){
+      return forest;
+    }
+  }
+
+}
+
+

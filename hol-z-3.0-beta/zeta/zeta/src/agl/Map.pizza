@@ -1,0 +1,249 @@
+package zeta.agl;
+
+/** The basic aggregate class of finite mappings. This abstract class
+  * is superclass of diverse implementation variants of mappings.
+  *
+  * @version $Id: Map.pizza,v 1.2 1998/12/15 12:05:24 buessow Exp $ */
+
+import net.sf.pizzacompiler.lang.Pair;
+import java.util.NoSuchElementException;
+
+import zeta.format.*;
+import zeta.format.impl.*; // FIXME: remove references
+
+public abstract class Map<A,B> extends Aggregate<Pair<A,B>> {
+
+  /** Test if element is defined in this mapping. */
+  public abstract boolean defines(A elem);
+
+  /** Test if all the elements of another aggregate are defined
+    * in this mapping. */
+  public boolean definesAll(Aggregate<A> other){
+    for (Enum<A> enum = other.enumerate(); enum.more(); enum.advance()){
+      if (!defines(enum.current())) return false;
+    }
+    return true;
+  }
+
+  /** Define element to map to value, perhaps overwriting an older
+    * definition. */
+  public Map<A,B> define(A elem, B value){
+    return defineAll(new ArraySeq(new Pair(elem, value)));
+  }
+
+  /** Take the pairs from another aggregate and define them in the map. */
+  public abstract Map<A,B> defineAll(Aggregate<Pair<A,B>> other);
+
+  /** Take elements and values from two other aggregates and pairwise 
+    * define them in the map. 
+    * @exception NoSuchElementException if the aggregates have not
+    * the same size.
+    */
+  public Map<A,B> defineAll(Aggregate<A> elems, Aggregate<B> values)
+  throws NoSuchElementException {
+    Map<A,B> res = this;
+    Enum<A> edom = elems.enumerate();
+    Enum<B> eran = values.enumerate();
+    while (edom.more() || eran.more()){
+      res = res.define(edom.current(), eran.current());
+      edom.advance(); eran.advance();
+    }
+    return res;
+  }
+
+  /** Replace a definition, returning its old value. 
+    * @exception  NoSuchElementException if element is not defined
+    * in map.
+    */
+  public Pair<Map<A,B>,B> replace(A elem, B value) 
+  throws NoSuchElementException {
+    return new Pair(define(elem,value), get(elem));
+  }
+
+  /** Undefine element in the map, if it has a definition. */
+  public Map<A,B> undefine(A elem){
+    return undefineAll(new ArraySeq(elem));
+  }
+
+  /** Undefine elements from another aggregate. */
+  public abstract Map<A,B> undefineAll(Aggregate<A> other);
+
+
+  /** Get value element is mapped to. 
+    * @exception  NoSuchElementException if element is not defined
+    * in mapping. 
+    */
+  public abstract B get(A elem)
+    throws NoSuchElementException;
+
+  /** Get value element is mapped to, or null if their is no mapping.
+    * Only provided for mappings to objects.
+    */
+  public static <C,D implements Object> D tryGet(Map<C,D> map, C elem){
+    try {
+      return map.get(elem);
+    }
+    catch (NoSuchElementException e){
+      return null;
+    }
+  }
+
+
+  /** Get sequence of values assigned to elements of the given
+    * aggregate in this map.  
+    * @exception NoSuchElementException if any of the elements in
+    *           aggregate is not defined in map.
+    */
+  public Seq<B> getAll(Aggregate<A> elems)
+  throws NoSuchElementException{
+    Seq<B> buf = new BufferSeq(0,50,-100);
+    for (Enum<A> enum = elems.enumerate(); enum.more(); enum.advance()){
+      buf = buf.append(get(enum.current()));
+    }
+    return ArraySeq.from(buf);
+  }
+      
+  /** Get the domain of this mapping as a set. */
+  public Set<A> domain(){
+    Set<A> set = new HashSet();
+    for (Enum<Pair<A,B>> enum = enumerate(); enum.more(); enum.advance()){
+      set = set.include(enum.current().fst);
+    }
+    return set;
+  }
+
+  /** Get the range of this mapping as a sequence. */
+  public Seq<B> range(){
+    Seq<B> buf = new BufferSeq(0,50,-100);
+    for (Enum<Pair<A,B>> enum = enumerate(); enum.more(); enum.advance()){
+      buf = buf.append(enum.current().snd);
+    }
+    return ArraySeq.from(buf);
+  }
+
+  /** Map a function over the range of this mapping, with domain
+    * element passed. */
+  public abstract <C> Map<A,C> mapWithDom((A, B)->C f);
+
+  /** Map a function over the range of this mapping. */
+  public <C> Map<A,C> map((B)->C f) {
+    return mapWithDom(fun (A x, B y)->C { return f(y); });
+  }
+
+  /** Filter this mapping. */
+  public Map<A,B> filter((A,B)->boolean p){
+    Map<A,B> res = this;
+    for (Enum<Pair<A,B>> e = enumerate(); e.more(); e.advance()){
+      Pair<A,B> c = e.current();
+      if (!p(c.fst,c.snd)) res = res.undefine(c.fst);
+    }
+    return res;
+  }
+	
+
+  /** Compose another mapping with this mapping.
+    * @exception NoSuchElementException  if any element of the range
+    *   of this mapping is not defined in the domain of the other
+    *   mapping.
+    */
+  public <C> Map<A,C> compose(Map<B,C> other)
+  throws NoSuchElementException{
+    return map(fun (B b)->C { return other.get(b); });
+   }
+
+  /** Merge another mapping with this mapping. 
+    * @param mf the entry merging function. It is called for each element
+    *   in the domain of this or the other mapping. The range
+    *   values of both mappings are passed as optional values,
+    *   where either one or both will be available. If the returned
+    *   option is not available, no definition will be made in
+    *   the resulting mapping.
+    */
+  public <C,D> Map<A,D> merge(Map<A,C> other,
+			      (A, Option<B>, Option<C>)->Option<D> mf){
+    Set<A> thisDomain = domain();
+    Set<A> otherDomain = other.domain();
+    Set<A> common = thisDomain.intersect(otherDomain);
+    Set<A> thisOnly = thisDomain.excludeAll(common);
+    Set<A> otherOnly = otherDomain.excludeAll(common);
+
+    // hmmm ... perhaps aggregates should provide a method for the
+    // hack below?
+    Map<A,D> res = this.undefineAll(thisDomain)
+                       .map(fun (B y)->D { throw new InternalError(); });
+
+
+    for (Enum<A> e = common.enumerate(); e.more(); e.advance()){
+      A x = e.current();
+      switch(mf(x, new Option.Some(this.get(x)), 
+		new Option.Some(other.get(x)))){
+      case Option.Some(D y):
+	res = res.define(x,y);
+	break;
+      default:
+	break;
+      }
+    }
+
+    for (Enum<A> e = thisOnly.enumerate(); e.more(); e.advance()){
+      A x = e.current();
+      switch(mf(x, new Option.Some(this.get(x)), Option.None)){
+      case Option.Some(D y):
+	res = res.define(x,y);
+	break;
+      default:
+	break;
+      }
+    }
+
+    for (Enum<A> e = otherOnly.enumerate(); e.more(); e.advance()){
+      A x = e.current();
+      switch(mf(x, Option.None, new Option.Some(other.get(x)))){
+      case Option.Some(D y):
+	res = res.define(x,y);
+	break;
+      default:
+	break;
+      }
+    }
+
+    return res;
+  }
+
+  /** FIXME: to be implemented more efficiently */
+  public void apply((A,B)->void f) {
+    apply(fun(Pair<A,B> p)->void 
+	  { f(p.fst, p.snd); });
+  }
+
+  /** Generate a default format for the contents of the mapping. */
+  public Format toFormat(FormatInfo info){
+    int ref;
+    if (info.visited(this)) {
+      return new FormatText("<"+info.visitNumber(this)+">");
+    } else { // never visited before
+      ref = info.visit(this);
+    }
+    String className = getClass().getName();
+    int di = className.lastIndexOf(".");
+    if (di >= 0) className = className.substring(di+1);
+    className = className.replace('$','.');
+    return new FormatLine(new Format[]{
+      new FormatText("<" + ref + ">" + className),
+      new FormatAppend(new Format[]{
+	new FormatText("{"),
+	toFormatLine(new FormatText(","), 
+		     fun (Pair<A,B> elem)->Format 
+		     {
+		       return new FormatLine(new Format[]{
+		         new FormatAppend(new Format[]{
+			   Format.buildFormat(info, (Object)elem.fst),
+			   new FormatSpace(1),
+			   new FormatText("=>"),
+			   new FormatSpace(1)}),
+			 new FormatBlock(1, new Format[]{
+			   Format.buildFormat(info, (Object)elem.snd)})});
+		     }),
+	  new FormatText("}")})});
+  }
+}

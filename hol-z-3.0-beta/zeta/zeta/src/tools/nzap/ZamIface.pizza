@@ -1,0 +1,140 @@
+package zeta.tools.nzap;
+
+/** Abstract interface to the ZAM.
+  *
+  * @version $Id: ZamIface.pizza,v 1.9 2000/06/12 18:30:09 wg Exp $
+  * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de)
+  */
+
+import zeta.util.*;
+import zeta.format.*;
+import zeta.session.*;
+import java.io.IOException;
+
+public abstract class ZamIface {
+
+  /** A session object. */
+  private Session session = null;
+
+  /** Set the session object. */
+  public void setSession(Session s){
+    session = s;
+  }
+
+  /** Send a progress message. An interface for the actual
+      driver */
+  public void sendProgress(String message){
+    if (session != null){
+      session.send(zamToolName,
+		   new ProgressMessage(Format.text(message,"")));
+    } else
+      FatalError.assertionFailed("ZAM IFACE session initialized");
+  }
+  private static Name zamToolName = new Name("ZAM");
+
+  /** Send an error message. An interface for the actual
+      driver */
+  public void sendError(String message){
+    if (session != null){
+      session.send(zamToolName,
+		   new Diag(ZapUtil.zamLocator,
+			    Diag.Category.Warning,
+			    Format.text(message,"")));
+    } else
+      FatalError.assertionFailed("ZAM IFACE session initialized");
+  }
+  
+  /** Exceptions of the ZAM. */
+  public static class Fail extends Exception {
+    Fail(String msg){
+      super(msg);
+    }
+  };
+
+  /** Initialize this interface to the ZAM. */
+  public abstract void init() throws Fail;
+
+
+  /** Start ZAM with the given units. */
+  public abstract void start(String[] fnames)
+  throws Fail;
+
+  /** Perform number of execution steps. Return if a solution is found
+      even with lesser steps. */
+  public abstract int step(int steps)
+  throws Fail;
+
+  /** Tell whether there are (possibly) more solutions. */
+  public abstract boolean possiblyMore()
+  throws Fail;
+
+  /** Return value of step function. */
+  public static final int SOLUTION = 0;
+  public static final int MORE = 1;
+  public static final int NOMORE = 2;
+  public static final int UNDEF = 3;
+
+  /** Tell whether the variables binding is a set. */
+  public abstract boolean isSet(String varName)
+  throws Fail;
+
+  /** Tell whether the variables binding is a sequence. return the
+      length if so, otherwise -1. */
+  public abstract int isSeqGet(String varName)
+  throws Fail;
+
+  /** Tell whether the variables binding is a term. Return name
+   * of this term in mixfix notation, "_" representing placeholders
+   * for arguments, other null. */
+  public abstract String isTermGet(String varName)
+  throws Fail;
+
+  /** Set the current target to given variable, which must denote a
+      set. Return name for the elements of this set. */
+  public abstract String setSetTarget(String varName)
+  throws Fail;
+
+
+  /** Set the current target to ith field of the given variable, which must 
+      denote a term. Return name for the field of this term. */
+  public abstract String setTermTarget(String varName, int i)
+  throws Fail;
+
+
+  /** Set the current target to ith element of the given variable, which must 
+      denote a sequence. Return name for the field of this term. */
+  public abstract String setSeqTarget(String varName, int i)
+  throws Fail;
+
+
+  /** Get string representation of binding for variable. */
+  public abstract String getBinding(String varName)
+  throws Fail;
+
+  /** Return from a sub-target. */
+  public abstract void retSubTarget()
+  throws Fail;
+
+  /** Return profile information. */
+  public abstract String profileInfo()
+  throws Fail;
+
+  /** Return no of steps. */
+  public abstract long noOfSteps()
+  throws Fail;
+
+
+  /** The chosen implementation. */
+  public static ZamIface impl = null;
+
+  static {
+    /*
+    if (System.getProperty("zeta.zap.zamproc") != null)
+      impl = new ZamProcIface();
+    else
+    */
+    impl = new ZamJniIface();
+  }
+
+
+}

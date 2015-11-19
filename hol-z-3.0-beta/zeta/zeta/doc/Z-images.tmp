@@ -1,0 +1,4 @@
+\begin{axdef}
+  \denc: \denotation \fun \seq \nat \\
+  \ddec: \seq \nat \pfun \denotation
+\end{axdef}

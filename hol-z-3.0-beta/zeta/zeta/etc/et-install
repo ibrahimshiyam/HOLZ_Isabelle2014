@@ -1,0 +1,54 @@
+#!/bin/sh
+#
+# THE ZETA/et MAKE SYSTEMS -- et-install
+# Robert Büssow (buessow@cs.tu-berlin.de)
+# 
+# $Id: et-install,v 1.4 2000/07/22 07:53:17 wg Exp $
+#
+# Install files and directories under the $ZETABASE hierarchy.  
+# `et-install dir file1 file2' installs `file1' and `file2' in
+# the current installation directory $ZETABASE.  If `$ZETABASE_INSTDIR/dir' 
+# does not exist, it is created.  If `$ZETABASE/dir/file1' exists,
+# it is removed.
+#
+# If $ZETA_INSTALL_METHOD is set ot `link', installation is done via
+# symbolic links, the files are copied otherwise.  
+#
+# et-install also handles directories.  Note that in this case,
+# complete directories are deleted before they are reinstalled.
+
+if [ -z "$ZETABASE" ]; then
+    $ECHO "\$ZETABASE not defined" >&2
+    exit 1
+fi
+
+. $ZETABASE/etc/etenv.sh
+
+
+if [ $# -lt 2 ]; then
+    $ECHO "USAGE: $0 <dest-dir> <file> [ <file> ... ]" >&2
+    exit 2
+fi
+
+cwd=`pwd`
+dest="$ZETABASE/$1"
+shift
+
+
+[ -d $dest ] || ( $ECHO $MKDIRHIER $dest; $MKDIRHIER $dest )
+
+for file in $*; do
+    $ECHO $RM -rf $dest/$file
+    $RM -rf $dest/$file 2>&1
+    if [ \! -d $dest/`dirname $file` ]; then
+	$ECHO $MKDIRHIER $dest/`dirname $file` 
+	$MKDIRHIER $dest/`dirname $file`
+    fi
+    if [ "$ZETA_INSTALL_METHOD" = "link" ]; then
+	$ECHO $LN -s $cwd/$file $dest/$file
+	$LN -s $cwd/$file $dest/$file
+    else
+	$ECHO $CP -r $file $dest/$file
+	$CP -r $file $dest/$file
+    fi
+done

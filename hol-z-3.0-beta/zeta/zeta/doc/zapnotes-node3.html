@@ -1,0 +1,996 @@
+<!--Converted with LaTeX2HTML 98.2 beta8 (September 9th, 1998)
+original version by:  Nikos Drakos, CBLU, University of Leeds
+* revised and updated by:  Marcus Hennecke, Ross Moore, Herb Swan
+* with significant contributions from:
+  Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
+<HTML>
+<HEAD>
+<TITLE>2. Principles</TITLE>
+<META NAME="description" CONTENT="2. Principles">
+<META NAME="keywords" CONTENT="zapnotes">
+<META NAME="resource-type" CONTENT="document">
+<META NAME="distribution" CONTENT="global">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<LINK REL="STYLESHEET" HREF="zapnotes.css">
+<LINK REL="next" HREF="zapnotes-node4.html">
+<LINK REL="previous" HREF="zapnotes-node2.html">
+<LINK REL="up" HREF="zapnotes.html">
+<LINK REL="next" HREF="zapnotes-node4.html">
+</HEAD>
+<BODY TEXT="#000000" BGCOLOR="#FFFFFF" >
+<!--Navigation Panel-->
+<A NAME="tex2html110"
+ HREF="zapnotes-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html106"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html100"
+ HREF="zapnotes-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html108"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html111"
+ HREF="zapnotes-node4.html">3. The User Interface</A>
+<B> Up:</B> <A NAME="tex2html107"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html101"
+ HREF="zapnotes-node2.html">1. Introduction</A>
+ &nbsp <B>  <A NAME="tex2html109"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<BR>
+<BR>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL>
+<LI><A NAME="tex2html112"
+ HREF="zapnotes-node3.html#SECTION00031000000000000000">2.1 Recursive Sets</A>
+<LI><A NAME="tex2html113"
+ HREF="zapnotes-node3.html#SECTION00032000000000000000">2.2 Encapsulated Search</A>
+<LI><A NAME="tex2html114"
+ HREF="zapnotes-node3.html#SECTION00033000000000000000">2.3 Higher-Orderness</A>
+<LI><A NAME="tex2html115"
+ HREF="zapnotes-node3.html#SECTION00034000000000000000">2.4 Quantors</A>
+<LI><A NAME="tex2html116"
+ HREF="zapnotes-node3.html#SECTION00035000000000000000">2.5 Schema Calculus</A>
+<LI><A NAME="tex2html117"
+ HREF="zapnotes-node3.html#SECTION00036000000000000000">2.6 Declarations</A>
+<LI><A NAME="tex2html118"
+ HREF="zapnotes-node3.html#SECTION00037000000000000000">2.7 Definition Forms</A>
+<LI><A NAME="tex2html119"
+ HREF="zapnotes-node3.html#SECTION00038000000000000000">2.8 Free Types</A>
+<UL>
+<LI><A NAME="tex2html120"
+ HREF="zapnotes-node3.html#SECTION00038010000000000000">2.8.0.1 Generators</A>
+<LI><A NAME="tex2html121"
+ HREF="zapnotes-node3.html#SECTION00038020000000000000">2.8.0.2 Using Constructors</A>
+</UL>
+<LI><A NAME="tex2html122"
+ HREF="zapnotes-node3.html#SECTION00039000000000000000">2.9 Genericity</A>
+<LI><A NAME="tex2html123"
+ HREF="zapnotes-node3.html#SECTION000310000000000000000">2.10 Numbers</A>
+<LI><A NAME="tex2html124"
+ HREF="zapnotes-node3.html#SECTION000311000000000000000">2.11 Power-Sets and the Like</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H1><A NAME="SECTION00030000000000000000">
+2. Principles</A>
+</H1>
+
+<P>
+
+<H2><A NAME="SECTION00031000000000000000">
+2.1 Recursive Sets</A>
+</H2>
+
+<P>
+As sets are paradigmatic for the specification level of Z, they are
+for the execution level. Set objects - relations or functions - are
+eventually defined by (recursive) equations, as in the following
+example, where we define natural numbers as a free type<A NAME="tex2html3"
+ HREF="zapnotes-footnode.html#foot379"><SUP>2</SUP></A>, addition on these numbers and an
+order relation:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="504" HEIGHT="148" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img3.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{Nat}
+\end{zdirectives} \\
+\begi...
+...: N \vert (\exists t: N @ (x,S~t) \mapsto y \in add)\}
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+We may now execute under Z<SMALL>E</SMALL>T<SMALL>A</SMALL> queries such as the following, 
+where we ask for the numbers less then three:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="162" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img4.gif"
+ ALT="\begin{zexecexpr}
+\{x:N \vert x ~ less ~ three\}
+\yields
+{Z,S(Z),S(S(Z))}
+\end{zexecexpr}">
+<BR>
+
+<P>
+These capabilities are similar to logic programming.  In
+fact, we can give a translation from any clause-based system to a
+system of recursive set-equations in the style given for <I>add</I>, where
+we collect all clauses for the same relational symbol into a union of
+set-comprehensions, and map literals 
+<!-- MATH
+ $R(e_1,\ldots,e_n)$
+ -->
+<IMG
+ WIDTH="82" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img5.gif"
+ ALT="$R(e_1,\ldots,e_n)$">
+to membership
+tests 
+<!-- MATH
+ $(e_1,\ldots,e_n) \in R$
+ -->
+<IMG
+ WIDTH="99" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img6.gif"
+ ALT="$(e_1,\ldots,e_n) \in R$">.
+
+<P>
+
+<H2><A NAME="SECTION00032000000000000000"></A>
+<A NAME="sec:esearch"></A>
+<BR>
+2.2 Encapsulated Search
+</H2>
+
+<P>
+A binary relation <I>R</I> can be <I>applied</I>, written as <I>R</I>&nbsp;e, which
+is syntactic sugar for the expression 
+<!-- MATH
+ $\mu t:X | (e,t) \in R$
+ -->
+<IMG
+ WIDTH="114" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img7.gif"
+ ALT="$\mu t:X \vert (e,t) \in R$">.
+This
+expression is defined iff their exists a unique <I>t</I> such that the
+constraint is satisfied; it then delivers this <I>t</I>. The set <I>add</I> is a
+binary relation (since it is member of the set 
+<!-- MATH
+ $\power((N \cross N)
+\cross N)$
+ -->
+<IMG
+ WIDTH="105" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img8.gif"
+ ALT="$\power((N \cross N)
+\cross N)$">), and therefore we can for example evaluate
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="184" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img9.gif"
+ ALT="\begin{zexecexpr}
+add(three,three)
+\yields
+S(S(S(S(S(S(Z))))))
+\end{zexecexpr}">
+<BR>
+
+<P>
+Note the semantic difference of <IMG
+ WIDTH="61" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img10.gif"
+ ALT="$(e,y) \in R$">
+and <I>y</I>=<I>R</I>&nbsp;e: the first
+is not satisfied if <I>R</I> is not defined at <I>e</I>, or produces several
+solutions for <I>y</I> if <I>R</I> is not unique at <I>e</I>, whereas the second is
+<I>undefined</I> in these cases. 
+
+<P>
+This difference is resembled in the implementation: application,
+<IMG
+ WIDTH="7" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img11.gif"
+ ALT="$\mu$">-expressions, and related forms are realized by
+<I>encapsulated search</I>.  When resolving the constraint 
+<!-- MATH
+ $y = \mu t:X
+| (e,t) \in R$
+ -->
+<IMG
+ WIDTH="141" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img12.gif"
+ ALT="$y = \mu t:X
+\vert (e,t) \in R$">
+(the unsugared form of <I>y</I> = <I>R</I>&nbsp;e), the constraint
+<IMG
+ WIDTH="58" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img13.gif"
+ ALT="$(e,t) \in R$">
+is resolved in a different search space then the outer
+constraint <IMG
+ WIDTH="43" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img14.gif"
+ ALT="$y = \ldots$">
+(which just waits for the completion of
+the inner search). 
+
+<P>
+Encapsulated search is not allowed to produce bindings for variables
+belonging to outer contexts. If an encapsulated search requires the
+binding of a context variable, it residuates until the context
+provides the binding. One reason for this behavior is that we may use
+the context variables in negative positions (i.e.&nbsp;
+<!-- MATH
+ $\mu t:X @ \lnot
+(x,t) \in S$
+ -->
+<IMG
+ WIDTH="133" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img15.gif"
+ ALT="$\mu t:X @ \lnot
+(x,t) \in S$">,
+where a binding for <I>x</I> obviously is a semantic error).
+Another reason is that encapsulated search gives us a tool to control
+resolution order in a natural way - it introduces <I>functional</I>
+reduction into our framework.
+
+<P>
+As a consequence, in our above example, 
+<!-- MATH
+ $y = \mu t:X | (e,t) \in R$
+ -->
+<IMG
+ WIDTH="141" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img12.gif"
+ ALT="$y = \mu t:X
+\vert (e,t) \in R$">,
+if we have <I>e</I> = <I>x</I>, where <I>x</I> is a variable from an outer context
+(i.e. if we have originally written <I>y</I> = <I>R</I>&nbsp;x), the encapsulated
+search residuates until <I>x</I> is bound in the context - if the
+resolution of <IMG
+ WIDTH="59" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img16.gif"
+ ALT="$(x,t) \in R$">
+actually requires a binding for <I>x</I>
+<A NAME="tex2html4"
+ HREF="zapnotes-footnode.html#foot88"><SUP>3</SUP></A>.
+
+<P>
+For illustration, we redefine the <I>less</I> relation from the
+previous section as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="325" HEIGHT="43" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img18.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zrelation{(\_ less_1 \_)}
+\end{zdirective...
+...\_ == \{x,y: N \vert (\exists t: N @ y = add(x,S~t))\}
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="573" HEIGHT="350" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img19.gif"
+ ALT="\begin{zexecexpr}
+\{x:N \vert x ~ less_1 ~ three\}
+\yields
+unresolvable constr...
+...ints:
+'(_x,_y) IN _S' waiting for variable _x
+}
+}
+{*unknown*}
+\end{zexecexpr}">
+<BR>
+
+<P>
+Here, the encapsulated search for <I>add</I>(<I>x</I>,<I>y</I>) cannot continue, since it
+is not allowed to produce bindings for the context variables <I>x</I>. In
+the above diagnostics, <code>{_y|(_x,_y) IN _S}</code> is the encapsulated
+search goal for application, which is parameterized over <code>_x</code> and
+<code>S</code>.  The parameter names are in a different name scope, hence
+the parameter binding <code>_x = (_x,S(...))</code> is <I>not</I> cyclic.
+The constraint residuates for the variable <code>_x</code>, which is the
+value assigned to <code>x</code>.
+
+<P>
+
+<H2><A NAME="SECTION00033000000000000000">
+2.3 Higher-Orderness</A>
+</H2>
+
+<P>
+As functions are first-order citizens in functional languages, sets
+are in Z<SMALL>A</SMALL>P.  For example, we define a function describing relational
+image as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img20.gif"
+ ALT="\begin{axdef}[X,Y]
+image ==
+\lambda R: \power(X \cross Y); S: \power X @ % \\ \t1
+\{x: X; y: Y \vert x \in S; (x,y) \in R @ y \}
+\end{axdef}">
+<BR>
+
+<P>
+A query for the relational image of the <I>add</I> function over the
+cartesian product of the numbers less then three yields in:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="354" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img21.gif"
+ ALT="\begin{zexecexpr}
+\LET ns == \{x: N \vert x~less~three \} @ image(add,ns \cross ns)
+\yields
+{Z,S(Z),S(S(Z)),S(S(S(Z))),S(S(S(S(Z))))}
+\end{zexecexpr}">
+<BR>
+
+<P>
+In a similar style as above most constants of the Z toolkit (domain
+restriction and so on) can be naturally defined.
+
+<P>
+
+<H2><A NAME="SECTION00034000000000000000"></A><A NAME="sec:quantors"></A>
+<BR>
+2.4 Quantors
+</H2>
+
+<P>
+Universal quantification is executable if it deals with finite ranges.
+For example, we can define a generic constant denoting the set of partial
+functions:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="508" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img22.gif"
+ ALT="\begin{axdef}[X,Y]
+pfun ==
+\{R: \power(X \cross Y) \vert % \\ \t4
+(\forall x:X\vert x \in \dom R @ \exists_1 y:Y @ (x,y) \in R)\}
+\end{axdef}">
+<BR>
+
+<P>
+Universal and unique existential quantification are resolved by
+enumeration (an instance of encapsulated search).  Thus, if we try to
+check whether <I>add</I> is a partial function, we get:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="493" HEIGHT="71" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img23.gif"
+ ALT="\begin{zexecpred}
+add \in pfun[N \cross N,N]
+\yields
+...
+unresolved constraints:
+LTX:zapnotes.tex(205.58-205.68) waiting for variable y
+\end{zexecpred}">
+<BR>
+
+<P>
+The reason for this behavior is that the domain of <I>add</I> is not
+finitely enumerable:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="399" HEIGHT="37" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img24.gif"
+ ALT="\begin{zexecpred}
+\dom add
+\yields
+{(Z,y),(S(Z),z),(S(S(Z)),y),(S(S(S(Z))),y),...}
+\end{zexecpred}">
+<BR>
+
+<P>
+However, if we restrict <I>add</I> to a finite domain it works:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="439" HEIGHT="37" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img25.gif"
+ ALT="\begin{zexecpred}
+\exists_1 ns == \{x: N \vert x~less~three \} @
+((ns \cross ns) \dres add) \in pfun[N \cross N,N]
+\yields
+*true*
+\end{zexecpred}">
+<BR>
+
+<P>
+Above, <IMG
+ WIDTH="38" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img26.gif"
+ ALT="$A \dres R$">
+restricts the domain of <I>R</I> to the set <I>A</I>;
+the existential quantor is used to introduce a local name in
+the predicate.
+
+<P>
+
+<H2><A NAME="SECTION00035000000000000000">
+2.5 Schema Calculus</A>
+</H2>
+
+<P>
+In Z, a schema denotes a set of <I>bindings</I>, where bindings are
+tuples (records) with named components. The schema calculus operators,
+then, are essentially set operations with special implicit signature
+translations. 
+
+<P>
+Therefore, the schema calculus is fully executable. For instance
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="323" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img27.gif"
+ ALT="\begin{zexecexpr}\relax
+[x,y: \num \vert y \in 1 \upto 2] \land [y,z:\num \vert y = z]
+\yields
+{&lt;x==x,y==1,z==1&gt;,&lt;x==x,y==2,z==2&gt;}
+\end{zexecexpr}">
+<BR>
+
+<P>
+For more examples see the birthday-book specification in the
+<code>examples</code> directory of the Z<SMALL>E</SMALL>T<SMALL>A</SMALL> distribution.
+
+<P>
+
+<H2><A NAME="SECTION00036000000000000000"></A>
+<A NAME="sec:decls"></A>
+<BR>
+2.6 Declarations
+</H2>
+
+<P>
+In Z specifications we often find declarations of the kind <IMG
+ WIDTH="67" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img28.gif"
+ ALT="$f: A \pfun
+B$">,
+imposing that <I>f</I> has type 
+<!-- MATH
+ $\power (A \cross B)$
+ -->
+<IMG
+ WIDTH="58" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img29.gif"
+ ALT="$\power (A \cross B)$">
+on the one hand,
+and that 
+<!-- MATH
+ $f \in A \pfun B$
+ -->
+<IMG
+ WIDTH="73" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img30.gif"
+ ALT="$f \in A \pfun B$">
+on the other. As we have seen in section
+<A HREF="zapnotes-node3.html#sec:quantors">2.4</A>, the check whether a value is a partial function is
+only executable for finite domains.
+
+<P>
+In order to conveniently support this specification style, Z<SMALL>A</SMALL>P
+treats declarations <I>x</I>:<I>E</I> as <I>assumptions</I>. Hence the membership
+test <IMG
+ WIDTH="36" HEIGHT="12" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img31.gif"
+ ALT="$x \in E$">
+implied by <I>x</I>:<I>E</I> is discarded for execution. 
+
+<P>
+If <I>x</I>:<I>E</I> is actually a non-redundant property, it has to be
+explicitely denoted in the constraint part of schema text.
+For this reason, in the definition of <I>pfun</I> in the
+previous section, we have written 
+<!-- MATH
+ $\forall x: X | x \in \dom R @ \ldots$
+ -->
+<IMG
+ WIDTH="157" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img32.gif"
+ ALT="$\forall x: X \vert x \in \dom R @ \ldots$">
+instead of 
+<!-- MATH
+ $\forall x:\dom R @ \ldots$
+ -->
+<IMG
+ WIDTH="105" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img33.gif"
+ ALT="$\forall x:\dom R @ \ldots$">.
+
+<P>
+
+<H2><A NAME="SECTION00037000000000000000">
+2.7 Definition Forms</A>
+</H2>
+
+<P>
+When providing definitions of relations and functions one has to use
+equational forms.  For example, the factorial function would be
+typically specified in Z by axioms of the kind:
+
+<P>
+facNonExec
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="323" HEIGHT="39" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img34.gif"
+ ALT="\begin{axdef}
+fac : \nat \fun \nat
+\where
+fac~0 = 1; \forall x:\nat \vert x &gt; 0 @ fac(x) = x*fac(x-1)
+\end{axdef}">
+<BR>
+
+<P>
+A definition of this form is unamenable to execution. Instead one
+may write:
+
+<P>
+facExec1
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="312" HEIGHT="39" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img35.gif"
+ ALT="\begin{axdef}
+fac : \nat \fun \nat
+\where
+fac = \{(0,1)\} \cup (\lambda x:\nat \vert x &gt; 0 @ x*fac(x-1))
+\end{axdef}">
+<BR>
+
+<P>
+or
+
+<P>
+facExec2
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="316" HEIGHT="39" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img36.gif"
+ ALT="\begin{axdef}
+fac : \nat \fun \nat
+\where
+fac = \lambda x:\nat @ \IF x = 0 \THEN 1 \ELSE x*fac(x-1)
+\end{axdef}">
+<BR>
+
+<P>
+The automatic conversion of axioms of the first form
+to definitions of the later forms may become a feature of future
+versions of Z<SMALL>A</SMALL>P<A NAME="tex2html5"
+ HREF="zapnotes-footnode.html#foot381"><SUP>4</SUP></A>.
+
+<P>
+
+<H2><A NAME="SECTION00038000000000000000"></A>
+<A NAME="sec:freetypes"></A>
+<BR>
+2.8 Free Types
+</H2>
+
+<P>
+
+<H4><A NAME="SECTION00038010000000000000">
+2.8.0.1 Generators</A>
+</H4>
+
+<P>
+Free types are translated by Z<SMALL>A</SMALL>P to sets which generate the type's
+domain.  Consider the following definition:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="496" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img37.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{FreeTypes}
+\end{zdirectives}\beg...
+... ::= nil \vert cons \ldata 1 \upto 3 \cross MySeq \rdata
+\end{zed}\end{zedgroup}">
+<BR>
+
+<P>
+We can execute:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="353" HEIGHT="37" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img38.gif"
+ ALT="\begin{zexecexpr}
+MySeq
+\yields
+{nil,cons(1,nil),cons(1,cons(1,nil)),...}
+\end{zexecexpr}">
+<BR>
+
+<P>
+
+<H4><A NAME="SECTION00038020000000000000">
+2.8.0.2 Using Constructors</A>
+</H4>
+
+<P>
+Constructors are functions as other functions are, which have
+the property that they are <I>(partial) injections</I>. Partiality
+may be present because of the restrictions given for the domain 
+in a free type declaration. 
+
+<P>
+We can use <IMG
+ WIDTH="35" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img39.gif"
+ ALT="$cons\inv$">
+to convert a constructor to a projection,
+and 
+<!-- MATH
+ $x \in \ran cons$
+ -->
+<IMG
+ WIDTH="74" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img40.gif"
+ ALT="$x \in \ran cons$">
+to test whether a value is a variant of
+this constructor.
+
+<P>
+Regarding the ``matching'' of constructed values.  in general the
+constraint 
+<!-- MATH
+ $ys' = cons(x,ys)$
+ -->
+<I>ys</I>' = <I>cons</I>(<I>x</I>,<I>ys</I>) can not be used if <I>x</I> and <I>ys</I> are
+free.  The call to <I>cons</I> will residuate until <I>x</I> and <I>ys</I> are bound,
+since the encapsulated search implementing the call tries to execute
+the constraint 
+<!-- MATH
+ $(x,ys) \in \dom cons$
+ -->
+<IMG
+ WIDTH="112" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img41.gif"
+ ALT="$(x,ys) \in \dom cons$">,
+to which end it is not allowed
+to produce bindings for <I>x</I> and <I>ys</I> (cf.&nbsp;section <A HREF="zapnotes-node3.html#sec:esearch">2.2</A>).
+Thus, for matching one has to generally write 
+<!-- MATH
+ $(x,ys) \mapsto ys' \in
+cons$
+ -->
+<IMG
+ WIDTH="124" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img42.gif"
+ ALT="$(x,ys) \mapsto ys' \in
+cons$">.
+
+<P>
+However, the constraints on the domain of a constructor can be
+completely discarded, using the following declaration form
+(cf.&nbsp;section <A HREF="zapnotes-node3.html#sec:decls">2.6</A>):
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="271" HEIGHT="43" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img43.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{FreeTypes2}
+\end{zdirectives}\be...
+...l \vert cons \ldata \{x: 1 \upto 3 \cross MySeq\} \rdata
+\end{zed}\end{zedgroup}">
+<BR>
+
+<P>
+Now it becomes possible to write 
+<!-- MATH
+ $ys' = cons(x,ys)$
+ -->
+<I>ys</I>' = <I>cons</I>(<I>x</I>,<I>ys</I>) for matching,
+since there are no constraints imposed on <I>x</I> and <I>ys</I> which need
+to be resolved in the encapsulated search of the constructor
+application. Note, however, that now the assertion that
+the first component of <I>cons</I> is in the range <IMG
+ WIDTH="30" HEIGHT="10" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img44.gif"
+ ALT="$1 \upto 3$">
+is
+not longer checked for a constructor call at runtime. 
+
+<P>
+Note that the above treatment is even necessary if we have total
+constructor functions, e.g. 
+<!-- MATH
+ $cons \ldata \num \cross MySeq \rdata$
+ -->
+<IMG
+ WIDTH="114" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img45.gif"
+ ALT="$cons \ldata \num \cross MySeq \rdata$">:
+the reason is that <IMG
+ WIDTH="72" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img46.gif"
+ ALT="$ys \in MySeq$">
+is a constraint which though
+semantically is true, acts as a generator for values of <I>MySeq</I>.
+
+<P>
+
+<H2><A NAME="SECTION00039000000000000000">
+2.9 Genericity</A>
+</H2>
+
+<P>
+The genericity concept of Z allows to provide instantiations
+with particular sets. For instance, given the definition
+of the identity relation:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="507" HEIGHT="41" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img47.gif"
+ ALT="\begin{zedgroup}
+\begin{zdirectives}
+\zsection{Genericity}
+\end{zdirectives}\begin{axdef}[X]
+id == \{x:X \vert x \in X @ (x,x)\}
+\end{axdef}\end{zedgroup}">
+<BR>
+
+<P>
+ 
+...we can provide instantiations as follows:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="138" HEIGHT="38" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img48.gif"
+ ALT="\begin{zexecexpr}
+id[\{1,2\}]
+\yields
+{(1,1),(2,2)}
+\end{zexecexpr}">
+<BR>
+
+<P>
+On the implementation level this feature requires to represent each
+generic constant as a function over its instantiation. Since in most
+cases the instantiation is universal and imposes no 
+constraints this is a serious efficiency problem.
+
+<P>
+For this reason, Z<SMALL>A</SMALL>P compiles for each generic constant two
+versions: one as a function over the instantiation argument, and the
+other as a constant optimized for the case that the instantiation is
+universal.  Which of these versions is selected is controlled by
+whether an instantiation of a generic constant is <I>inferred</I> or
+<I>provided</I>: for inferred instantiations the optimized version is
+used.
+
+<P>
+
+<H2><A NAME="SECTION000310000000000000000">
+2.10 Numbers</A>
+</H2>
+
+<P>
+Though it is possible in our model to represent e.g.&nbsp;natural numbers
+by constructors <I>Z</I> and 
+<!-- MATH
+ $S \ldata N \rdata$
+ -->
+<IMG
+ WIDTH="40" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img2.gif"
+ ALT="$S \ldata N \rdata$">,
+as shown in the previous
+sections, enabling resolution techniques on them, this approach is
+hopelessly inefficient for real applications.  Thus numbers are
+actually integrated by a native implementation, and resolution
+techniques for arithmetic constraints are not available for them
+<A NAME="tex2html6"
+ HREF="zapnotes-footnode.html#foot382"><SUP>5</SUP></A>
+<P>
+To generate extensional number ranges, <IMG
+ WIDTH="36" HEIGHT="7" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img49.gif"
+ ALT="$n \upto m$">
+may be used:
+
+<P>
+ 
+<BR>
+<IMG
+ WIDTH="611" HEIGHT="55" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img50.gif"
+ ALT="\begin{zexecexpr}
+\{x:\num \vert x \in 1 \upto 1024; x \mod 2 = 0\}
+\yields
+{2,...
+...,24,26,28,30,32,34,36,38,40,42,44,46,48,50,52,
+54,56,58,60,...}
+\end{zexecexpr}">
+<BR>
+
+<P>
+Note that <IMG
+ WIDTH="36" HEIGHT="7" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img49.gif"
+ ALT="$n \upto m$">
+forces the storage of a set extension
+in memory. Thus <I>n</I> and <I>m</I> should be in a moderate range.
+Use 
+<!-- MATH
+ $\{x:\num|n \leq x \leq m\}$
+ -->
+<IMG
+ WIDTH="123" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img51.gif"
+ ALT="$\{x:\num\vert n \leq x \leq m\}$">
+if you do not actually want
+to enumerate a range.
+
+<P>
+
+<H2><A NAME="SECTION000311000000000000000">
+2.11 Power-Sets and the Like</A>
+</H2>
+
+<P>
+The resolution techniques for subset constraints in our model
+are relatively weak (they capture just functional and logic
+computation, not more). For example, we are not able to enumerate the
+set 
+<!-- MATH
+ $\{x: \power A | x \subseteq S\}$
+ -->
+<IMG
+ WIDTH="105" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img52.gif"
+ ALT="$\{x: \power A \vert x \subseteq S\}$">
+(which equals <IMG
+ WIDTH="18" HEIGHT="11" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img53.gif"
+ ALT="$\power S$">), even
+if <I>A</I> is finitely enumeratable (indeed, we can test whether a ground
+value is in this set).
+
+<P>
+Technically, the constraint resolution system of Z<SMALL>A</SMALL>P
+has problems with the following kind of constraints:
+
+<P>
+
+<UL><LI>subset constraints where the left or the right hand side is a
+  free variable: <IMG
+ WIDTH="35" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img54.gif"
+ ALT="$x \subseteq v$">
+or <IMG
+ WIDTH="34" HEIGHT="14" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img55.gif"
+ ALT="$v \subseteq x$">.
+These
+  constraints can generally not be resolved before <I>x</I> becomes bound.
+  A typical instance is the powerset example given above.
+
+<LI>constraints which represent unification problems on sets,
+  for instance 
+<!-- MATH
+ $x \cup y = \{1,2\}$
+ -->
+<IMG
+ WIDTH="85" HEIGHT="16" ALIGN="BOTTOM" BORDER="0"
+ SRC="zapnotes-img56.gif"
+ ALT="$x \cup y = \{1,2\}$">.
+These
+  constraints cannot produce bindings for <I>x</I> and <I>y</I>, since set-unification
+  is currently not employed in our model. Instead, they must residuate
+  until other constraints provide bindings.
+
+</UL>
+
+<P>
+<HR>
+<!--Navigation Panel-->
+<A NAME="tex2html110"
+ HREF="zapnotes-node4.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next" SRC="next_motif.gif"></A> 
+<A NAME="tex2html106"
+ HREF="zapnotes.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up" SRC="up_motif.gif"></A> 
+<A NAME="tex2html100"
+ HREF="zapnotes-node2.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous" SRC="previous_motif.gif"></A> 
+<A NAME="tex2html108"
+ HREF="zapnotes-node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents" SRC="contents_motif.gif"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html111"
+ HREF="zapnotes-node4.html">3. The User Interface</A>
+<B> Up:</B> <A NAME="tex2html107"
+ HREF="zapnotes.html">Notes on ZAP</A>
+<B> Previous:</B> <A NAME="tex2html101"
+ HREF="zapnotes-node2.html">1. Introduction</A>
+ &nbsp <B>  <A NAME="tex2html109"
+ HREF="zapnotes-node1.html">Contents</A></B> 
+<!--End of Navigation Panel-->
+<ADDRESS>
+<a href=mailto:zeta@uebb.cs.tu-berlin.de>The ZETA Team</a>
+</ADDRESS>
+</BODY>
+</HTML>

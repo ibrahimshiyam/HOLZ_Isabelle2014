@@ -1,0 +1,69 @@
+#############################################################################
+# HOL-Z --- a shallow embedding of Z in Isabelle/HOL              
+#           http://projects.brucker.ch/hol-z/
+#                                                                            
+# IsaMakefile 
+# Copyright (C) 2000-2003 University Freiburg, Germany
+#                                                                            
+# This file is part of HOL-Z.                                              
+#                                                                            
+# HOL-Z is free software; you can redistribute it and/or modify it under   
+# the terms of the GNU General Public License as published by the Free       
+# Software Foundation; either version 2 of the License, or (at your option)  
+# any later version.                                                         
+#                                                                            
+# HOL-Z is distributed in the hope that it will be useful, but WITHOUT ANY 
+# WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS 
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more 
+# details.                                                              
+#                                                                            
+# You should have received a copy of the GNU General Public License along    
+# with this program; if not, write to the Free Software Foundation, Inc.,    
+# 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.                  
+##############################################################################
+# $Id: IsaMakefile 6729 2007-08-03 05:25:17Z brucker $
+
+
+#####################################################################
+#
+# Makefile for the HOLZ adaptor for ZeTa.
+##JFLAGS = -classpath .:$(ZETA_CLASSES):$(PIZZA):$(JAVA_HOME)/jre/lib/rt.jar -ms16m
+#####################################################################
+
+include ../../make.config
+
+
+LIB_DIR = $(ISABELLE_HOME_USER)/lib/java
+PIZZA = ../../contrib/pizza/pizza-1.1.jar
+
+JFLAGS = -classpath .:$(ZETA_CLASSES):$(PIZZA):/usr/local/jdk1.5.0_03/jre/lib/rt.jar -ms16m net.sf.pizzacompiler.compiler.Main 
+
+SOURCES = HOLZSection.pizza \
+	NotSupported.pizza \
+	HOLZContentTypes.pizza \
+	HOLZExporter.pizza \
+	HOLZAdaptor.pizza
+
+.SUFFIXES:
+.SUFFIXES: .pizza .class
+
+.PHONY : examples help holz
+
+CLASSES	= $(SOURCES:.pizza=.class)
+
+%.class : %.pizza
+	java $(JFLAGS) $<	
+#$(JAVA) $(JFLAGS) $<
+
+#### Targets ##########################################################
+
+holz: $(CLASSES) 
+	jar cf holz.jar *.class
+	mkdir -p $(LIB_DIR)
+	mv holz.jar $(LIB_DIR)
+
+clean:
+	rm -f *~
+
+distclean: clean
+	rm -f *.class

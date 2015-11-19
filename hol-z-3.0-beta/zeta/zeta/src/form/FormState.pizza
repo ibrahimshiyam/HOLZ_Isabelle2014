@@ -1,0 +1,94 @@
+package zeta.form;
+
+/**
+ * The abstract class of form states, the data model being represented
+ * by a form. Each state maintains a set of listeners which are
+ * notified if the state is changed. 
+ * 
+ * @version $Id: FormState.pizza,v 1.2 2000/05/14 17:43:32 wg Exp $
+ * @author Wolfgang Grieskamp (wg@cs.tu-berlin.de) */
+
+import zeta.session.Session;
+import zeta.session.Locator;
+import zeta.session.Failures;
+
+import java.util.Vector;
+import java.util.BitSet;
+
+public abstract class FormState {
+
+  /** The registered listeners. */
+  private final Vector listeners = new Vector();
+
+  /** Whether we are currently visiting change listeners. */
+  private boolean visiting = false;
+
+  /** Whether we are currently visiting require listeners. */
+  private boolean visitingRequired = false;
+
+  /** The interface of state listener. */
+  public interface Listener {
+
+    /** Method being called before the state is required. */
+    public void stateRequired(FormState state, Object source);
+
+    /** Method being called when the state changes. */
+    public void stateChanged(FormState state, Object source);
+  }
+
+  /** An adaptor for state listeners. */
+  public static class ListenerAdaptor implements Listener {
+    public void stateRequired(FormState state, Object source){}
+    public void stateChanged(FormState state, Object source){}
+  }
+
+
+  /** Add a state listener. */
+  public synchronized void addListener(Listener listener){
+    listeners.addElement(listener);
+  }
+
+  /** Remove the given state listener. */
+  public synchronized void removeListener(Listener listener){
+    listeners.removeElement(listener);
+  }
+
+  /** Notify all listeners that the state has changed by
+      the given source. */
+  public synchronized void notifyChange(Object source){
+    if (visiting) return;
+    try {
+      visiting = true;
+      int i = 0;
+      int n = listeners.size();
+      while (i < n){
+	Listener l = (Listener)listeners.elementAt(i);
+	l.stateChanged(this, source);
+	i++;
+      }
+    }
+    finally {
+      visiting = false;
+    }
+  }
+
+  /** Notify all listeners that the state is required by
+      the given source. */
+  public synchronized void notifyRequired(Object source){
+    if (visitingRequired) return;
+    try {
+      visitingRequired = true;
+      int i = 0;
+      int n = listeners.size();
+      while (i < n){
+	Listener l = (Listener)listeners.elementAt(i);
+	l.stateRequired(this, source);
+	i++;
+      }
+    }
+    finally {
+      visitingRequired = false;
+    }
+  }
+
+}

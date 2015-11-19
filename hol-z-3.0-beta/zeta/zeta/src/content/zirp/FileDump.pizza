@@ -1,0 +1,41 @@
+package zeta.content.zirp;
+
+/** Class to dump and read units syntax to files.
+  * Provided for debugging purposes.
+  */
+    
+import java.io.*;
+
+
+public class FileDump{
+
+  /** Write array of items to a named file. */
+  public static void writeUnit(UnitAbsy unit, String fn)
+    throws IOException {
+      /*
+	System.out.println("formatting");
+	Format fmt = Format.buildFormat(unit);
+	fmt.printFormat(new PrintWriter(new FileWriter(FileDescriptor.out)), 70);
+	System.out.println("now writing " + items.length + " items to " + fn);
+      */
+      if(!fn.endsWith(".jz")) fn = fn+".jz";
+      OutputStream f = 
+        new BufferedOutputStream(new FileOutputStream(fn), 4096);
+      ObjectOutputStream s = new ObjectOutputStream(f);
+      s.writeObject(unit);
+      s.close();
+  }
+
+  /** Read array of items from named file. */
+  public static UnitAbsy readUnit(String fn)
+    throws IOException, ClassNotFoundException {
+    if(!fn.endsWith(".jz")) fn = fn+".jz";
+    InputStream f = 
+      new BufferedInputStream(new FileInputStream(fn), 4096);
+    ObjectInputStream s = new ObjectInputStream(f);
+    UnitAbsy unit = (UnitAbsy)s.readObject();
+    s.close();
+    return unit;
+  }
+
+}
